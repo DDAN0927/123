@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生信息管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        
+        /* 操作栏 */
+        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #409eff; color: white; }
+        .btn-danger { background: #f56c6c; color: white; }
+        .btn-success { background: #67c23a; color: white; }
+        
+        /* 表格 */
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ebf0f5; }
+        th { background: #fafafa; color: #606266; font-weight: 600; }
+        tr:hover { background: #f9fafc; }
+        
+        /* 弹窗 */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 450px; }
+        .modal-content h3 { margin-bottom: 20px; color: #333; }
+        
+        /* 表单 */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #606266; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 14px; }
+        
+        /* 搜索 */
+        .search-box { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-box input { flex: 1; padding: 10px; border: 1px solid #dcdfe6; border-radius: 4px; }
+        
+        /* 分页 */
+        .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; }
+        .pagination button { padding: 8px 16px; border: 1px solid #dcdfe6; background: white; cursor: pointer; border-radius: 4px; }
+        .pagination button.active { background: #409eff; color: white; border-color: #409eff; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* 消息提示 */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 12px 24px; border-radius: 6px; color: white; font-size: 14px; z-index: 2000; }
+        .toast.success { background: #67c23a; }
+        .toast.error { background: #f56c6c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>学生信息管理系统</h1>
+        
+        <!-- 搜索 -->
+        <div class="search-box">
+            <input type="text" id="searchName" placeholder="按姓名搜索...">
+            <button class="btn btn-primary" onclick="searchStudents()">搜索</button>
+            <button class="btn" onclick="clearSearch()">重置</button>
+        </div>
+        
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <button class="btn btn-primary" onclick="showAddModal()">新增学生</button>
+        </div>
+        
+        <!-- 表格 -->
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>姓名</th>
+                    <th>年龄</th>
+                    <th>邮箱</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="studentTable">
+                <tr><td colspan="6" style="text-align:center; color:#999;">加载中...</td></tr>
+            </tbody>
+        </table>
+        
+        <!-- 分页 -->
+        <div class="pagination" id="pagination"></div>
+    </div>
+    
+    <!-- 弹窗 -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">新增学生</h3>
+            <input type="hidden" id="editId">
+            <div class="form-group">
+                <label>姓名</label>
+                <input type="text" id="name" placeholder="请输入姓名">
+            </div>
+            <div class="form-group">
+                <label>年龄</label>
+                <input type="number" id="age" placeholder="请输入年龄" min="1" max="150">
+            </div>
+            <div class="form-group">
+                <label>邮箱</label>
+                <input type="email" id="email" placeholder="请输入邮箱">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn" onclick="hideModal()">取消</button>
+                <button class="btn btn-success" onclick="saveStudent()">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const baseUrl = '/students';
+        let currentPage = 1;
+        let pageSize = 10;
+        let searchName = '';
+        
+        // 获取学生列表
+        async function loadStudents() {
+            const url = `${baseUrl}?page=${currentPage}&pageSize=${pageSize}${searchName ? `&name=${encodeURIComponent(searchName)}` : ''}`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                renderTable(data.data);
+                renderPagination(data.data);
+            } catch (error) {
+                showToast('加载失败', 'error');
+            }
+        }
+        
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.getElementById('studentTable');
+            if (!data || data.records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999;">暂无数据</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.records.map(item => `
+                <tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.age || '-'}</td>
+                    <td>${item.email || '-'}</td>
+                    <td>${formatTime(item.createTime)}</td>
+                    <td>
+                        <button class="btn" style="padding:5px 10px; margin-right:5px;" onclick="showEditModal(${item.id})">编辑</button>
+                        <button class="btn btn-danger" style="padding:5px 10px;" onclick="deleteStudent(${item.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // 渲染分页
+        function renderPagination(data) {
+            const pagination = document.getElementById('pagination');
+            if (!data || data.pages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+            let html = `
+                <button onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>
+            `;
+            for (let i = 1; i <= data.pages; i++) {
+                html += `<button onclick="goPage(${i})" ${i === currentPage ? 'class="active"' : ''}>${i}</button>`;
+            }
+            html += `
+                <button onclick="goPage(${currentPage + 1})" ${currentPage === data.pages ? 'disabled' : ''}>下一页</button>
+            `;
+            pagination.innerHTML = html;
+        }
+        
+        // 跳转页面
+        function goPage(page) {
+            currentPage = page;
+            loadStudents();
+        }
+        
+        // 搜索
+        function searchStudents() {
+            searchName = document.getElementById('searchName').value;
+            currentPage = 1;
+            loadStudents();
+        }
+        
+        // 清空搜索
+        function clearSearch() {
+            document.getElementById('searchName').value = '';
+            searchName = '';
+            currentPage = 1;
+            loadStudents();
+        }
+        
+        // 显示新增弹窗
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = '新增学生';
+            document.getElementById('editId').value = '';
+            document.getElementById('name').value = '';
+            document.getElementById('age').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('modal').classList.add('show');
+        }
+        
+        // 显示编辑弹窗
+        async function showEditModal(id) {
+            try {
+                const response = await fetch(`${baseUrl}/${id}`);
+                const data = await response.json();
+                if (data.code === 200) {
+                    document.getElementById('modalTitle').textContent = '编辑学生';
+                    document.getElementById('editId').value = data.data.id;
+                    document.getElementById('name').value = data.data.name;
+                    document.getElementById('age').value = data.data.age;
+                    document.getElementById('email').value = data.data.email;
+                    document.getElementById('modal').classList.add('show');
+                }
+            } catch (error) {
+                showToast('获取数据失败', 'error');
+            }
+        }
+        
+        // 隐藏弹窗
+        function hideModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+        
+        // 保存学生
+        async function saveStudent() {
+            const id = document.getElementById('editId').value;
+            const data = {
+                name: document.getElementById('name').value,
+                age: parseInt(document.getElementById('age').value) || null,
+                email: document.getElementById('email').value
+            };
+            
+            if (!data.name) {
+                showToast('请输入姓名', 'error');
+                return;
+            }
+            
+            try {
+                const url = id ? `${baseUrl}/${id}` : baseUrl;
+                const method = id ? 'PUT' : 'POST';
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    showToast(id ? '修改成功' : '新增成功', 'success');
+                    hideModal();
+                    loadStudents();
+                } else {
+                    showToast(result.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                showToast('操作失败', 'error');
+            }
+        }
+        
+        // 删除学生
+        async function deleteStudent(id) {
+            if (!confirm('确定要删除这个学生吗？')) return;
+            try {
+                const response = await fetch(`${baseUrl}/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.code === 200) {
+                    showToast('删除成功', 'success');
+                    loadStudents();
+                } else {
+                    showToast(result.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                showToast('删除失败', 'error');
+            }
+        }
+        
+        // 格式化时间
+        function formatTime(time) {
+            if (!time) return '-';
+            const date = new Date(time);
+            return date.toLocaleString('zh-CN');
+        }
+        
+        // 消息提示
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+        
+        // 初始化
+        loadStudents();
+    </script>
+</body>
+</html>
