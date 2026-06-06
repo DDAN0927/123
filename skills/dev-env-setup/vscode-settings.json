@@ -1,0 +1,76 @@
+{
+  // ============================================================
+  // VS Code 用户设置 (D盘开发环境)
+  // 使用方式: 复制内容 → VS Code Ctrl+Shift+P → Open User Settings(JSON)
+  // 或直接复制到 %APPDATA%\Code\User\settings.json
+  // ============================================================
+
+  // ========== 编辑器基础 ==========
+  "editor.fontSize": 14,
+  "editor.fontFamily": "'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
+  "editor.fontLigatures": true,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.wordWrap": "on",
+  "editor.minimap.enabled": false,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // ========== 终端 ==========
+  "terminal.integrated.defaultProfile.windows": "Git Bash",
+  "terminal.integrated.fontFamily": "'JetBrains Mono', Consolas",
+  "terminal.integrated.fontSize": 13,
+
+  // ========== 文件排除 ==========
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/.nuxt": true,
+    "**/unpackage": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/*.lock": true
+  },
+
+  // ========== TypeScript / JavaScript ==========
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.suggest.paths": true,
+  "javascript.suggest.autoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+
+  // ========== Vue ==========
+  "[vue]": {
+    "editor.defaultFormatter": "Vue.volar"
+  },
+
+  // ========== 工作区图标 ==========
+  "workbench.iconTheme": "material-icon-theme",
+
+  // ========== Git ==========
+  "git.path": "D:\\tools\\Git\\cmd\\git.exe",
+  "git.autofetch": true,
+  "git.confirmSync": false,
+
+  // ========== Emmet ==========
+  "emmet.includeLanguages": { "vue-html": "html" },
+
+  // ========== 其他 ==========
+  "explorer.confirmDelete": false,
+  "security.workspace.trust.untrustedFiles": "open",
+  "update.mode": "none",
+  "telemetry.telemetryLevel": "off"
+}

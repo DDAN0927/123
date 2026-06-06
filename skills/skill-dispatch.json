@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-05-16",
+  "description": "技能调度配置 - 定义技能间的自动触发、联动和优先级规则",
+  "dispatchRules": {
+    "projectStart": {
+      "description": "用户说要做新项目时，自动启动项目级工作流",
+      "triggers": ["新项目", "我想做", "有个点子", "想做个东西", "我有个想法", "从零开始做"],
+      "autoActivate": "workflow/project-requirements-clarification",
+      "flow": [
+        "project-requirements-clarification",
+        "project-product-overview",
+        "project-tech-stack",
+        "project-structure",
+        "project-dev-standards",
+        "project-roadmap-planning",
+        "project-initialization"
+      ]
+    },
+    "featureStart": {
+      "description": "用户说要做某个功能时，自动启动功能级工作流",
+      "triggers": ["加个功能", "想做个", "功能需求", "做个XX功能"],
+      "autoActivate": "workflow/feature-requirements-clarification",
+      "flow": [
+        "feature-requirements-clarification",
+        "feature-tech-design",
+        "feature-task-planning",
+        "feature-implementation"
+      ]
+    },
+    "bugEncounter": {
+      "description": "用户报告BUG时，自动启动BUG修复工作流",
+      "triggers": ["报错了", "出错了", "崩了", "挂了", "白屏", "500", "出bug了", "有问题"],
+      "autoActivate": "workflow/bugfix-workflow"
+    },
+    "featureChange": {
+      "description": "用户要修改已有功能时，自动启动功能迭代变更",
+      "triggers": ["改一下", "功能调整", "需求变更", "加个XX", "修改功能"],
+      "autoActivate": "workflow/feature-evolution"
+    }
+  },
+  "techSkillLinkage": {
+    "description": "编码实现阶段根据技术栈自动激活技术技能",
+    "rules": [
+      {
+        "condition": "技术栈包含 React/Vue/Next.js/Nuxt.js/TypeScript/Tailwind CSS",
+        "activate": ["frontend-dev"]
+      },
+      {
+        "condition": "技术栈包含 Node.js/Python/Java/Go 或涉及 API/数据库/认证",
+        "activate": ["backend-dev"]
+      },
+      {
+        "condition": "技术栈包含 React Native/Flutter/ArkTS/uni-app App端",
+        "activate": ["mobile-dev"]
+      },
+      {
+        "condition": "前后端同时涉及",
+        "activate": ["fullstack-dev"]
+      },
+      {
+        "condition": "涉及 Docker/K8s/CI-CD/部署/监控",
+        "activate": ["testing-devops"]
+      },
+      {
+        "condition": "需要接入第三方API/服务",
+        "activate": ["public-apis", "free-api-resources"]
+      }
+    ]
+  },
+  "priorityRules": {
+    "description": "技能冲突时的优先级规则",
+    "rules": [
+      {
+        "conflict": "public-apis vs free-api-resources",
+        "rule": "查API目录/找行业API → public-apis；找免费资源/免费数据库/免费存储 → free-api-resources"
+      },
+      {
+        "conflict": "project-architect vs workflow子技能",
+        "rule": "在工作流流程中 → 优先使用workflow子技能；独立架构咨询/架构评审 → project-architect"
+      },
+      {
+        "conflict": "project-requirements-clarification vs feature-requirements-clarification",
+        "rule": "项目整体需求 → project-requirements-clarification；单个功能需求 → feature-requirements-clarification"
+      },
+      {
+        "conflict": "project-roadmap-planning vs feature-task-planning",
+        "rule": "项目整体路线图/里程碑 → project-roadmap-planning；单个功能任务拆解 → feature-task-planning"
+      }
+    ]
+  }
+}

@@ -1,0 +1,1348 @@
+{
+  "version": "2.1",
+  "updatedAt": "2026-05-17",
+  "description": "开发 Skills 技能体系 - 结构化数据，用于程序化读取和工具链集成",
+  "meta": {
+    "totalDepartments": 3,
+    "totalRoles": 12,
+    "totalSkills": 243,
+    "totalAPIs": 47,
+    "totalFreeDatabases": 10,
+    "levelSystem": {
+      "beginner": {
+        "label": "入门",
+        "color": "green",
+        "description": "了解概念，能在指导下完成基本任务"
+      },
+      "intermediate": {
+        "label": "熟练",
+        "color": "blue",
+        "description": "独立完成工作，理解原理和最佳实践"
+      },
+      "advanced": {
+        "label": "精通",
+        "color": "purple",
+        "description": "深入原理，能解决复杂问题，指导他人"
+      }
+    },
+    "totalPublicAPIs": 169,
+    "totalScenarios": 23,
+    "totalAgents": 215,
+    "totalAgentDepartments": 17,
+    "chinaOriginalAgents": 50
+  },
+  "departments": [
+    {
+      "id": "tech-rd",
+      "name": "技术研发部",
+      "description": "核心技术研发团队，负责产品技术实现",
+      "roles": [
+        {
+          "id": "frontend-dev",
+          "name": "前端开发",
+          "description": "网页、小程序、APP界面、H5 开发",
+          "coreSkills": [
+            "React",
+            "Vue.js",
+            "Next.js",
+            "TypeScript",
+            "Tailwind CSS",
+            "Vite",
+            "微信小程序",
+            "uni-app",
+            "ReactBits(动效组件库)"
+          ]
+        },
+        {
+          "id": "backend-dev",
+          "name": "后端开发",
+          "description": "服务器、接口、数据库、业务逻辑",
+          "coreSkills": [
+            "Node.js/NestJS",
+            "Python/FastAPI",
+            "Java/Spring Boot",
+            "RESTful/GraphQL",
+            "PostgreSQL/MySQL",
+            "Redis",
+            "JWT/OAuth",
+            "Kafka/RabbitMQ"
+          ]
+        },
+        {
+          "id": "mobile-dev",
+          "name": "移动端开发",
+          "description": "iOS/Android/鸿蒙 APP",
+          "coreSkills": [
+            "Swift/SwiftUI",
+            "Kotlin/Compose",
+            "ArkTS/ArkUI",
+            "React Native",
+            "Flutter"
+          ]
+        },
+        {
+          "id": "fullstack-dev",
+          "name": "全栈开发",
+          "description": "前后端都会，初创必备",
+          "coreSkills": [
+            "T3 Stack",
+            "BaaS(Supabase)",
+            "Serverless",
+            "tRPC",
+            "Prisma"
+          ]
+        },
+        {
+          "id": "qa-engineer",
+          "name": "测试工程师",
+          "description": "功能测试、接口测试、自动化测试",
+          "coreSkills": [
+            "Jest/Vitest",
+            "Playwright",
+            "TDD/BDD",
+            "k6性能测试",
+            "OWASP安全测试"
+          ]
+        },
+        {
+          "id": "devops",
+          "name": "运维工程师",
+          "description": "服务器部署、云服务、上线维护、监控",
+          "coreSkills": [
+            "Docker",
+            "Kubernetes",
+            "GitHub Actions",
+            "Terraform",
+            "Prometheus+Grafana"
+          ]
+        },
+        {
+          "id": "architect",
+          "name": "架构师",
+          "description": "系统设计、技术选型、框架搭建",
+          "coreSkills": [
+            "高并发/高可用架构",
+            "DDD",
+            "微服务",
+            "事件驱动",
+            "技术选型方法论"
+          ]
+        },
+        {
+          "id": "db-engineer",
+          "name": "数据库工程师",
+          "description": "数据库设计、优化、备份",
+          "coreSkills": [
+            "PostgreSQL",
+            "MySQL",
+            "MongoDB",
+            "Redis",
+            "Elasticsearch",
+            "备份恢复/慢查询优化"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "product-design",
+      "name": "产品&设计部",
+      "description": "产品规划、UI/UX设计、品牌视觉",
+      "roles": [
+        {
+          "id": "product-manager",
+          "name": "产品经理",
+          "description": "需求梳理、原型设计、功能规划",
+          "coreSkills": [
+            "PRD撰写",
+            "Axure/Figma原型",
+            "用户故事地图",
+            "数据分析"
+          ]
+        },
+        {
+          "id": "ui-designer",
+          "name": "UI设计师",
+          "description": "界面设计、图标、配色、视觉稿",
+          "coreSkills": [
+            "Figma",
+            "色彩排版",
+            "Design System",
+            "品牌VI"
+          ]
+        },
+        {
+          "id": "ux-designer",
+          "name": "UX交互设计师",
+          "description": "用户流程、操作逻辑、体验优化",
+          "coreSkills": [
+            "用户研究",
+            "可用性测试",
+            "信息架构",
+            "无障碍(a11y)"
+          ]
+        },
+        {
+          "id": "brand-designer",
+          "name": "平面/品牌设计",
+          "description": "LOGO、宣传海报、官网页面、物料设计",
+          "coreSkills": [
+            "LOGO/VI设计",
+            "海报/Infographic",
+            "AI图像生成",
+            "印刷规范"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workflow",
+      "name": "AI驱动开发工作流",
+      "description": "从模糊想法到可运行代码的完整开发工作流，13个Skill分三层协作",
+      "coreMechanisms": [
+        {
+          "id": "guardrails",
+          "name": "边界守卫（GUARDRAILS）",
+          "description": "每个Skill只做自己阶段的事，AI越界时自动拦截",
+          "file": "./workflow/GUARDRAILS.md"
+        },
+        {
+          "id": "project-context",
+          "name": "项目上下文协议（PROJECT-CONTEXT）",
+          "description": "每个Skill执行前必须读取specs/目录下所有文档，建立完整项目认知",
+          "file": "./workflow/PROJECT-CONTEXT.md"
+        }
+      ],
+      "layers": [
+        {
+          "id": "project-level",
+          "name": "项目级（启动时用一次）",
+          "description": "从模糊想法到可开始写代码的项目骨架",
+          "flow": "需求澄清 → 产品概述 → 技术栈选型 → 目录结构 → 开发规范 → 路线图规划 → 项目初始化",
+          "skills": [
+            {
+              "id": "project-requirements-clarification",
+              "name": "项目需求澄清",
+              "role": "好奇的合伙人",
+              "trigger": "/project-requirements-clarification",
+              "output": "specs/项目描述.md",
+              "file": "./workflow/project-requirements-clarification/SKILL.md"
+            },
+            {
+              "id": "project-product-overview",
+              "name": "产品概述",
+              "role": "首席产品官",
+              "trigger": "/project-product-overview",
+              "output": "specs/产品概述.md",
+              "file": "./workflow/project-product-overview/SKILL.md"
+            },
+            {
+              "id": "project-tech-stack",
+              "name": "技术栈选型",
+              "role": "CTO",
+              "trigger": "/project-tech-stack",
+              "output": "specs/技术栈.md",
+              "file": "./workflow/project-tech-stack/SKILL.md"
+            },
+            {
+              "id": "project-structure",
+              "name": "目录结构",
+              "role": "系统架构师",
+              "trigger": "/project-structure",
+              "output": "specs/项目结构.md",
+              "file": "./workflow/project-structure/SKILL.md"
+            },
+            {
+              "id": "project-dev-standards",
+              "name": "开发规范",
+              "role": "技术委员会",
+              "trigger": "/project-dev-standards",
+              "output": "specs/开发规范.md",
+              "file": "./workflow/project-dev-standards/SKILL.md"
+            },
+            {
+              "id": "project-roadmap-planning",
+              "name": "路线图规划",
+              "role": "技术产品经理",
+              "trigger": "/project-roadmap-planning",
+              "output": "specs/开发路线图.md",
+              "file": "./workflow/project-roadmap-planning/SKILL.md"
+            },
+            {
+              "id": "project-initialization",
+              "name": "项目初始化",
+              "role": "DevOps工程师",
+              "trigger": "/project-initialization",
+              "output": "项目骨架 + docs/开发记录/初始化记录.md",
+              "file": "./workflow/project-initialization/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "feature-level",
+          "name": "功能级（反复使用）",
+          "description": "按路线图一个功能一个功能地做",
+          "flow": "功能需求澄清 → 技术方案设计 → 任务规划 → 编码实现",
+          "iterationFlow": "功能迭代变更 → 编码实现",
+          "skills": [
+            {
+              "id": "feature-requirements-clarification",
+              "name": "功能需求澄清",
+              "role": "产品经理",
+              "trigger": "/feature-requirements-clarification",
+              "output": "specs/features/{功能名}.md",
+              "file": "./workflow/feature-requirements-clarification/SKILL.md"
+            },
+            {
+              "id": "feature-tech-design",
+              "name": "技术方案设计",
+              "role": "系统架构师",
+              "trigger": "/feature-tech-design",
+              "output": "specs/features/{功能名}_技术方案.md",
+              "file": "./workflow/feature-tech-design/SKILL.md"
+            },
+            {
+              "id": "feature-task-planning",
+              "name": "任务规划",
+              "role": "技术主管",
+              "trigger": "/feature-task-planning",
+              "output": "specs/features/{功能名}_任务规划.md",
+              "file": "./workflow/feature-task-planning/SKILL.md"
+            },
+            {
+              "id": "feature-implementation",
+              "name": "编码实现",
+              "role": "高级开发工程师",
+              "trigger": "/feature-implementation",
+              "output": "代码 + docs/开发记录/{功能名}_阶段报告.md",
+              "file": "./workflow/feature-implementation/SKILL.md"
+            },
+            {
+              "id": "feature-evolution",
+              "name": "功能迭代变更",
+              "role": "产品架构师",
+              "trigger": "/feature-evolution",
+              "output": "增量更新 specs/features/ 文档",
+              "changeTypes": ["微调(Tweak)", "扩展(Extension)", "重构(Refactor)"],
+              "file": "./workflow/feature-evolution/SKILL.md"
+            }
+          ]
+        },
+        {
+          "id": "general-level",
+          "name": "通用（随时使用）",
+          "description": "不管在哪个阶段都能用",
+          "skills": [
+            {
+              "id": "bugfix-workflow",
+              "name": "BUG修复",
+              "role": "高级调试工程师",
+              "trigger": "/bugfix-workflow",
+              "output": "修复代码 + 单元测试 + docs/BUG修复文档/{BUG名}.md",
+              "hardRule": "没复现出来，不准改代码",
+              "file": "./workflow/bugfix-workflow/SKILL.md"
+            }
+          ]
+        }
+      ],
+      "tips": {
+        "file": "./workflow/workflow-tips.md",
+        "count": 10,
+        "highlights": [
+          "功能级规划和编码分开窗口",
+          "项目级规划尽量在一个窗口内完成",
+          "提示词先润色然后存下来复用",
+          "改动≤30%用feature-evolution，≥70%重新走流程",
+          "改了代码就要同步文档",
+          "AI生成的文档花两分钟过一遍"
+        ]
+      }
+    }
+  ],
+  "quickStartScenarios": {
+    "new-web-project": {
+      "name": "新Web前端项目",
+      "recommendedStack": "Next.js + TypeScript + Tailwind CSS + Prisma + tRPC (T3 Stack)"
+    },
+    "new-mini-program": {
+      "name": "小程序项目",
+      "recommendedStack": "uni-app(Vue3) + uView + 云开发 或 Taro(React) + NutUI"
+    },
+    "new-mobile-app": {
+      "name": "移动App",
+      "recommendedStack": "React Native + Expo 或 Flutter + Riverpod"
+    },
+    "new-backend-api": {
+      "name": "后端API服务",
+      "recommendedStack": "NestJS(TypeScript) 或 FastAPI(Python) + PostgreSQL + Redis"
+    },
+    "quick-mvp": {
+      "name": "快速MVP验证",
+      "recommendedStack": "Supabase(BaaS) + Vercel(部署) + Next.js + Clerk(认证)"
+    }
+  },
+  "freeAPIs": [
+    {
+      "id": "mock-testing",
+      "name": "Mock / 测试模拟类 API",
+      "apis": [
+        "JSONPlaceholder",
+        "ReqRes",
+        "MockAPI.io",
+        "httpbin",
+        "Mockoon"
+      ]
+    },
+    {
+      "id": "basic-tools",
+      "name": "全栈高频刚需 - 基础工具类 API",
+      "apis": [
+        "TimeAPI",
+        "IPAPI.co",
+        "TenAPI",
+        "UUID Generator",
+        "企业信用API"
+      ]
+    },
+    {
+      "id": "ai-llm",
+      "name": "AI 开发核心 - 免费大模型/多模态 API",
+      "apis": [
+        "Google Gemini",
+        "Mistral",
+        "DeepSeek",
+        "通义千问",
+        "Tavily",
+        "火山方舟",
+        "HuggingFace"
+      ]
+    },
+    {
+      "id": "business-data",
+      "name": "业务数据支撑 API",
+      "apis": [
+        "高德地图",
+        "百度地图",
+        "OpenWeather",
+        "和风天气",
+        "TMDB",
+        "TuShare",
+        "NewsAPI",
+        "聚合数据"
+      ]
+    },
+    {
+      "id": "multimedia",
+      "name": "多媒体处理 API",
+      "apis": [
+        "Cloudinary",
+        "百度OCR",
+        "Edge-TTS",
+        "Imgur",
+        "Remove.bg"
+      ]
+    },
+    {
+      "id": "oauth-login",
+      "name": "第三方登录/OAuth API",
+      "apis": [
+        "GitHub OAuth",
+        "微信开放平台",
+        "QQ互联",
+        "Google OAuth",
+        "抖音开放平台"
+      ]
+    },
+    {
+      "id": "ops-security",
+      "name": "运维/安全工具 API",
+      "apis": [
+        "GitHub API",
+        "SSL Labs",
+        "VirusTotal",
+        "Ping.pe",
+        "Cloudflare DNS"
+      ]
+    },
+    {
+      "id": "cloud-platforms",
+      "name": "免费云服务/部署平台",
+      "apis": [
+        "Cloudflare",
+        "Vercel",
+        "阿里云",
+        "腾讯云",
+        "AWS"
+      ]
+    },
+    {
+      "id": "api-directories",
+      "name": "API 聚合大全",
+      "apis": [
+        "Public APIs",
+        "RapidAPI",
+        "Any-API",
+        "awesome-free-apis"
+      ]
+    }
+  ],
+  "apiScenarioMap": {
+    "frontend-debug": {
+      "name": "前端联调/接口测试",
+      "apis": [
+        "JSONPlaceholder",
+        "ReqRes",
+        "Mockoon"
+      ]
+    },
+    "ip-location": {
+      "name": "IP定位/地域限制",
+      "apis": [
+        "IPAPI.co",
+        "高德地图"
+      ]
+    },
+    "ai-code-gen": {
+      "name": "AI代码生成",
+      "apis": [
+        "DeepSeek",
+        "Gemini",
+        "Mistral"
+      ]
+    },
+    "ai-agent-rag": {
+      "name": "AI Agent/RAG",
+      "apis": [
+        "Tavily",
+        "HuggingFace",
+        "火山方舟"
+      ]
+    },
+    "map-lbs": {
+      "name": "地图/LBS应用",
+      "apis": [
+        "高德地图",
+        "百度地图"
+      ]
+    },
+    "weather-app": {
+      "name": "天气类应用",
+      "apis": [
+        "和风天气",
+        "OpenWeather"
+      ]
+    },
+    "movie-content": {
+      "name": "影视/内容平台",
+      "apis": [
+        "TMDB",
+        "NewsAPI"
+      ]
+    },
+    "finance-quant": {
+      "name": "金融/量化",
+      "apis": [
+        "TuShare"
+      ]
+    },
+    "image-processing": {
+      "name": "图片处理/图床",
+      "apis": [
+        "Cloudinary",
+        "Imgur",
+        "Remove.bg"
+      ]
+    },
+    "ocr-recognition": {
+      "name": "OCR/文字识别",
+      "apis": [
+        "百度OCR"
+      ]
+    },
+    "voice-synthesis": {
+      "name": "语音合成",
+      "apis": [
+        "Edge-TTS"
+      ]
+    },
+    "third-party-login": {
+      "name": "第三方登录",
+      "apis": [
+        "GitHub OAuth",
+        "微信开放平台",
+        "Google OAuth"
+      ]
+    },
+    "ssl-security": {
+      "name": "SSL/安全检测",
+      "apis": [
+        "SSL Labs",
+        "VirusTotal"
+      ]
+    },
+    "project-deploy": {
+      "name": "项目部署",
+      "apis": [
+        "Vercel",
+        "Cloudflare",
+        "阿里云"
+      ]
+    },
+    "find-api": {
+      "name": "找API",
+      "apis": [
+        "Public APIs",
+        "RapidAPI"
+      ]
+    }
+  },
+  "freeDatabases": [
+    {
+      "id": "sql-databases",
+      "name": "关系型数据库（MySQL / PostgreSQL）",
+      "description": "适合后端项目、网站业务数据、结构化数据存储",
+      "dbs": [
+        {
+          "id": "planetscale",
+          "name": "PlanetScale",
+          "url": "https://planetscale.com",
+          "freeQuota": "永久免费，1个数据库、无限存储、无限查询",
+          "protocol": "MySQL",
+          "tags": [
+            "mysql",
+            "serverless",
+            "branching"
+          ],
+          "scenarios": [
+            "后端项目",
+            "网站业务数据",
+            "分支回滚",
+            "代码直连"
+          ]
+        },
+        {
+          "id": "neon",
+          "name": "Neon",
+          "url": "https://neon.tech",
+          "freeQuota": "永久免费，3GB存储、免费计算额度",
+          "protocol": "PostgreSQL",
+          "tags": [
+            "postgresql",
+            "serverless",
+            "connection-pooling"
+          ],
+          "scenarios": [
+            "Java/Node/Python后端",
+            "结构化业务数据",
+            "连接池",
+            "休眠不扣费"
+          ]
+        },
+        {
+          "id": "supabase",
+          "name": "Supabase",
+          "url": "https://supabase.com",
+          "freeQuota": "免费版永久够用，内置PostgreSQL+自带API",
+          "protocol": "PostgreSQL",
+          "tags": [
+            "postgresql",
+            "baas",
+            "auth",
+            "realtime"
+          ],
+          "scenarios": [
+            "快速开发",
+            "小程序",
+            "管理后台",
+            "不用写后端也能CRUD"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nosql-databases",
+      "name": "NoSQL / 文档数据库（MongoDB 类）",
+      "description": "适合JSON结构数据、日志、用户配置、缓存、会话存储",
+      "dbs": [
+        {
+          "id": "mongodb-atlas",
+          "name": "MongoDB Atlas",
+          "url": "https://www.mongodb.com/atlas/database",
+          "freeQuota": "免费永久集群，512MB存储",
+          "protocol": "MongoDB",
+          "tags": [
+            "mongodb",
+            "nosql",
+            "document"
+          ],
+          "scenarios": [
+            "JSON结构数据",
+            "日志存储",
+            "用户配置",
+            "商品数据"
+          ]
+        },
+        {
+          "id": "upstash",
+          "name": "Upstash",
+          "url": "https://upstash.com",
+          "freeQuota": "免费Redis+Kafka+文档库",
+          "protocol": "Redis/Kafka",
+          "tags": [
+            "redis",
+            "kafka",
+            "cache",
+            "serverless"
+          ],
+          "scenarios": [
+            "缓存",
+            "会话存储",
+            "限流",
+            "低延迟"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "serverless-databases",
+      "name": "轻量免运维（自带API，不用写SQL）",
+      "description": "零成本、免服务器、免配置，极简开发首选",
+      "dbs": [
+        {
+          "id": "vercel-kv-postgres",
+          "name": "Vercel KV / Vercel Postgres",
+          "url": "https://vercel.com",
+          "freeQuota": "免费额度够用，和Vercel部署无缝衔接",
+          "protocol": "Redis/PostgreSQL",
+          "tags": [
+            "vercel",
+            "serverless",
+            "kv"
+          ],
+          "scenarios": [
+            "前端+后端一体项目",
+            "Serverless开发"
+          ]
+        },
+        {
+          "id": "cloudflare-d1",
+          "name": "Cloudflare D1",
+          "url": "https://www.cloudflare.com/zh-cn/products/d1/",
+          "freeQuota": "免费内置SQLite数据库",
+          "protocol": "SQLite",
+          "tags": [
+            "sqlite",
+            "cloudflare",
+            "serverless",
+            "edge"
+          ],
+          "scenarios": [
+            "Cloudflare Worker后端",
+            "零成本极简开发"
+          ]
+        },
+        {
+          "id": "pocketbase",
+          "name": "PocketBase",
+          "url": "https://pocketbase.io",
+          "freeQuota": "开源自托管，单文件启动，完全免费无额度限制",
+          "protocol": "SQLite",
+          "tags": [
+            "self-hosted",
+            "open-source",
+            "baas",
+            "single-binary"
+          ],
+          "scenarios": [
+            "自托管后端",
+            "内置后台管理",
+            "注册登录",
+            "完整API"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cn-databases",
+      "name": "国内稳定免费库（国内访问快）",
+      "description": "国内项目首选，延迟低、合规稳定",
+      "dbs": [
+        {
+          "id": "aliyun-free-db",
+          "name": "阿里云免费数据库",
+          "url": "https://free.aliyun.com",
+          "freeQuota": "新用户免费MySQL/PostgreSQL试用",
+          "protocol": "MySQL/PostgreSQL",
+          "tags": [
+            "aliyun",
+            "china",
+            "mysql",
+            "postgresql"
+          ],
+          "scenarios": [
+            "国内项目",
+            "国内访问极快"
+          ]
+        },
+        {
+          "id": "tencent-cloudbase",
+          "name": "腾讯云CloudBase",
+          "url": "https://cloud.tencent.com/product/tcb",
+          "freeQuota": "免费云数据库+云函数+存储",
+          "protocol": "MongoDB/MySQL",
+          "tags": [
+            "tencent",
+            "china",
+            "cloudbase",
+            "mini-program"
+          ],
+          "scenarios": [
+            "微信小程序",
+            "个人网站",
+            "开箱即用"
+          ]
+        }
+      ]
+    }
+  ],
+  "dbScenarioMap": {
+    "backend-overseas": {
+      "name": "后端项目(海外)",
+      "dbs": [
+        "planetscale",
+        "neon"
+      ]
+    },
+    "mvp-mini-program": {
+      "name": "快速MVP/小程序",
+      "dbs": [
+        "supabase",
+        "tencent-cloudbase"
+      ]
+    },
+    "json-log-config": {
+      "name": "JSON/日志/配置存储",
+      "dbs": [
+        "mongodb-atlas"
+      ]
+    },
+    "cache-session-ratelimit": {
+      "name": "缓存/会话/限流",
+      "dbs": [
+        "upstash"
+      ]
+    },
+    "serverless-fullstack": {
+      "name": "Serverless全栈",
+      "dbs": [
+        "vercel-kv-postgres",
+        "cloudflare-d1"
+      ]
+    },
+    "zero-config-backend": {
+      "name": "极简后端(零配置)",
+      "dbs": [
+        "cloudflare-d1",
+        "pocketbase"
+      ]
+    },
+    "cn-low-latency": {
+      "name": "国内项目(低延迟)",
+      "dbs": [
+        "aliyun-free-db",
+        "tencent-cloudbase"
+      ]
+    },
+    "wechat-mini-program": {
+      "name": "微信小程序",
+      "dbs": [
+        "tencent-cloudbase"
+      ]
+    }
+  },
+  "publicAPIs": {
+    "source": "https://github.com/public-apis/public-apis",
+    "catalogFile": "./public-apis/public-apis-catalog.json",
+    "skillFile": "./public-apis/SKILL.md",
+    "scenarios": [
+      {
+        "id": "web-dev-mock",
+        "name": "Web开发/Mock测试",
+        "topAPIs": [
+          "JSONPlaceholder",
+          "ReqRes",
+          "httpbin",
+          "Mockoon"
+        ]
+      },
+      {
+        "id": "ai-ml",
+        "name": "AI/机器学习",
+        "topAPIs": [
+          "Gemini",
+          "DeepSeek",
+          "Mistral",
+          "HuggingFace",
+          "Tavily"
+        ]
+      },
+      {
+        "id": "map-location",
+        "name": "地图/定位/LBS",
+        "topAPIs": [
+          "高德地图",
+          "百度地图",
+          "OpenStreetMap",
+          "IPAPI.co"
+        ]
+      },
+      {
+        "id": "weather-env",
+        "name": "天气/环境",
+        "topAPIs": [
+          "OpenWeather",
+          "和风天气",
+          "Weatherstack"
+        ]
+      },
+      {
+        "id": "finance-crypto",
+        "name": "金融/加密货币",
+        "topAPIs": [
+          "TuShare",
+          "Alpha Vantage",
+          "CoinGecko",
+          "ExchangeRate-API"
+        ]
+      },
+      {
+        "id": "news-media",
+        "name": "新闻/媒体/内容",
+        "topAPIs": [
+          "TMDB",
+          "NewsAPI",
+          "HackerNews"
+        ]
+      },
+      {
+        "id": "social-auth",
+        "name": "社交/登录/OAuth",
+        "topAPIs": [
+          "GitHub OAuth",
+          "Google OAuth",
+          "微信开放平台",
+          "Discord"
+        ]
+      },
+      {
+        "id": "image-video",
+        "name": "图片/视频处理",
+        "topAPIs": [
+          "Unsplash",
+          "Cloudinary",
+          "Imgur",
+          "Remove.bg",
+          "Edge-TTS"
+        ]
+      },
+      {
+        "id": "business-data",
+        "name": "商业/企业数据",
+        "topAPIs": [
+          "聚合数据",
+          "Clearbit",
+          "Hunter.io"
+        ]
+      },
+      {
+        "id": "dev-tools",
+        "name": "开发工具/CI",
+        "topAPIs": [
+          "GitHub API",
+          "npm Registry",
+          "Docker Hub"
+        ]
+      },
+      {
+        "id": "security-ops",
+        "name": "安全/运维",
+        "topAPIs": [
+          "VirusTotal",
+          "Shodan",
+          "HaveIBeenPwned",
+          "SSL Labs"
+        ]
+      },
+      {
+        "id": "food-health",
+        "name": "生活/健康",
+        "topAPIs": [
+          "Open Food Facts",
+          "Spoonacular",
+          "USDA FoodData"
+        ]
+      },
+      {
+        "id": "edu-science",
+        "name": "教育/科学",
+        "topAPIs": [
+          "Wikipedia",
+          "arXiv",
+          "NASA",
+          "Open Library"
+        ]
+      },
+      {
+        "id": "sports-fun",
+        "name": "体育/娱乐",
+        "topAPIs": [
+          "TheSportsDB",
+          "PokeAPI",
+          "Trivia",
+          "Jokes"
+        ]
+      },
+      {
+        "id": "gov-open-data",
+        "name": "政府/开放数据",
+        "topAPIs": [
+          "Data.gov",
+          "World Bank",
+          "US Census"
+        ]
+      },
+      {
+        "id": "payment-commerce",
+        "name": "支付/电商",
+        "topAPIs": [
+          "Stripe",
+          "Braintree",
+          "PayPal",
+          "Commerce Layer"
+        ]
+      },
+      {
+        "id": "analytics-tracking",
+        "name": "数据分析/统计",
+        "topAPIs": [
+          "Google Analytics",
+          "Matomo",
+          "PostHog",
+          "MixPanel"
+        ]
+      },
+      {
+        "id": "auth-identity",
+        "name": "认证/身份验证",
+        "topAPIs": [
+          "Auth0",
+          "Firebase Auth",
+          "Clerk",
+          "Google reCAPTCHA"
+        ]
+      },
+      {
+        "id": "communication-sms",
+        "name": "通信/短信/语音",
+        "topAPIs": [
+          "Twilio",
+          "SendGrid",
+          "Resend",
+          "OneSignal"
+        ]
+      },
+      {
+        "id": "qr-barcode",
+        "name": "二维码/条形码",
+        "topAPIs": [
+          "QR Code API",
+          "QuickChart",
+          "Google Barcode"
+        ]
+      },
+      {
+        "id": "nlp-text",
+        "name": "自然语言处理",
+        "topAPIs": [
+          "Google Cloud NLP",
+          "DeepL",
+          "LibreTranslate"
+        ]
+      },
+      {
+        "id": "screenshot-scrape",
+        "name": "截图/网页抓取",
+        "topAPIs": [
+          "Screenshot API",
+          "ScrapingBee",
+          "Apify"
+        ]
+      },
+      {
+        "id": "advertising-seo",
+        "name": "广告/SEO",
+        "topAPIs": [
+          "SerpAPI",
+          "Google Ads",
+          "Facebook Marketing"
+        ]
+      }
+    ],
+    "projectAPICombos": {
+      "电商网站": [
+        "Unsplash",
+        "ExchangeRate-API",
+        "Cloudinary"
+      ],
+      "社交APP": [
+        "GitHub OAuth",
+        "Google OAuth",
+        "Imgur"
+      ],
+      "天气应用": [
+        "OpenWeather",
+        "和风天气",
+        "AirVisual"
+      ],
+      "金融工具": [
+        "TuShare",
+        "Alpha Vantage",
+        "CoinGecko"
+      ],
+      "AI应用": [
+        "Gemini",
+        "DeepSeek",
+        "HuggingFace"
+      ],
+      "地图应用": [
+        "高德地图",
+        "OpenStreetMap",
+        "IPAPI.co"
+      ],
+      "教育平台": [
+        "Wikipedia",
+        "arXiv",
+        "Open Library",
+        "NASA"
+      ],
+      "安全工具": [
+        "VirusTotal",
+        "Shodan",
+        "HaveIBeenPwned"
+      ],
+      "SaaS产品": [
+        "Stripe",
+        "Auth0",
+        "PostHog",
+        "SendGrid"
+      ],
+      "爬虫/数据": [
+        "Apify",
+        "ScrapingBee",
+        "Screenshot API"
+      ],
+      "营销工具": [
+        "SerpAPI",
+        "Google Ads",
+        "Facebook Marketing"
+      ],
+      "企业后台": [
+        "Google Analytics",
+        "Matomo",
+        "QR Code API"
+      ]
+    }
+  },
+  "agencyAgents": {
+    "source": "https://github.com/jnMetaCode/agency-agents-zh",
+    "catalogFile": "./agency-agents/agency-agents-catalog.json",
+    "skillFile": "./agency-agents/SKILL.md",
+    "departments": [
+      {
+        "id": "engineering",
+        "name": "工程部",
+        "nameEn": "Engineering",
+        "agentCount": 35,
+        "chinaOriginal": 4,
+        "topAgents": ["全栈开发", "前端开发", "后端开发", "移动开发", "DevOps工程师", "系统架构师", "ML工程师"]
+      },
+      {
+        "id": "design",
+        "name": "设计部",
+        "nameEn": "Design",
+        "agentCount": 8,
+        "chinaOriginal": 0,
+        "topAgents": ["UI设计师", "UX研究员", "UX架构师", "品牌守护者", "图像提示词工程师"]
+      },
+      {
+        "id": "marketing",
+        "name": "营销部",
+        "nameEn": "Marketing",
+        "agentCount": 36,
+        "chinaOriginal": 21,
+        "topAgents": ["小红书运营", "抖音策略师", "微信运营", "B站策略师", "增长黑客", "SEO专家"]
+      },
+      {
+        "id": "paid-media",
+        "name": "付费媒体部",
+        "nameEn": "Paid Media",
+        "agentCount": 7,
+        "chinaOriginal": 0,
+        "topAgents": ["投放审计师", "创意策略师", "PPC策略师", "追踪专家"]
+      },
+      {
+        "id": "sales",
+        "name": "销售部",
+        "nameEn": "Sales",
+        "agentCount": 8,
+        "chinaOriginal": 0,
+        "topAgents": ["交易策略师", "售前工程师", "主动外联策略师", "提案策略师"]
+      },
+      {
+        "id": "finance",
+        "name": "财务部",
+        "nameEn": "Finance",
+        "agentCount": 8,
+        "chinaOriginal": 0,
+        "topAgents": ["财务分析师", "财务预测师", "欺诈检测师", "税务策略师"]
+      },
+      {
+        "id": "hr",
+        "name": "人力资源部",
+        "nameEn": "HR",
+        "agentCount": 2,
+        "chinaOriginal": 0,
+        "topAgents": ["招聘专员", "绩效评审师"]
+      },
+      {
+        "id": "legal",
+        "name": "法务部",
+        "nameEn": "Legal",
+        "agentCount": 2,
+        "chinaOriginal": 0,
+        "topAgents": ["合同审核师", "政策撰写师"]
+      },
+      {
+        "id": "supply-chain",
+        "name": "供应链部",
+        "nameEn": "Supply Chain",
+        "agentCount": 4,
+        "chinaOriginal": 0,
+        "topAgents": ["库存预测师", "供应商评估师", "路线优化师"]
+      },
+      {
+        "id": "product",
+        "name": "产品部",
+        "nameEn": "Product",
+        "agentCount": 5,
+        "chinaOriginal": 0,
+        "topAgents": ["产品经理", "冲刺优先级排序师", "趋势研究员", "反馈综合师"]
+      },
+      {
+        "id": "project-management",
+        "name": "项目管理部",
+        "nameEn": "Project Management",
+        "agentCount": 6,
+        "chinaOriginal": 0,
+        "topAgents": ["高级项目经理", "工作室制作人", "Jira工作流管家"]
+      },
+      {
+        "id": "testing",
+        "name": "测试部",
+        "nameEn": "Testing",
+        "agentCount": 9,
+        "chinaOriginal": 1,
+        "topAgents": ["API测试师", "性能基准测试师", "无障碍审计师", "嵌入式QA工程师"]
+      },
+      {
+        "id": "support",
+        "name": "支持部",
+        "nameEn": "Support",
+        "agentCount": 7,
+        "chinaOriginal": 1,
+        "topAgents": ["支持响应师", "分析报告师", "法律合规检查师"]
+      },
+      {
+        "id": "specialized",
+        "name": "专项部",
+        "nameEn": "Specialized",
+        "agentCount": 46,
+        "chinaOriginal": 15,
+        "topAgents": ["智能体编排师", "提示词工程师", "MCP构建师", "文档生成师", "工作流架构师", "政务数字化售前顾问"]
+      },
+      {
+        "id": "spatial",
+        "name": "空间计算部",
+        "nameEn": "Spatial Computing",
+        "agentCount": 6,
+        "chinaOriginal": 6,
+        "topAgents": ["visionOS空间工程师", "XR交互架构师", "XR沉浸式开发者"]
+      },
+      {
+        "id": "game",
+        "name": "游戏开发部",
+        "nameEn": "Game Development",
+        "agentCount": 20,
+        "chinaOriginal": 2,
+        "topAgents": ["游戏设计师", "Unity架构师", "Unreal系统工程师", "Godot玩法脚本师", "Roblox系统脚本师"]
+      },
+      {
+        "id": "academic",
+        "name": "学术部",
+        "nameEn": "Academic",
+        "agentCount": 6,
+        "chinaOriginal": 0,
+        "topAgents": ["人类学家", "历史学家", "叙事学家", "学习规划师"]
+      }
+    ],
+    "scenarioMap": {
+      "web-fullstack": {
+        "name": "Web全栈项目",
+        "agents": ["engineering-full-stack-developer", "design-ux-architect", "testing-api-tester", "engineering-devops-engineer"]
+      },
+      "mobile-app": {
+        "name": "移动APP",
+        "agents": ["engineering-mobile-developer", "design-ui-designer", "engineering-backend-developer", "marketing-growth-hacker"]
+      },
+      "saas-product": {
+        "name": "SaaS产品",
+        "agents": ["product-manager", "engineering-full-stack-developer", "sales-engineer", "sales-deal-strategist"]
+      },
+      "ecommerce": {
+        "name": "电商网站",
+        "agents": ["engineering-full-stack-developer", "design-ui-designer", "marketing-china-ecommerce-operator", "specialized-pricing-optimizer"]
+      },
+      "game-dev": {
+        "name": "游戏开发",
+        "agents": ["game-game-designer", "game-unity-architect", "game-technical-artist", "game-narrative-designer"]
+      },
+      "ai-application": {
+        "name": "AI应用",
+        "agents": ["engineering-ml-engineer", "specialized-prompt-engineer", "specialized-mcp-builder", "specialized-orchestrator"]
+      },
+      "china-marketing": {
+        "name": "国内营销",
+        "agents": ["marketing-xiaohongshu-operator", "marketing-douyin-strategist", "marketing-private-domain-operator", "marketing-baidu-seo-specialist"]
+      },
+      "overseas-product": {
+        "name": "出海产品",
+        "agents": ["marketing-tiktok-strategist", "marketing-instagram-curator", "marketing-cross-border-ecommerce", "specialized-cultural-intelligence-strategist"]
+      },
+      "enterprise-system": {
+        "name": "企业系统",
+        "agents": ["engineering-architect", "engineering-backend-developer", "legal-contract-reviewer", "finance-fraud-detector"]
+      },
+      "hardware-iot": {
+        "name": "硬件/IoT",
+        "agents": ["engineering-embedded-engineer", "engineering-firmware-engineer", "engineering-iot-engineer", "engineering-pc-host-engineer"]
+      },
+      "xr-spatial": {
+        "name": "XR/空间计算",
+        "agents": ["spatial-visionos-spatial-engineer", "spatial-xr-interface-architect", "spatial-xr-immersive-developer"]
+      },
+      "gov-project": {
+        "name": "政务项目",
+        "agents": ["specialized-government-digital-presales-consultant", "legal-contract-reviewer", "legal-policy-writer"]
+      }
+    }
+  }
+}

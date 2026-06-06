@@ -1,0 +1,2125 @@
+{
+  "version": "1.0",
+  "source": "https://github.com/public-apis/public-apis",
+  "updatedAt": "2026-05-12",
+  "meta": {
+    "totalCategories": 70,
+    "totalAPIs": 169,
+    "freeAPIs": 55,
+    "scenarioGroups": 23
+  },
+  "scenarios": [
+    {
+      "id": "web-dev-mock",
+      "name": "Web开发/Mock测试",
+      "description": "前端联调、接口测试、原型开发",
+      "triggerWords": [
+        "mock",
+        "测试",
+        "联调",
+        "假数据",
+        "placeholder",
+        "test data",
+        "fake data"
+      ],
+      "apis": [
+        {
+          "name": "JSONPlaceholder",
+          "url": "https://jsonplaceholder.typicode.com/",
+          "auth": "No",
+          "desc": "免费RESTful API，模拟用户/帖子/评论",
+          "cors": true
+        },
+        {
+          "name": "ReqRes",
+          "url": "https://reqres.in/",
+          "auth": "No",
+          "desc": "登录认证/分页模拟",
+          "cors": true
+        },
+        {
+          "name": "httpbin",
+          "url": "https://httpbin.org/",
+          "auth": "No",
+          "desc": "HTTP请求全场景测试",
+          "cors": true
+        },
+        {
+          "name": "Mockoon",
+          "url": "https://mockoon.com/",
+          "auth": "No",
+          "desc": "本地离线Mock服务器",
+          "cors": true
+        },
+        {
+          "name": "PlaceKitten",
+          "url": "https://placekitten.com/",
+          "auth": "No",
+          "desc": "占位小猫图片",
+          "cors": true
+        },
+        {
+          "name": "PlaceDog",
+          "url": "https://place.dog/",
+          "auth": "No",
+          "desc": "占位小狗图片",
+          "cors": true
+        },
+        {
+          "name": "PlaceBear",
+          "url": "https://placebear.com/",
+          "auth": "No",
+          "desc": "占位熊图片",
+          "cors": true
+        },
+        {
+          "name": "HTTP Cat",
+          "url": "https://http.cat/",
+          "auth": "No",
+          "desc": "HTTP状态码对应猫图",
+          "cors": true
+        },
+        {
+          "name": "HTTP Dog",
+          "url": "https://http.dog/",
+          "auth": "No",
+          "desc": "HTTP状态码对应狗图",
+          "cors": true
+        },
+        {
+          "name": "Cat Facts",
+          "url": "https://alexwohlbruck.github.io/cat-facts/",
+          "auth": "No",
+          "desc": "每日猫知识",
+          "cors": false
+        },
+        {
+          "name": "Dog Facts",
+          "url": "https://dukengn.github.io/Dog-facts-API/",
+          "auth": "No",
+          "desc": "随机狗知识",
+          "cors": true
+        },
+        {
+          "name": "RandomDog",
+          "url": "https://random.dog/woof.json",
+          "auth": "No",
+          "desc": "随机狗图片",
+          "cors": true
+        },
+        {
+          "name": "RandomFox",
+          "url": "https://randomfox.ca/floof/",
+          "auth": "No",
+          "desc": "随机狐狸图片",
+          "cors": false
+        },
+        {
+          "name": "MeowFacts",
+          "url": "https://github.com/wh-iterabb-it/meowfacts",
+          "auth": "No",
+          "desc": "随机猫知识",
+          "cors": false
+        },
+        {
+          "name": "Zoo Animals",
+          "url": "https://zoo-animal-api.herokuapp.com/",
+          "auth": "No",
+          "desc": "动物园动物知识和图片",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "ai-ml",
+      "name": "AI/机器学习",
+      "description": "AI应用、代码生成、Agent、RAG",
+      "triggerWords": [
+        "AI",
+        "人工智能",
+        "大模型",
+        "LLM",
+        "代码生成",
+        "agent",
+        "RAG",
+        "机器学习"
+      ],
+      "apis": [
+        {
+          "name": "Google Gemini",
+          "url": "https://ai.google.dev/",
+          "auth": "apiKey",
+          "desc": "多模态/代码生成/Agent(免费额度大)",
+          "cors": true
+        },
+        {
+          "name": "DeepSeek",
+          "url": "https://platform.deepseek.com/",
+          "auth": "apiKey",
+          "desc": "代码生成(国内直连,价格极低)",
+          "cors": true
+        },
+        {
+          "name": "Mistral",
+          "url": "https://docs.mistral.ai/",
+          "auth": "apiKey",
+          "desc": "Codestral代码专用模型",
+          "cors": true
+        },
+        {
+          "name": "通义千问",
+          "url": "https://dashscope.aliyuncs.com/",
+          "auth": "apiKey",
+          "desc": "中文AI/多模态(国内直连)",
+          "cors": true
+        },
+        {
+          "name": "火山方舟(豆包)",
+          "url": "https://www.volcengine.com/product/ark",
+          "auth": "apiKey",
+          "desc": "中文AI(国内直连)",
+          "cors": true
+        },
+        {
+          "name": "Hugging Face Inference",
+          "url": "https://huggingface.co/docs/api-inference/",
+          "auth": "apiKey",
+          "desc": "10万+开源模型推理",
+          "cors": true
+        },
+        {
+          "name": "Tavily Search",
+          "url": "https://tavily.com/",
+          "auth": "apiKey",
+          "desc": "AI Agent实时搜索(1000次/月)",
+          "cors": true
+        },
+        {
+          "name": "Clarifai",
+          "url": "https://www.clarifai.com/",
+          "auth": "apiKey",
+          "desc": "图像/视频识别",
+          "cors": true
+        },
+        {
+          "name": "OpenAI",
+          "url": "https://platform.openai.com/",
+          "auth": "apiKey",
+          "desc": "GPT-4o/o1/o3系列",
+          "cors": true
+        },
+        {
+          "name": "Stability AI",
+          "url": "https://stability.ai/",
+          "auth": "apiKey",
+          "desc": "Stable Diffusion图像生成",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "map-location",
+      "name": "地图/定位/LBS",
+      "description": "地图展示、地理编码、IP定位",
+      "triggerWords": [
+        "地图",
+        "定位",
+        "LBS",
+        "地理",
+        "地址",
+        "IP定位",
+        "经纬度",
+        "geocoding"
+      ],
+      "apis": [
+        {
+          "name": "高德地图",
+          "url": "https://lbs.amap.com/",
+          "auth": "apiKey",
+          "desc": "国内LBS首选(30万次/天)",
+          "cors": true
+        },
+        {
+          "name": "百度地图",
+          "url": "https://lbsyun.baidu.com/",
+          "auth": "apiKey",
+          "desc": "百度生态/室内定位",
+          "cors": true
+        },
+        {
+          "name": "OpenStreetMap Nominatim",
+          "url": "https://nominatim.org/",
+          "auth": "No",
+          "desc": "地理编码/逆编码(全球)",
+          "cors": true
+        },
+        {
+          "name": "IPAPI.co",
+          "url": "https://ipapi.co/",
+          "auth": "No",
+          "desc": "IP定位+CORS支持(1000次/天)",
+          "cors": true
+        },
+        {
+          "name": "IP Stack",
+          "url": "https://ipstack.com/",
+          "auth": "apiKey",
+          "desc": "IP地理定位(100次/月)",
+          "cors": true
+        },
+        {
+          "name": "GeoDB Cities",
+          "url": "https://geodb-cities-api.wirefreethought.com/",
+          "auth": "apiKey",
+          "desc": "全球城市数据",
+          "cors": true
+        },
+        {
+          "name": "REST Countries",
+          "url": "https://restcountries.com/",
+          "auth": "No",
+          "desc": "国家信息查询",
+          "cors": true
+        },
+        {
+          "name": "Google Maps",
+          "url": "https://developers.google.com/maps/",
+          "auth": "apiKey",
+          "desc": "全球地图服务",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "weather-env",
+      "name": "天气/环境",
+      "description": "天气预报、空气质量",
+      "triggerWords": [
+        "天气",
+        "气温",
+        "空气质量",
+        "PM2.5",
+        "weather",
+        "环境"
+      ],
+      "apis": [
+        {
+          "name": "OpenWeather",
+          "url": "https://openweathermap.org/api",
+          "auth": "apiKey",
+          "desc": "全球天气(60次/分免费)",
+          "cors": true
+        },
+        {
+          "name": "和风天气",
+          "url": "https://dev.qweather.com/",
+          "auth": "apiKey",
+          "desc": "国内天气(3000次/天免费)",
+          "cors": true
+        },
+        {
+          "name": "Weatherstack",
+          "url": "https://weatherstack.com/",
+          "auth": "apiKey",
+          "desc": "全球天气JSON格式",
+          "cors": true
+        },
+        {
+          "name": "AirVisual",
+          "url": "https://www.airvisual.com/",
+          "auth": "apiKey",
+          "desc": "空气质量数据",
+          "cors": true
+        },
+        {
+          "name": "UK Carbon Intensity",
+          "url": "https://carbonintensity.org.uk/",
+          "auth": "No",
+          "desc": "英国碳排放数据",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "finance-crypto",
+      "name": "金融/加密货币",
+      "description": "股票行情、汇率、加密货币",
+      "triggerWords": [
+        "金融",
+        "股票",
+        "汇率",
+        "加密",
+        "比特币",
+        "A股",
+        "量化",
+        "finance",
+        "crypto"
+      ],
+      "apis": [
+        {
+          "name": "TuShare",
+          "url": "https://tushare.pro/",
+          "auth": "No",
+          "desc": "A股/港股/美股行情(免费)",
+          "cors": false
+        },
+        {
+          "name": "Alpha Vantage",
+          "url": "https://www.alphavantage.co/",
+          "auth": "apiKey",
+          "desc": "全球股票/外汇/加密(25次/天)",
+          "cors": true
+        },
+        {
+          "name": "CoinGecko",
+          "url": "https://www.coingecko.com/en/api",
+          "auth": "No",
+          "desc": "加密货币行情(50次/分)",
+          "cors": true
+        },
+        {
+          "name": "CoinCap",
+          "url": "https://coincap.io/",
+          "auth": "No",
+          "desc": "加密货币实时数据",
+          "cors": true
+        },
+        {
+          "name": "ExchangeRate-API",
+          "url": "https://www.exchangerate-api.com/",
+          "auth": "No",
+          "desc": "汇率查询(1500次/月)",
+          "cors": true
+        },
+        {
+          "name": "Fixer",
+          "url": "https://fixer.io/",
+          "auth": "apiKey",
+          "desc": "历史汇率数据",
+          "cors": true
+        },
+        {
+          "name": "Marketstack",
+          "url": "https://marketstack.com/",
+          "auth": "apiKey",
+          "desc": "全球股票市场数据",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "news-media",
+      "name": "新闻/媒体/内容",
+      "description": "新闻聚合、影视数据、内容平台",
+      "triggerWords": [
+        "新闻",
+        "影视",
+        "电影",
+        "内容",
+        "资讯",
+        "news",
+        "movie",
+        "TMDB"
+      ],
+      "apis": [
+        {
+          "name": "TMDB",
+          "url": "https://www.themoviedb.org/documentation/api",
+          "auth": "apiKey",
+          "desc": "全球影视数据(5万次/天)",
+          "cors": true
+        },
+        {
+          "name": "NewsAPI",
+          "url": "https://newsapi.org/",
+          "auth": "apiKey",
+          "desc": "全球新闻聚合(100次/天)",
+          "cors": true
+        },
+        {
+          "name": "HackerNews",
+          "url": "https://github.com/HackerNews/API",
+          "auth": "No",
+          "desc": "技术社区资讯",
+          "cors": true
+        },
+        {
+          "name": "GNews",
+          "url": "https://gnews.io/",
+          "auth": "apiKey",
+          "desc": "全球新闻(100次/天)",
+          "cors": true
+        },
+        {
+          "name": "Currents API",
+          "url": "https://currentsapi.services/",
+          "auth": "apiKey",
+          "desc": "最新新闻",
+          "cors": true
+        },
+        {
+          "name": "Reddit",
+          "url": "https://www.reddit.com/dev/api/",
+          "auth": "OAuth",
+          "desc": "社区内容",
+          "cors": true
+        },
+        {
+          "name": "The Odds API",
+          "url": "https://the-odds-api.com/",
+          "auth": "apiKey",
+          "desc": "体育赔率",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "social-auth",
+      "name": "社交/登录/OAuth",
+      "description": "第三方登录、社交平台集成",
+      "triggerWords": [
+        "登录",
+        "OAuth",
+        "社交",
+        "微信登录",
+        "GitHub登录",
+        "Google登录",
+        "auth"
+      ],
+      "apis": [
+        {
+          "name": "GitHub OAuth",
+          "url": "https://docs.github.com/en/apps/",
+          "auth": "OAuth",
+          "desc": "技术网站登录首选",
+          "cors": true
+        },
+        {
+          "name": "Google OAuth",
+          "url": "https://developers.google.com/identity/",
+          "auth": "OAuth",
+          "desc": "海外用户登录",
+          "cors": true
+        },
+        {
+          "name": "微信开放平台",
+          "url": "https://open.weixin.qq.com/",
+          "auth": "apiKey",
+          "desc": "国内APP/小程序登录",
+          "cors": true
+        },
+        {
+          "name": "QQ互联",
+          "url": "https://connect.qq.com/",
+          "auth": "OAuth",
+          "desc": "QQ登录",
+          "cors": true
+        },
+        {
+          "name": "Discord",
+          "url": "https://discord.com/developers/docs/",
+          "auth": "OAuth",
+          "desc": "游戏社区登录",
+          "cors": true
+        },
+        {
+          "name": "Twitter/X",
+          "url": "https://developer.twitter.com/",
+          "auth": "OAuth",
+          "desc": "社交登录",
+          "cors": true
+        },
+        {
+          "name": "LinkedIn",
+          "url": "https://docs.microsoft.com/en-us/linkedin/",
+          "auth": "OAuth",
+          "desc": "职业社交登录",
+          "cors": true
+        },
+        {
+          "name": "Notion",
+          "url": "https://developers.notion.com/",
+          "auth": "OAuth",
+          "desc": "笔记/文档集成",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "image-video",
+      "name": "图片/视频处理",
+      "description": "图床、图片处理、视频、OCR、语音",
+      "triggerWords": [
+        "图片",
+        "视频",
+        "图床",
+        "OCR",
+        "语音",
+        "抠图",
+        "image",
+        "video",
+        "TTS"
+      ],
+      "apis": [
+        {
+          "name": "Unsplash",
+          "url": "https://unsplash.com/developers",
+          "auth": "apiKey",
+          "desc": "高质量免费图片(50次/时)",
+          "cors": true
+        },
+        {
+          "name": "Pexels",
+          "url": "https://www.pexels.com/api/",
+          "auth": "apiKey",
+          "desc": "免费图片/视频",
+          "cors": true
+        },
+        {
+          "name": "Pixabay",
+          "url": "https://pixabay.com/api/docs/",
+          "auth": "apiKey",
+          "desc": "免费图片/插画(5000次/时)",
+          "cors": true
+        },
+        {
+          "name": "Cloudinary",
+          "url": "https://cloudinary.com/",
+          "auth": "apiKey",
+          "desc": "图片处理+CDN(25GB/月)",
+          "cors": true
+        },
+        {
+          "name": "Imgur",
+          "url": "https://api.imgur.com/",
+          "auth": "No",
+          "desc": "图床/图片分享",
+          "cors": true
+        },
+        {
+          "name": "Remove.bg",
+          "url": "https://www.remove.bg/api/",
+          "auth": "apiKey",
+          "desc": "自动抠图(50次/月)",
+          "cors": true
+        },
+        {
+          "name": "Edge-TTS",
+          "url": "https://github.com/rany2/edge-tts",
+          "auth": "No",
+          "desc": "语音合成(开源免费)",
+          "cors": false
+        },
+        {
+          "name": "百度OCR",
+          "url": "https://cloud.baidu.com/doc/OCR/",
+          "auth": "apiKey",
+          "desc": "文字识别(1000次/月)",
+          "cors": true
+        },
+        {
+          "name": "YouTube",
+          "url": "https://developers.google.com/youtube/",
+          "auth": "apiKey",
+          "desc": "视频数据/搜索",
+          "cors": true
+        },
+        {
+          "name": "Vimeo",
+          "url": "https://developer.vimeo.com/",
+          "auth": "apiKey",
+          "desc": "视频平台",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "business-data",
+      "name": "商业/企业数据",
+      "description": "企业信息、工商数据、联系人",
+      "triggerWords": [
+        "企业",
+        "工商",
+        "公司信息",
+        "商业数据",
+        "CRM",
+        "business"
+      ],
+      "apis": [
+        {
+          "name": "聚合数据",
+          "url": "https://www.juhe.cn/",
+          "auth": "apiKey",
+          "desc": "790+API一站式",
+          "cors": true
+        },
+        {
+          "name": "国家企业信用",
+          "url": "https://www.gsxt.gov.cn/",
+          "auth": "No",
+          "desc": "企业工商信息",
+          "cors": false
+        },
+        {
+          "name": "Clearbit",
+          "url": "https://clearbit.com/",
+          "auth": "apiKey",
+          "desc": "企业/联系人数据",
+          "cors": true
+        },
+        {
+          "name": "Hunter.io",
+          "url": "https://hunter.io/api",
+          "auth": "apiKey",
+          "desc": "邮箱查找/验证(25次/月)",
+          "cors": true
+        },
+        {
+          "name": "Crunchbase",
+          "url": "https://data.crunchbase.com/",
+          "auth": "apiKey",
+          "desc": "创业公司数据",
+          "cors": true
+        },
+        {
+          "name": "Freshdesk",
+          "url": "https://developers.freshdesk.com/",
+          "auth": "apiKey",
+          "desc": "客服工单系统",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "dev-tools",
+      "name": "开发工具/CI",
+      "description": "代码仓库、包管理、CI/CD",
+      "triggerWords": [
+        "GitHub",
+        "GitLab",
+        "CI",
+        "CD",
+        "npm",
+        "Docker",
+        "开发工具"
+      ],
+      "apis": [
+        {
+          "name": "GitHub API",
+          "url": "https://docs.github.com/en/rest/",
+          "auth": "apiKey",
+          "desc": "仓库/Issue/Actions(5000次/时)",
+          "cors": true
+        },
+        {
+          "name": "GitLab API",
+          "url": "https://docs.gitlab.com/ee/api/",
+          "auth": "apiKey",
+          "desc": "仓库/CI/CD",
+          "cors": true
+        },
+        {
+          "name": "npm Registry",
+          "url": "https://github.com/npm/registry/",
+          "auth": "No",
+          "desc": "npm包信息查询",
+          "cors": true
+        },
+        {
+          "name": "Docker Hub",
+          "url": "https://docs.docker.com/docker-hub/api/",
+          "auth": "No",
+          "desc": "镜像查询",
+          "cors": true
+        },
+        {
+          "name": "CircleCI",
+          "url": "https://circleci.com/docs/api/",
+          "auth": "apiKey",
+          "desc": "CI/CD",
+          "cors": true
+        },
+        {
+          "name": "Travis CI",
+          "url": "https://docs.travis-ci.com/api/",
+          "auth": "apiKey",
+          "desc": "CI/CD",
+          "cors": true
+        },
+        {
+          "name": "PyPI",
+          "url": "https://warehouse.pypa.io/api-reference/",
+          "auth": "No",
+          "desc": "Python包信息",
+          "cors": true
+        },
+        {
+          "name": "Stack Exchange",
+          "url": "https://api.stackexchange.com/",
+          "auth": "No",
+          "desc": "技术问答数据",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "security-ops",
+      "name": "安全/运维",
+      "description": "安全检测、IP信誉、漏洞扫描",
+      "triggerWords": [
+        "安全",
+        "漏洞",
+        "病毒",
+        "IP信誉",
+        "SSL",
+        "泄露",
+        "security"
+      ],
+      "apis": [
+        {
+          "name": "VirusTotal",
+          "url": "https://www.virustotal.com/en/documentation/public-api/",
+          "auth": "apiKey",
+          "desc": "文件/URL安全检测(500次/天)",
+          "cors": true
+        },
+        {
+          "name": "SSL Labs",
+          "url": "https://github.com/ssllabs/ssllabs-scan/",
+          "auth": "No",
+          "desc": "SSL证书评级",
+          "cors": true
+        },
+        {
+          "name": "AbuseIPDB",
+          "url": "https://docs.abuseipdb.com/",
+          "auth": "apiKey",
+          "desc": "IP信誉查询(1000次/天)",
+          "cors": true
+        },
+        {
+          "name": "Have I Been Pwned",
+          "url": "https://haveibeenpwned.com/API/",
+          "auth": "apiKey",
+          "desc": "密码泄露检测",
+          "cors": true
+        },
+        {
+          "name": "URLScan.io",
+          "url": "https://urlscan.io/about-api/",
+          "auth": "apiKey",
+          "desc": "URL扫描分析",
+          "cors": true
+        },
+        {
+          "name": "Shodan",
+          "url": "https://developer.shodan.io/",
+          "auth": "apiKey",
+          "desc": "互联网设备搜索",
+          "cors": true
+        },
+        {
+          "name": "SecurityTrails",
+          "url": "https://securitytrails.com/",
+          "auth": "apiKey",
+          "desc": "DNS/域名历史",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "food-health",
+      "name": "生活/健康",
+      "description": "食品数据、营养分析、健康",
+      "triggerWords": [
+        "食物",
+        "营养",
+        "健康",
+        "食谱",
+        "食品",
+        "卡路里",
+        "food",
+        "health"
+      ],
+      "apis": [
+        {
+          "name": "Open Food Facts",
+          "url": "https://world.openfoodfacts.org/api",
+          "auth": "No",
+          "desc": "食品成分/营养数据(全球)",
+          "cors": true
+        },
+        {
+          "name": "Spoonacular",
+          "url": "https://spoonacular.com/food-api/",
+          "auth": "apiKey",
+          "desc": "食谱/营养分析(150次/天)",
+          "cors": true
+        },
+        {
+          "name": "Edamam",
+          "url": "https://developer.edamam.com/",
+          "auth": "apiKey",
+          "desc": "食谱/饮食分析",
+          "cors": true
+        },
+        {
+          "name": "Nutritionix",
+          "url": "https://developer.nutritionix.com/",
+          "auth": "apiKey",
+          "desc": "营养数据",
+          "cors": true
+        },
+        {
+          "name": "USDA FoodData",
+          "url": "https://fdc.nal.usda.gov/api-guide.html",
+          "auth": "apiKey",
+          "desc": "美国食品数据库",
+          "cors": true
+        },
+        {
+          "name": "Health.gov",
+          "url": "https://health.gov/our-work/nutrition-physical-activity/",
+          "auth": "No",
+          "desc": "健康指南数据",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "edu-science",
+      "name": "教育/科学",
+      "description": "百科、论文、图书、科学数据",
+      "triggerWords": [
+        "百科",
+        "论文",
+        "图书",
+        "科学",
+        "NASA",
+        "教育",
+        "数学",
+        "education",
+        "science"
+      ],
+      "apis": [
+        {
+          "name": "Wikipedia",
+          "url": "https://www.mediawiki.org/wiki/API:",
+          "auth": "No",
+          "desc": "百科知识查询",
+          "cors": true
+        },
+        {
+          "name": "arXiv",
+          "url": "https://arxiv.org/help/api/",
+          "auth": "No",
+          "desc": "学术论文",
+          "cors": true
+        },
+        {
+          "name": "CrossRef",
+          "url": "https://api.crossref.org/",
+          "auth": "No",
+          "desc": "学术DOI元数据",
+          "cors": true
+        },
+        {
+          "name": "Open Library",
+          "url": "https://openlibrary.org/developers/api/",
+          "auth": "No",
+          "desc": "图书数据",
+          "cors": true
+        },
+        {
+          "name": "Google Books",
+          "url": "https://developers.google.com/books/",
+          "auth": "apiKey",
+          "desc": "图书搜索(1000次/天)",
+          "cors": true
+        },
+        {
+          "name": "NASA",
+          "url": "https://api.nasa.gov/",
+          "auth": "apiKey",
+          "desc": "太空/天文数据(1000次/时)",
+          "cors": true
+        },
+        {
+          "name": "Numbers API",
+          "url": "http://numbersapi.com/",
+          "auth": "No",
+          "desc": "数字趣知识",
+          "cors": false
+        },
+        {
+          "name": "Mathjs",
+          "url": "https://api.mathjs.org/",
+          "auth": "No",
+          "desc": "数学运算API",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "sports-fun",
+      "name": "体育/娱乐",
+      "description": "体育赛事、游戏、笑话、趣味",
+      "triggerWords": [
+        "体育",
+        "足球",
+        "NBA",
+        "游戏",
+        "笑话",
+        "宝可梦",
+        "sports",
+        "fun",
+        "entertainment"
+      ],
+      "apis": [
+        {
+          "name": "TheSportsDB",
+          "url": "https://www.thesportsdb.com/api.php",
+          "auth": "apiKey",
+          "desc": "体育赛事/队伍数据",
+          "cors": true
+        },
+        {
+          "name": "API-Football",
+          "url": "https://www.api-football.com/",
+          "auth": "apiKey",
+          "desc": "足球数据(100次/天)",
+          "cors": true
+        },
+        {
+          "name": "Ball Don't Lie",
+          "url": "https://www.balldontlie.io/",
+          "auth": "No",
+          "desc": "NBA数据",
+          "cors": true
+        },
+        {
+          "name": "PokeAPI",
+          "url": "https://pokeapi.co/",
+          "auth": "No",
+          "desc": "宝可梦数据",
+          "cors": true
+        },
+        {
+          "name": "Trivia",
+          "url": "https://opentdb.com/api_config.php",
+          "auth": "No",
+          "desc": "问答知识",
+          "cors": true
+        },
+        {
+          "name": "Jokes",
+          "url": "https://v2.jokeapi.dev/",
+          "auth": "No",
+          "desc": "笑话API",
+          "cors": true
+        },
+        {
+          "name": "Cocktail DB",
+          "url": "https://www.thecocktaildb.com/api.php",
+          "auth": "apiKey",
+          "desc": "鸡尾酒配方",
+          "cors": true
+        },
+        {
+          "name": "Deck of Cards",
+          "url": "https://deckofcardsapi.com/",
+          "auth": "No",
+          "desc": "扑克牌模拟",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "gov-open-data",
+      "name": "政府/开放数据",
+      "description": "政府公开数据、人口统计、全球发展",
+      "triggerWords": [
+        "政府",
+        "开放数据",
+        "人口",
+        "统计",
+        "gov",
+        "open data",
+        "census"
+      ],
+      "apis": [
+        {
+          "name": "Data.gov",
+          "url": "https://api.data.gov/",
+          "auth": "apiKey",
+          "desc": "美国政府开放数据",
+          "cors": true
+        },
+        {
+          "name": "US Census",
+          "url": "https://www.census.gov/data/developers.html",
+          "auth": "apiKey",
+          "desc": "美国人口普查",
+          "cors": true
+        },
+        {
+          "name": "World Bank",
+          "url": "https://datahelpdesk.worldbank.org/knowledgebase/topics/125589/",
+          "auth": "No",
+          "desc": "全球发展数据",
+          "cors": true
+        },
+        {
+          "name": "College Scorecard",
+          "url": "https://collegescorecard.ed.gov/data/",
+          "auth": "apiKey",
+          "desc": "美国大学数据",
+          "cors": true
+        },
+        {
+          "name": "EPA",
+          "url": "https://www.epa.gov/enviro/envirofacts-data-service-api",
+          "auth": "No",
+          "desc": "环境数据",
+          "cors": true
+        },
+        {
+          "name": "UK Police",
+          "url": "https://data.police.uk/docs/",
+          "auth": "No",
+          "desc": "英国犯罪数据",
+          "cors": true
+        },
+        {
+          "name": "FBI Wanted",
+          "url": "https://www.fbi.gov/wanted/api",
+          "auth": "No",
+          "desc": "FBI通缉数据",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "payment-commerce",
+      "name": "支付/电商",
+      "description": "在线支付、电商、发票、订阅",
+      "triggerWords": [
+        "支付",
+        "付款",
+        "收款",
+        "电商",
+        "购物车",
+        "订单",
+        "payment",
+        "stripe",
+        "checkout"
+      ],
+      "apis": [
+        {
+          "name": "Stripe",
+          "url": "https://stripe.com/docs/api",
+          "auth": "apiKey",
+          "desc": "全球支付平台(支持信用卡/支付宝/微信)",
+          "cors": true
+        },
+        {
+          "name": "Braintree",
+          "url": "https://developers.braintreepayments.com/",
+          "auth": "apiKey",
+          "desc": "PayPal旗下支付平台",
+          "cors": true
+        },
+        {
+          "name": "Commerce Layer",
+          "url": "https://docs.commercelayer.io/api/",
+          "auth": "apiKey",
+          "desc": "无头电商平台API",
+          "cors": true
+        },
+        {
+          "name": "PayPal",
+          "url": "https://developer.paypal.com/api/",
+          "auth": "OAuth",
+          "desc": "全球支付(支持订阅/分期)",
+          "cors": true
+        },
+        {
+          "name": "Lemon Squeezy",
+          "url": "https://docs.lemonsqueezy.com/api/",
+          "auth": "apiKey",
+          "desc": "SaaS数字产品销售平台",
+          "cors": true
+        },
+        {
+          "name": "Paddle",
+          "url": "https://developer.paddle.com/api/",
+          "auth": "apiKey",
+          "desc": "SaaS支付和税务合规",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "analytics-tracking",
+      "name": "数据分析/统计",
+      "description": "网站分析、用户行为、数据可视化",
+      "triggerWords": [
+        "分析",
+        "统计",
+        "埋点",
+        "analytics",
+        "tracking",
+        "用户行为"
+      ],
+      "apis": [
+        {
+          "name": "Google Analytics",
+          "url": "https://developers.google.com/analytics/",
+          "auth": "OAuth",
+          "desc": "网站分析标准(免费)",
+          "cors": true
+        },
+        {
+          "name": "Matomo",
+          "url": "https://matomo.org/docs/analytics-api/",
+          "auth": "apiKey",
+          "desc": "开源网站分析(自托管免费)",
+          "cors": true
+        },
+        {
+          "name": "MixPanel",
+          "url": "https://developer.mixpanel.com/docs/",
+          "auth": "apiKey",
+          "desc": "用户行为分析(免费20M事件/月)",
+          "cors": true
+        },
+        {
+          "name": "Open Web Analytics",
+          "url": "https://github.com/padams/Open-Web-Analytics",
+          "auth": "No",
+          "desc": "开源网站分析(自托管)",
+          "cors": true
+        },
+        {
+          "name": "Plausible",
+          "url": "https://plausible.io/docs",
+          "auth": "apiKey",
+          "desc": "隐私友好的分析(开源)",
+          "cors": true
+        },
+        {
+          "name": "PostHog",
+          "url": "https://posthog.com/docs/api/",
+          "auth": "apiKey",
+          "desc": "开源产品分析+功能开关(免费100万事件)",
+          "cors": true
+        },
+        {
+          "name": "Amplitude",
+          "url": "https://developers.amplitude.com/",
+          "auth": "apiKey",
+          "desc": "产品分析(免费5万MTU)",
+          "cors": true
+        },
+        {
+          "name": "Google Charts",
+          "url": "https://developers.google.com/chart/",
+          "auth": "No",
+          "desc": "数据可视化图表(免费)",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "auth-identity",
+      "name": "认证/身份验证",
+      "description": "用户认证、登录、CAPTCHA、身份验证",
+      "triggerWords": [
+        "认证",
+        "登录",
+        "CAPTCHA",
+        "验证码",
+        "身份验证",
+        "auth",
+        "identity",
+        "KYC"
+      ],
+      "apis": [
+        {
+          "name": "Auth0",
+          "url": "https://auth0.com/docs/api/",
+          "auth": "apiKey",
+          "desc": "认证即服务(免费7000活跃用户)",
+          "cors": true
+        },
+        {
+          "name": "Firebase Auth",
+          "url": "https://firebase.google.com/docs/auth/",
+          "auth": "apiKey",
+          "desc": "Google认证服务(免费)",
+          "cors": true
+        },
+        {
+          "name": "Clerk",
+          "url": "https://clerk.com/docs/api/",
+          "auth": "apiKey",
+          "desc": "现代认证组件+API(免费1万MAU)",
+          "cors": true
+        },
+        {
+          "name": "Supabase Auth",
+          "url": "https://supabase.com/docs/guides/auth/",
+          "auth": "apiKey",
+          "desc": "开源认证(免费5万MAU)",
+          "cors": true
+        },
+        {
+          "name": "Google reCAPTCHA",
+          "url": "https://developers.google.com/recaptcha/",
+          "auth": "apiKey",
+          "desc": "反机器人验证(免费)",
+          "cors": true
+        },
+        {
+          "name": "hCaptcha",
+          "url": "https://docs.hcaptcha.com/",
+          "auth": "apiKey",
+          "desc": "隐私友好的CAPTCHA(免费)",
+          "cors": true
+        },
+        {
+          "name": "Stytch",
+          "url": "https://stytch.com/docs/api/",
+          "auth": "apiKey",
+          "desc": "无密码认证API(免费5000MAU)",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "communication-sms",
+      "name": "通信/短信/语音",
+      "description": "短信发送、语音通话、邮件推送、通知",
+      "triggerWords": [
+        "短信",
+        "语音",
+        "邮件",
+        "通知",
+        "推送",
+        "SMS",
+        "email",
+        "push",
+        "notification"
+      ],
+      "apis": [
+        {
+          "name": "Twilio",
+          "url": "https://www.twilio.com/docs/",
+          "auth": "apiKey",
+          "desc": "短信/语音/视频通信平台(试用免费)",
+          "cors": true
+        },
+        {
+          "name": "SendGrid",
+          "url": "https://sendgrid.com/docs/api-reference/",
+          "auth": "apiKey",
+          "desc": "邮件发送(免费100封/天)",
+          "cors": true
+        },
+        {
+          "name": "Mailgun",
+          "url": "https://documentation.mailgun.com/",
+          "auth": "apiKey",
+          "desc": "邮件发送API(免费5000封/月)",
+          "cors": true
+        },
+        {
+          "name": "Resend",
+          "url": "https://resend.com/docs/api-reference/",
+          "auth": "apiKey",
+          "desc": "现代邮件API(免费100封/天)",
+          "cors": true
+        },
+        {
+          "name": "Pusher",
+          "url": "https://pusher.com/docs/",
+          "auth": "apiKey",
+          "desc": "实时推送通知(免费200k消息/天)",
+          "cors": true
+        },
+        {
+          "name": "OneSignal",
+          "url": "https://documentation.onesignal.com/",
+          "auth": "apiKey",
+          "desc": "推送通知(免费无限订阅者)",
+          "cors": true
+        },
+        {
+          "name": "Vonage",
+          "url": "https://developer.vonage.com/api/",
+          "auth": "apiKey",
+          "desc": "短信/语音通信(试用免费)",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "qr-barcode",
+      "name": "二维码/条形码",
+      "description": "二维码生成、条形码识别、商品码查询",
+      "triggerWords": [
+        "二维码",
+        "条形码",
+        "QR",
+        "barcode",
+        "扫码",
+        "EAN"
+      ],
+      "apis": [
+        {
+          "name": "QR Code API",
+          "url": "https://api.qrserver.com/",
+          "auth": "No",
+          "desc": "二维码生成(免费无限)",
+          "cors": true
+        },
+        {
+          "name": "QuickChart",
+          "url": "https://quickchart.io/",
+          "auth": "No",
+          "desc": "二维码+图表生成(开源)",
+          "cors": true
+        },
+        {
+          "name": "Google Barcode",
+          "url": "https://developers.google.com/vision/barcodes-overview",
+          "auth": "apiKey",
+          "desc": "条形码实时识别(免费)",
+          "cors": true
+        },
+        {
+          "name": "EAN-Search",
+          "url": "https://www.ean-search.org/ean-database-api.html",
+          "auth": "apiKey",
+          "desc": "商品条码查询",
+          "cors": true
+        },
+        {
+          "name": "Barcode Lookup",
+          "url": "https://www.barcodelookup.com/api",
+          "auth": "apiKey",
+          "desc": "商品条码数据查询",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "nlp-text",
+      "name": "自然语言处理",
+      "description": "文本分析、情感分析、翻译、关键词提取",
+      "triggerWords": [
+        "NLP",
+        "自然语言",
+        "情感分析",
+        "翻译",
+        "文本分析",
+        "关键词",
+        "分词",
+        "语义"
+      ],
+      "apis": [
+        {
+          "name": "Google Cloud NLP",
+          "url": "https://cloud.google.com/natural-language/",
+          "auth": "apiKey",
+          "desc": "情感分析/实体识别/语法分析(免费额度)",
+          "cors": true
+        },
+        {
+          "name": "IBM Watson NLP",
+          "url": "https://cloud.ibm.com/apidocs/natural-language-understanding",
+          "auth": "apiKey",
+          "desc": "文本分析/情感/关键词(免费额度)",
+          "cors": true
+        },
+        {
+          "name": "DeepL",
+          "url": "https://www.deepl.com/pro-api/",
+          "auth": "apiKey",
+          "desc": "高质量翻译API(免费50万字符/月)",
+          "cors": true
+        },
+        {
+          "name": "LibreTranslate",
+          "url": "https://libretranslate.com/",
+          "auth": "No",
+          "desc": "开源翻译API(自托管免费)",
+          "cors": true
+        },
+        {
+          "name": "Linguatools",
+          "url": "https://linguatools.org/",
+          "auth": "No",
+          "desc": "NLP工具(部分免费)",
+          "cors": true
+        },
+        {
+          "name": "百度NLP",
+          "url": "https://cloud.baidu.com/doc/NLP/",
+          "auth": "apiKey",
+          "desc": "中文NLP(免费额度)",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "screenshot-scrape",
+      "name": "截图/网页抓取",
+      "description": "网页截图、数据抓取、爬虫",
+      "triggerWords": [
+        "截图",
+        "抓取",
+        "爬虫",
+        "scrape",
+        "screenshot",
+        "网页截图",
+        "数据采集"
+      ],
+      "apis": [
+        {
+          "name": "Screenshot API",
+          "url": "https://screenshotapi.net/",
+          "auth": "apiKey",
+          "desc": "网页截图API(免费100次/月)",
+          "cors": true
+        },
+        {
+          "name": "ScrapingBee",
+          "url": "https://www.scrapingbee.com/api/",
+          "auth": "apiKey",
+          "desc": "网页抓取API(免费1000次)",
+          "cors": true
+        },
+        {
+          "name": "Apify",
+          "url": "https://docs.apify.com/api/",
+          "auth": "apiKey",
+          "desc": "网页抓取+自动化(免费额度)",
+          "cors": true
+        },
+        {
+          "name": "ProxyCrawl",
+          "url": "https://proxycrawl.com/",
+          "auth": "apiKey",
+          "desc": "网页抓取+自动解验证码(试用免费)",
+          "cors": true
+        },
+        {
+          "name": "UrlBox",
+          "url": "https://urlbox.io/",
+          "auth": "apiKey",
+          "desc": "高质量网页截图(试用免费)",
+          "cors": true
+        }
+      ]
+    },
+    {
+      "id": "advertising-seo",
+      "name": "广告/SEO",
+      "description": "广告投放、SEO优化、关键词分析",
+      "triggerWords": [
+        "广告",
+        "SEO",
+        "投放",
+        "关键词",
+        "排名",
+        "advertising",
+        "营销",
+        "推广"
+      ],
+      "apis": [
+        {
+          "name": "Google AdSense",
+          "url": "https://developers.google.com/adsense/",
+          "auth": "OAuth",
+          "desc": "网站广告变现(免费)",
+          "cors": true
+        },
+        {
+          "name": "Google Ads API",
+          "url": "https://developers.google.com/google-ads/api/",
+          "auth": "OAuth",
+          "desc": "广告投放管理",
+          "cors": true
+        },
+        {
+          "name": "Facebook Marketing API",
+          "url": "https://developers.facebook.com/docs/marketing-apis/",
+          "auth": "OAuth",
+          "desc": "Facebook广告管理",
+          "cors": true
+        },
+        {
+          "name": "SerpAPI",
+          "url": "https://serpapi.com/",
+          "auth": "apiKey",
+          "desc": "搜索引擎结果API(免费100次/月)",
+          "cors": true
+        },
+        {
+          "name": "DataForSEO",
+          "url": "https://dataforseo.com/apis",
+          "auth": "apiKey",
+          "desc": "SEO数据API(试用免费)",
+          "cors": true
+        }
+      ]
+    }
+  ],
+  "categories": {
+    "Animals": {
+      "freeApis": [
+        "Axolotl",
+        "Cat Facts",
+        "Cataas",
+        "Dog Facts",
+        "Dogs",
+        "FishWatch",
+        "HTTP Cat",
+        "HTTP Dog",
+        "MeowFacts",
+        "Movebank",
+        "PlaceBear",
+        "PlaceDog",
+        "PlaceKitten",
+        "RandomDog",
+        "RandomDuck",
+        "RandomFox",
+        "RescueGroups",
+        "Shibe.Online",
+        "xeno-canto",
+        "Zoo Animals"
+      ],
+      "totalApis": 27
+    },
+    "Anime": {
+      "freeApis": [
+        "AnimeChan",
+        "AnimeFacts",
+        "AnimeNewsNetwork",
+        "Catboy",
+        "Jikan",
+        "NekosBest",
+        "Studio Ghibli",
+        "Trace Moe",
+        "Waifu.im",
+        "Waifu.pics"
+      ],
+      "totalApis": 19
+    },
+    "Anti-Malware": {
+      "freeApis": [
+        "URLhaus"
+      ],
+      "totalApis": 15
+    },
+    "Art & Design": {
+      "freeApis": [
+        "Art Institute of Chicago",
+        "Emoji Hub",
+        "Metropolitan Museum of Art",
+        "Rijksmuseum"
+      ],
+      "totalApis": 12
+    },
+    "Authentication & Authorization": {
+      "freeApis": [],
+      "totalApis": 8
+    },
+    "Blockchain": {
+      "freeApis": [],
+      "totalApis": 10
+    },
+    "Books": {
+      "freeApis": [
+        "CrossRef",
+        "Google Books",
+        "Open Library"
+      ],
+      "totalApis": 18
+    },
+    "Business": {
+      "freeApis": [],
+      "totalApis": 16
+    },
+    "Calendar": {
+      "freeApis": [
+        "Church Calendar",
+        "Nager.Date",
+        "Non-Working Days"
+      ],
+      "totalApis": 8
+    },
+    "Cloud Storage & File Sharing": {
+      "freeApis": [
+        "Gyazo",
+        "OneDrive"
+      ],
+      "totalApis": 6
+    },
+    "Continuous Integration": {
+      "freeApis": [],
+      "totalApis": 4
+    },
+    "Cryptocurrency": {
+      "freeApis": [
+        "CoinCap",
+        "CoinGecko"
+      ],
+      "totalApis": 12
+    },
+    "Currency Exchange": {
+      "freeApis": [
+        "ExchangeRate-API"
+      ],
+      "totalApis": 6
+    },
+    "Data Validation": {
+      "freeApis": [
+        "PurgeCSS",
+        "Kickfire"
+      ],
+      "totalApis": 8
+    },
+    "Development": {
+      "freeApis": [
+        "Bored",
+        "CountAPI",
+        "HTTP2.Pro",
+        "IPify",
+        "IPInfo",
+        "JSON2CSV",
+        "Loripsum",
+        "Markdown",
+        "QR code"
+      ],
+      "totalApis": 28
+    },
+    "Dictionaries": {
+      "freeApis": [
+        "Free Dictionary",
+        "Lingva Translate",
+        "OwlBot"
+      ],
+      "totalApis": 8
+    },
+    "Documents & Productivity": {
+      "freeApis": [],
+      "totalApis": 12
+    },
+    "Email": {
+      "freeApis": [
+        "Disify"
+      ],
+      "totalApis": 6
+    },
+    "Entertainment": {
+      "freeApis": [
+        "Chuck Norris Jokes",
+        "Cocktail DB",
+        "Deck of Cards",
+        "Jokes",
+        "Meme Generator",
+        "Numbers API",
+        "Techy",
+        "Trivia",
+        "xkcd"
+      ],
+      "totalApis": 22
+    },
+    "Environment": {
+      "freeApis": [
+        "UK Carbon Intensity"
+      ],
+      "totalApis": 6
+    },
+    "Events": {
+      "freeApis": [],
+      "totalApis": 5
+    },
+    "Finance": {
+      "freeApis": [
+        "Alpha Vantage",
+        "FMP Cloud"
+      ],
+      "totalApis": 12
+    },
+    "Food & Drink": {
+      "freeApis": [
+        "Open Food Facts",
+        "Spoonacular",
+        "Taco Fancy",
+        "The Report of the Week",
+        "TheCocktailDB"
+      ],
+      "totalApis": 12
+    },
+    "Games & Comics": {
+      "freeApis": [
+        "Age of Empires II",
+        "Amiibo API",
+        "Dota 2",
+        "Free-to-Game",
+        "Hearthstone",
+        "PokeAPI",
+        "Raider.io",
+        "Steam",
+        "TCGdex",
+        "Warface"
+      ],
+      "totalApis": 22
+    },
+    "Geocoding": {
+      "freeApis": [
+        "IPAPI.co",
+        "REST Countries",
+        "Zippopotam.us"
+      ],
+      "totalApis": 16
+    },
+    "Government": {
+      "freeApis": [
+        "Bank of England",
+        "BCL",
+        "Census.gov",
+        "EPA",
+        "FBI Wanted",
+        "UK Police",
+        "World Bank"
+      ],
+      "totalApis": 28
+    },
+    "Health": {
+      "freeApis": [
+        "Covid-19",
+        "Health.gov",
+        "Open Disease"
+      ],
+      "totalApis": 10
+    },
+    "Jobs": {
+      "freeApis": [
+        "Arbeitnow",
+        "FBI Wanted",
+        "Jobicy",
+        "Remotive",
+        "Workable"
+      ],
+      "totalApis": 8
+    },
+    "Machine Learning": {
+      "freeApis": [
+        "Clarifai",
+        "Hugging Face",
+        "OpenAI"
+      ],
+      "totalApis": 8
+    },
+    "Music": {
+      "freeApis": [
+        "AudioDB",
+        "Deezer",
+        "Freesound",
+        "Genius",
+        "iTunes Search",
+        "Lyrics.ovh",
+        "MusicBrainz",
+        "Songsterr",
+        "Vagalume"
+      ],
+      "totalApis": 16
+    },
+    "News": {
+      "freeApis": [
+        "Currents API",
+        "GNews",
+        "HackerNews"
+      ],
+      "totalApis": 10
+    },
+    "Open Data": {
+      "freeApis": [
+        "Callook",
+        "College Scorecard",
+        "Data.gov",
+        "OpenCorporates",
+        "Quandl",
+        "World Bank"
+      ],
+      "totalApis": 14
+    },
+    "Open Source Projects": {
+      "freeApis": [],
+      "totalApis": 4
+    },
+    "Patent": {
+      "freeApis": [],
+      "totalApis": 3
+    },
+    "Personality": {
+      "freeApis": [
+        "Advice Slip",
+        "Faker API",
+        "Quotable",
+        "They Said So Quotes"
+      ],
+      "totalApis": 6
+    },
+    "Phone": {
+      "freeApis": [],
+      "totalApis": 5
+    },
+    "Photography": {
+      "freeApis": [
+        "Lorem Flickr",
+        "Picsum",
+        "PlaceKitten",
+        "Unsplash"
+      ],
+      "totalApis": 8
+    },
+    "Programming": {
+      "freeApis": [
+        "Codeforces",
+        "GitHub",
+        "GitLab",
+        "HackerRank",
+        "Stack Exchange"
+      ],
+      "totalApis": 16
+    },
+    "Science & Math": {
+      "freeApis": [
+        "arXiv",
+        "ISRO",
+        "Mathjs",
+        "NASA",
+        "Numbers API",
+        "Open Science Framework",
+        "USGS Earthquake",
+        "Wikipedia"
+      ],
+      "totalApis": 16
+    },
+    "Security": {
+      "freeApis": [
+        "SSL Labs",
+        "URLhaus"
+      ],
+      "totalApis": 8
+    },
+    "Shopping": {
+      "freeApis": [
+        "Best Buy",
+        "eBay"
+      ],
+      "totalApis": 6
+    },
+    "Social": {
+      "freeApis": [
+        "Discord",
+        "HackerNews",
+        "Reddit"
+      ],
+      "totalApis": 16
+    },
+    "Sports & Fitness": {
+      "freeApis": [
+        "Ball Don't Lie",
+        "City Bikes",
+        "College Football Data",
+        "Ergast F1",
+        "TheSportsDB"
+      ],
+      "totalApis": 14
+    },
+    "Test Data": {
+      "freeApis": [
+        "Bacon Ipsum",
+        "Faker API",
+        "JSONPlaceholder",
+        "Mockaroo",
+        "RandomUser",
+        "ReqRes",
+        "UI Names"
+      ],
+      "totalApis": 10
+    },
+    "Text Analysis": {
+      "freeApis": [
+        "Linguatools",
+        "Sentiment Analysis",
+        "Watson"
+      ],
+      "totalApis": 8
+    },
+    "Tracking": {
+      "freeApis": [
+        "Correios",
+        "Postmon"
+      ],
+      "totalApis": 6
+    },
+    "Transportation": {
+      "freeApis": [
+        "City Bikes",
+        "TransitLand"
+      ],
+      "totalApis": 8
+    },
+    "URL Shorteners": {
+      "freeApis": [
+        "CleanURI",
+        "Shrtcode",
+        "vgd"
+      ],
+      "totalApis": 4
+    },
+    "Vehicle": {
+      "freeApis": [
+        "NHTSA"
+      ],
+      "totalApis": 4
+    },
+    "Video": {
+      "freeApis": [
+        "Movie Quote",
+        "SWAPI",
+        "TMDb",
+        "Trakt",
+        "Vimeo",
+        "YouTube"
+      ],
+      "totalApis": 10
+    },
+    "Weather": {
+      "freeApis": [
+        "7Timer!",
+        "OpenWeather",
+        "Weatherstack"
+      ],
+      "totalApis": 6
+    },
+    "Advertising": {
+      "freeApis": [],
+      "totalApis": 7
+    },
+    "Analytics": {
+      "freeApis": [
+        "Open Web Analytics",
+        "Google Charts"
+      ],
+      "totalApis": 13
+    },
+    "Augmented Reality": {
+      "freeApis": [],
+      "totalApis": 2
+    },
+    "BarCode": {
+      "freeApis": [
+        "Stakdek QR Generator"
+      ],
+      "totalApis": 6
+    },
+    "Captcha": {
+      "freeApis": [
+        "Google reCAPTCHA"
+      ],
+      "totalApis": 3
+    },
+    "Commerce": {
+      "freeApis": [
+        "Repetiti",
+        "Yellow Pages API"
+      ],
+      "totalApis": 8
+    },
+    "Communication": {
+      "freeApis": [
+        "Eqivo"
+      ],
+      "totalApis": 3
+    },
+    "Face Recognition": {
+      "freeApis": [],
+      "totalApis": 5
+    },
+    "File Storage": {
+      "freeApis": [
+        "Gyazo"
+      ],
+      "totalApis": 6
+    },
+    "Fitness": {
+      "freeApis": [],
+      "totalApis": 4
+    },
+    "Identity Verification": {
+      "freeApis": [],
+      "totalApis": 3
+    },
+    "Image Moderation": {
+      "freeApis": [],
+      "totalApis": 3
+    },
+    "IoT": {
+      "freeApis": [],
+      "totalApis": 4
+    },
+    "Legal": {
+      "freeApis": [
+        "Creative Commons",
+        "Spdx License List"
+      ],
+      "totalApis": 3
+    },
+    "Login & Authentication": {
+      "freeApis": [
+        "Auth0",
+        "Firebase Auth"
+      ],
+      "totalApis": 6
+    },
+    "Medical": {
+      "freeApis": [],
+      "totalApis": 5
+    },
+    "NLP": {
+      "freeApis": [
+        "Linguatools"
+      ],
+      "totalApis": 6
+    },
+    "Screenshots": {
+      "freeApis": [],
+      "totalApis": 4
+    },
+    "Videogames": {
+      "freeApis": [
+        "PokeAPI",
+        "Age of Empires II"
+      ],
+      "totalApis": 12
+    }
+  },
+  "sources": [
+    {
+      "name": "public-apis/public-apis",
+      "url": "https://github.com/public-apis/public-apis"
+    },
+    {
+      "name": "n0shake/Public-APIs",
+      "url": "https://github.com/n0shake/Public-APIs"
+    }
+  ]
+}

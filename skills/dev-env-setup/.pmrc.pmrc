@@ -1,0 +1,4 @@
+# pnpm 配置 - D盘版
+store-dir=D:\dev-tools\pnpm-store
+global-bin-dir=D:\dev-tools\pnpm-home
+registry=https://registry.npmmirror.com

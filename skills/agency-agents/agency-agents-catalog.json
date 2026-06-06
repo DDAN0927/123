@@ -1,0 +1,1704 @@
+{
+  "version": "1.0",
+  "source": "https://github.com/jnMetaCode/agency-agents-zh",
+  "updatedAt": "2026-05-12",
+  "meta": {
+    "totalAgents": 215,
+    "totalDepartments": 17,
+    "originalCount": 165,
+    "chinaOriginalCount": 50
+  },
+  "departments": [
+    {
+      "id": "engineering",
+      "name": "工程部",
+      "nameEn": "Engineering",
+      "description": "写代码、搭架构、保质量",
+      "agents": [
+        {
+          "id": "engineering-full-stack-developer",
+          "name": "全栈开发",
+          "desc": "React/Next.js + Node.js + PostgreSQL 全链路",
+          "source": "翻译",
+          "skills": ["React", "Next.js", "Node.js", "PostgreSQL", "TypeScript"]
+        },
+        {
+          "id": "engineering-frontend-developer",
+          "name": "前端开发",
+          "desc": "React/Vue组件开发与交互体验优化",
+          "source": "翻译",
+          "skills": ["React", "Vue", "TypeScript", "CSS", "Webpack"]
+        },
+        {
+          "id": "engineering-backend-developer",
+          "name": "后端开发",
+          "desc": "API设计、数据库建模与服务端逻辑",
+          "source": "翻译",
+          "skills": ["Node.js", "Python", "PostgreSQL", "REST API", "Redis"]
+        },
+        {
+          "id": "engineering-mobile-developer",
+          "name": "移动开发",
+          "desc": "iOS/Android/React Native跨平台应用",
+          "source": "翻译",
+          "skills": ["React Native", "Swift", "Kotlin", "Flutter", "Mobile UX"]
+        },
+        {
+          "id": "engineering-devops-engineer",
+          "name": "DevOps工程师",
+          "desc": "CI/CD流水线与基础设施自动化",
+          "source": "翻译",
+          "skills": ["Docker", "Kubernetes", "GitHub Actions", "Terraform", "Linux"]
+        },
+        {
+          "id": "engineering-qa-engineer",
+          "name": "质量保障工程师",
+          "desc": "测试策略制定与质量门禁把控",
+          "source": "翻译",
+          "skills": ["Selenium", "Jest", "Cypress", "Test Planning", "CI/CD"]
+        },
+        {
+          "id": "engineering-architect",
+          "name": "系统架构师",
+          "desc": "分布式架构设计与技术选型决策",
+          "source": "翻译",
+          "skills": ["System Design", "Microservices", "DDD", "Cloud Architecture", "Tech Radar"]
+        },
+        {
+          "id": "engineering-data-engineer",
+          "name": "数据工程师",
+          "desc": "ETL管道、数据仓库与流处理",
+          "source": "翻译",
+          "skills": ["Spark", "Airflow", "dbt", "Kafka", "SQL"]
+        },
+        {
+          "id": "engineering-ml-engineer",
+          "name": "机器学习工程师",
+          "desc": "模型训练、部署与MLOps全流程",
+          "source": "翻译",
+          "skills": ["PyTorch", "TensorFlow", "MLOps", "Python", "Model Serving"]
+        },
+        {
+          "id": "engineering-security-engineer",
+          "name": "安全工程师",
+          "desc": "安全审计、渗透测试与漏洞修复",
+          "source": "翻译",
+          "skills": ["Penetration Testing", "OWASP", "SIEM", "Encryption", "Compliance"]
+        },
+        {
+          "id": "engineering-platform-engineer",
+          "name": "平台工程师",
+          "desc": "开发者平台与内部工具链建设",
+          "source": "翻译",
+          "skills": ["Developer Experience", "API Gateway", "Service Mesh", "Kubernetes", "Backstage"]
+        },
+        {
+          "id": "engineering-sre",
+          "name": "SRE工程师",
+          "desc": "服务可靠性保障与故障应急响应",
+          "source": "翻译",
+          "skills": ["SLO/SLI", "Incident Response", "Monitoring", "On-call", "Post-mortem"]
+        },
+        {
+          "id": "engineering-embedded-engineer",
+          "name": "嵌入式工程师",
+          "desc": "MCU/RTOS固件开发与硬件调试",
+          "source": "原创",
+          "skills": ["C/C++", "RTOS", "ARM", "JTAG", "Peripheral Drivers"]
+        },
+        {
+          "id": "engineering-firmware-engineer",
+          "name": "固件工程师",
+          "desc": "底层驱动与固件架构设计",
+          "source": "原创",
+          "skills": ["C", "Firmware Architecture", "Bootloader", "HAL", "OTA Update"]
+        },
+        {
+          "id": "engineering-iot-engineer",
+          "name": "IoT工程师",
+          "desc": "物联网协议栈与边缘计算方案",
+          "source": "翻译",
+          "skills": ["MQTT", "CoAP", "Edge Computing", "Sensor Networks", "LoRa"]
+        },
+        {
+          "id": "engineering-pc-host-engineer",
+          "name": "PC主机工程师",
+          "desc": "桌面应用与系统级开发",
+          "source": "原创",
+          "skills": ["C++", "Electron", "Win32 API", "System Programming", "COM"]
+        },
+        {
+          "id": "engineering-mechanical-design-engineer",
+          "name": "机械设计工程师",
+          "desc": "CAD建模与结构仿真分析",
+          "source": "原创",
+          "skills": ["SolidWorks", "AutoCAD", "FEA", "GD&T", "3D Modeling"]
+        },
+        {
+          "id": "engineering-cloud-infrastructure-architect",
+          "name": "云基础架构师",
+          "desc": "多云架构设计与资源规划",
+          "source": "翻译",
+          "skills": ["AWS", "Azure", "GCP", "Terraform", "Cloud Strategy"]
+        },
+        {
+          "id": "engineering-database-architect",
+          "name": "数据库架构师",
+          "desc": "数据模型设计与分库分表策略",
+          "source": "翻译",
+          "skills": ["Database Design", "Sharding", "Indexing", "Query Optimization", "Replication"]
+        },
+        {
+          "id": "engineering-api-integration-specialist",
+          "name": "API集成专家",
+          "desc": "第三方服务对接与接口治理",
+          "source": "翻译",
+          "skills": ["REST", "GraphQL", "OAuth", "API Gateway", "Integration Testing"]
+        },
+        {
+          "id": "engineering-performance-engineer",
+          "name": "性能工程师",
+          "desc": "系统瓶颈定位与性能调优",
+          "source": "翻译",
+          "skills": ["Profiling", "Load Testing", "Caching", "Optimization", "Benchmarking"]
+        },
+        {
+          "id": "engineering-accessibility-engineer",
+          "name": "无障碍工程师",
+          "desc": "WCAG合规与辅助技术适配",
+          "source": "翻译",
+          "skills": ["WCAG", "ARIA", "Screen Readers", "Semantic HTML", "Inclusive Design"]
+        },
+        {
+          "id": "engineering-observability-engineer",
+          "name": "可观测性工程师",
+          "desc": "日志/指标/链路追踪体系建设",
+          "source": "翻译",
+          "skills": ["Prometheus", "Grafana", "OpenTelemetry", "ELK", "Distributed Tracing"]
+        },
+        {
+          "id": "engineering-site-reliability-engineer",
+          "name": "站点可靠性工程师",
+          "desc": "SLA保障与容量规划",
+          "source": "翻译",
+          "skills": ["Capacity Planning", "SLA Management", "Chaos Engineering", "Monitoring", "Automation"]
+        },
+        {
+          "id": "engineering-chaos-engineer",
+          "name": "混沌工程师",
+          "desc": "故障注入与系统韧性验证",
+          "source": "翻译",
+          "skills": ["Chaos Monkey", "Fault Injection", "Resilience Testing", "GameDay", "Blast Radius"]
+        },
+        {
+          "id": "engineering-release-engineer",
+          "name": "发布工程师",
+          "desc": "版本管理与灰度发布策略",
+          "source": "翻译",
+          "skills": ["Release Management", "Canary Deployment", "Feature Flags", "Versioning", "Rollback"]
+        },
+        {
+          "id": "engineering-build-engineer",
+          "name": "构建工程师",
+          "desc": "编译优化与构建系统维护",
+          "source": "翻译",
+          "skills": ["Bazel", "CMake", "Build Optimization", "Dependency Management", "CI Pipeline"]
+        },
+        {
+          "id": "engineering-infrastructure-as-code-engineer",
+          "name": "基础设施即代码工程师",
+          "desc": "Terraform/Pulumi IaC实践",
+          "source": "翻译",
+          "skills": ["Terraform", "Pulumi", "Ansible", "CloudFormation", "GitOps"]
+        },
+        {
+          "id": "engineering-container-orchestration-specialist",
+          "name": "容器编排专家",
+          "desc": "Kubernetes集群管理与调度优化",
+          "source": "翻译",
+          "skills": ["Kubernetes", "Docker", "Helm", "Service Mesh", "HPA/VPA"]
+        },
+        {
+          "id": "engineering-ci-cd-pipeline-architect",
+          "name": "CI/CD流水线架构师",
+          "desc": "持续集成交付流水线设计",
+          "source": "翻译",
+          "skills": ["Jenkins", "GitHub Actions", "GitLab CI", "Pipeline Design", "Artifact Management"]
+        },
+        {
+          "id": "engineering-cost-optimization-engineer",
+          "name": "成本优化工程师",
+          "desc": "云资源成本分析与节省策略",
+          "source": "翻译",
+          "skills": ["Cloud Cost Analysis", "Reserved Instances", "Spot Instances", "FinOps", "Resource Right-sizing"]
+        },
+        {
+          "id": "engineering-disaster-recovery-specialist",
+          "name": "灾备专家",
+          "desc": "容灾方案设计与演练执行",
+          "source": "翻译",
+          "skills": ["DR Planning", "RPO/RTO", "Backup Strategy", "Failover", "DR Drills"]
+        },
+        {
+          "id": "engineering-migration-specialist",
+          "name": "迁移专家",
+          "desc": "系统与数据迁移方案制定",
+          "source": "翻译",
+          "skills": ["Cloud Migration", "Data Migration", "Strangler Fig", "Cutover Planning", "Validation"]
+        },
+        {
+          "id": "engineering-tech-debt-manager",
+          "name": "技术债管理师",
+          "desc": "代码质量评估与重构优先级规划",
+          "source": "翻译",
+          "skills": ["Code Quality", "SonarQube", "Refactoring", "Technical Debt Tracking", "Architecture Fitness"]
+        },
+        {
+          "id": "engineering-tech-lead",
+          "name": "技术负责人",
+          "desc": "技术决策与团队技术方向把控",
+          "source": "翻译",
+          "skills": ["Technical Leadership", "Architecture Decision", "Code Review", "Mentoring", "Tech Strategy"]
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "name": "设计部",
+      "nameEn": "Design",
+      "description": "创视觉、定体验、守品牌",
+      "agents": [
+        {
+          "id": "design-ui-designer",
+          "name": "UI设计师",
+          "desc": "界面视觉设计与设计系统维护",
+          "source": "翻译",
+          "skills": ["Figma", "Design Systems", "Visual Design", "Typography", "Color Theory"]
+        },
+        {
+          "id": "design-ux-researcher",
+          "name": "UX研究员",
+          "desc": "用户调研与体验洞察挖掘",
+          "source": "翻译",
+          "skills": ["User Interviews", "Usability Testing", "Personas", "Journey Mapping", "Survey Design"]
+        },
+        {
+          "id": "design-ux-architect",
+          "name": "UX架构师",
+          "desc": "信息架构与交互流程设计",
+          "source": "翻译",
+          "skills": ["Information Architecture", "Wireframing", "Interaction Design", "Prototyping", "Heuristic Evaluation"]
+        },
+        {
+          "id": "design-brand-guardian",
+          "name": "品牌守护者",
+          "desc": "品牌一致性审核与视觉规范",
+          "source": "翻译",
+          "skills": ["Brand Guidelines", "Visual Consistency", "Style Audit", "Brand Strategy", "Asset Management"]
+        },
+        {
+          "id": "design-image-prompt-engineer",
+          "name": "图像提示工程师",
+          "desc": "AI绘图提示词优化与生成",
+          "source": "翻译",
+          "skills": ["Midjourney", "Stable Diffusion", "Prompt Engineering", "Art Direction", "Image Generation"]
+        },
+        {
+          "id": "design-visual-storyteller",
+          "name": "视觉叙事师",
+          "desc": "品牌故事可视化与情感传达",
+          "source": "翻译",
+          "skills": ["Storytelling", "Motion Graphics", "Visual Narrative", "Brand Story", "Emotional Design"]
+        },
+        {
+          "id": "design-whimsy-injector",
+          "name": "趣味注入师",
+          "desc": "产品趣味性与惊喜感设计",
+          "source": "翻译",
+          "skills": ["Delight Design", "Micro-interactions", "Easter Eggs", "Playful UX", "Surprise Mechanics"]
+        },
+        {
+          "id": "design-inclusive-visuals-specialist",
+          "name": "包容性视觉专家",
+          "desc": "无障碍设计与多元包容视觉",
+          "source": "翻译",
+          "skills": ["Inclusive Design", "Color Blindness", "Cultural Sensitivity", "Accessible Graphics", "Representation"]
+        }
+      ]
+    },
+    {
+      "id": "marketing",
+      "name": "营销部",
+      "nameEn": "Marketing",
+      "description": "获流量、做内容、促转化",
+      "agents": [
+        {
+          "id": "marketing-xiaohongshu-operator",
+          "name": "小红书运营",
+          "desc": "种草笔记与社区互动运营",
+          "source": "原创",
+          "skills": ["小红书", "种草笔记", "社区运营", "KOL合作", "内容策划"]
+        },
+        {
+          "id": "marketing-douyin-strategist",
+          "name": "抖音策略师",
+          "desc": "短视频内容策略与流量获取",
+          "source": "原创",
+          "skills": ["抖音", "短视频策略", "流量运营", "直播联动", "算法推荐"]
+        },
+        {
+          "id": "marketing-wechat-operator",
+          "name": "微信运营",
+          "desc": "公众号/小程序生态运营",
+          "source": "原创",
+          "skills": ["微信公众号", "小程序", "社群运营", "微信生态", "菜单配置"]
+        },
+        {
+          "id": "marketing-bilibili-strategist",
+          "name": "B站策略师",
+          "desc": "视频内容策划与社区运营",
+          "source": "原创",
+          "skills": ["B站", "UP主合作", "弹幕文化", "分区运营", "内容策划"]
+        },
+        {
+          "id": "marketing-kuaishou-strategist",
+          "name": "快手策略师",
+          "desc": "下沉市场短视频运营策略",
+          "source": "原创",
+          "skills": ["快手", "下沉市场", "老铁文化", "直播带货", "短视频运营"]
+        },
+        {
+          "id": "marketing-china-ecommerce-operator",
+          "name": "国内电商运营",
+          "desc": "淘宝/京东/拼多多店铺运营",
+          "source": "原创",
+          "skills": ["淘宝", "京东", "拼多多", "店铺运营", "活动策划"]
+        },
+        {
+          "id": "marketing-ecommerce-operator",
+          "name": "电商运营",
+          "desc": "电商平台选品与店铺管理",
+          "source": "原创",
+          "skills": ["选品策略", "店铺管理", "转化优化", "评价管理", "供应链协同"]
+        },
+        {
+          "id": "marketing-baidu-seo-specialist",
+          "name": "百度SEO专家",
+          "desc": "搜索引擎优化与排名提升",
+          "source": "原创",
+          "skills": ["百度SEO", "关键词优化", "站群策略", "百度算法", "内容优化"]
+        },
+        {
+          "id": "marketing-private-domain-operator",
+          "name": "私域运营",
+          "desc": "社群运营与用户生命周期管理",
+          "source": "原创",
+          "skills": ["私域流量", "社群运营", "用户分层", "裂变活动", "SCRM"]
+        },
+        {
+          "id": "marketing-livestream-commerce-coach",
+          "name": "直播带货教练",
+          "desc": "直播话术与转化技巧指导",
+          "source": "原创",
+          "skills": ["直播话术", "转化技巧", "场控节奏", "选品排品", "互动设计"]
+        },
+        {
+          "id": "marketing-cross-border-ecommerce",
+          "name": "跨境电商运营",
+          "desc": "Amazon/Shopee跨境店铺运营",
+          "source": "原创",
+          "skills": ["Amazon", "Shopee", "跨境物流", "海外仓", "本地化运营"]
+        },
+        {
+          "id": "marketing-short-video-editing-coach",
+          "name": "短视频剪辑教练",
+          "desc": "剪辑技巧与爆款模板指导",
+          "source": "原创",
+          "skills": ["剪映", "剪辑技巧", "爆款模板", "节奏把控", "字幕特效"]
+        },
+        {
+          "id": "marketing-weibo-strategist",
+          "name": "微博策略师",
+          "desc": "话题营销与热搜运营",
+          "source": "原创",
+          "skills": ["微博", "话题营销", "热搜运营", "超话社区", "粉丝通"]
+        },
+        {
+          "id": "marketing-podcast-strategist",
+          "name": "播客策略师",
+          "desc": "音频内容策划与平台分发",
+          "source": "原创",
+          "skills": ["播客制作", "音频策划", "小宇宙", "喜马拉雅", "内容分发"]
+        },
+        {
+          "id": "marketing-weixin-channels-strategist",
+          "name": "视频号策略师",
+          "desc": "微信视频号内容与直播运营",
+          "source": "原创",
+          "skills": ["视频号", "微信直播", "社交推荐", "内容策划", "私域联动"]
+        },
+        {
+          "id": "marketing-knowledge-commerce-strategist",
+          "name": "知识付费策略师",
+          "desc": "课程产品设计分销与变现",
+          "source": "原创",
+          "skills": ["知识付费", "课程设计", "分销体系", "变现策略", "社群转化"]
+        },
+        {
+          "id": "marketing-china-market-localization-strategist",
+          "name": "国内市场本地化策略师",
+          "desc": "区域市场洞察与本地化方案",
+          "source": "原创",
+          "skills": ["市场洞察", "本地化策略", "区域运营", "文化适配", "渠道下沉"]
+        },
+        {
+          "id": "marketing-daily-news-briefing",
+          "name": "每日新闻简报",
+          "desc": "行业资讯筛选与每日速递",
+          "source": "原创",
+          "skills": ["资讯筛选", "新闻摘要", "行业动态", "趋势速递", "信息聚合"]
+        },
+        {
+          "id": "marketing-xiaohongshu-specialist",
+          "name": "小红书专家",
+          "desc": "笔记优化与品牌合作对接",
+          "source": "原创",
+          "skills": ["笔记优化", "品牌合作", "蒲公英平台", "数据复盘", "投放策略"]
+        },
+        {
+          "id": "marketing-wechat-official-account",
+          "name": "微信公众号运营",
+          "desc": "图文内容策划与粉丝增长",
+          "source": "原创",
+          "skills": ["图文策划", "粉丝增长", "排版设计", "菜单运营", "数据看板"]
+        },
+        {
+          "id": "marketing-zhihu-strategist",
+          "name": "知乎策略师",
+          "desc": "问答营销与专业内容输出",
+          "source": "原创",
+          "skills": ["知乎", "问答营销", "专业内容", "知+投放", "品牌提问"]
+        },
+        {
+          "id": "marketing-tiktok-strategist",
+          "name": "TikTok策略师",
+          "desc": "TikTok内容策略与海外增长",
+          "source": "翻译",
+          "skills": ["TikTok", "Short-form Video", "Viral Content", "Hashtag Strategy", "Creator Partnerships"]
+        },
+        {
+          "id": "marketing-twitter-engager",
+          "name": "Twitter互动师",
+          "desc": "推文互动与社区氛围营造",
+          "source": "翻译",
+          "skills": ["Twitter/X", "Community Engagement", "Thread Writing", "Trend Surfing", "Audience Growth"]
+        },
+        {
+          "id": "marketing-instagram-curator",
+          "name": "Instagram策展人",
+          "desc": "视觉内容策划与品牌调性维护",
+          "source": "翻译",
+          "skills": ["Instagram", "Visual Curation", "Reels", "Storytelling", "Brand Aesthetics"]
+        },
+        {
+          "id": "marketing-reddit-community-builder",
+          "name": "Reddit社区建设者",
+          "desc": "社区运营与口碑传播",
+          "source": "翻译",
+          "skills": ["Reddit", "Community Management", "AMA", "Subreddit Strategy", "Organic Growth"]
+        },
+        {
+          "id": "marketing-app-store-optimizer",
+          "name": "应用商店优化师",
+          "desc": "ASO关键词优化与排名提升",
+          "source": "翻译",
+          "skills": ["ASO", "Keyword Optimization", "App Store", "Google Play", "Conversion Rate"]
+        },
+        {
+          "id": "marketing-video-optimization-specialist",
+          "name": "视频优化专家",
+          "desc": "YouTube/B站视频SEO与推荐优化",
+          "source": "翻译",
+          "skills": ["YouTube SEO", "Thumbnail Optimization", "Video Analytics", "Recommendation Algorithm", "CTR Optimization"]
+        },
+        {
+          "id": "marketing-growth-hacker",
+          "name": "增长黑客",
+          "desc": "低成本获客与增长实验设计",
+          "source": "翻译",
+          "skills": ["Growth Experiments", "A/B Testing", "Viral Loops", "Funnel Optimization", "Analytics"]
+        },
+        {
+          "id": "marketing-content-creator",
+          "name": "内容创作者",
+          "desc": "多格式内容生产与创意策划",
+          "source": "翻译",
+          "skills": ["Copywriting", "Content Strategy", "SEO Writing", "Multi-format", "Editorial Calendar"]
+        },
+        {
+          "id": "marketing-social-media-strategist",
+          "name": "社交媒体策略师",
+          "desc": "全渠道社媒策略与排期管理",
+          "source": "翻译",
+          "skills": ["Social Strategy", "Content Calendar", "Platform Analytics", "Community Management", "Cross-platform"]
+        },
+        {
+          "id": "marketing-seo-specialist",
+          "name": "SEO专家",
+          "desc": "搜索引擎优化与内容策略",
+          "source": "翻译",
+          "skills": ["Technical SEO", "On-page SEO", "Link Building", "Keyword Research", "Content Strategy"]
+        },
+        {
+          "id": "marketing-carousel-growth-engine",
+          "name": "轮播增长引擎",
+          "desc": "LinkedIn/小红书轮播内容增长",
+          "source": "翻译",
+          "skills": ["Carousel Posts", "LinkedIn", "Slide Design", "Engagement Hacks", "Content Repurposing"]
+        },
+        {
+          "id": "marketing-linkedin-content-creator",
+          "name": "LinkedIn内容创作者",
+          "desc": "职场内容策划与B端获客",
+          "source": "翻译",
+          "skills": ["LinkedIn", "B2B Content", "Thought Leadership", "Networking", "Lead Generation"]
+        },
+        {
+          "id": "marketing-book-co-author",
+          "name": "图书合著者",
+          "desc": "专业书籍章节撰写与出版协作",
+          "source": "翻译",
+          "skills": ["Book Writing", "Research", "Editorial Collaboration", "Publishing", "Subject Matter Expert"]
+        },
+        {
+          "id": "marketing-agentic-search-optimizer",
+          "name": "智能搜索优化师",
+          "desc": "AI搜索结果优化与引用策略",
+          "source": "翻译",
+          "skills": ["AI Search", "LLM Optimization", "Citation Strategy", "Structured Data", "Knowledge Graph"]
+        },
+        {
+          "id": "marketing-ai-citation-strategist",
+          "name": "AI引用策略师",
+          "desc": "大模型引用机制与品牌曝光",
+          "source": "翻译",
+          "skills": ["LLM Citations", "Brand Visibility", "AI Optimization", "Content Authority", "Reference Building"]
+        }
+      ]
+    },
+    {
+      "id": "paid-media",
+      "name": "付费媒体部",
+      "nameEn": "Paid Media",
+      "description": "投广告、控预算、追ROI",
+      "agents": [
+        {
+          "id": "paid-media-auditor",
+          "name": "投放审计师",
+          "desc": "广告投放数据审计与异常检测",
+          "source": "翻译",
+          "skills": ["Ad Auditing", "Anomaly Detection", "Spend Analysis", "Fraud Detection", "Reporting"]
+        },
+        {
+          "id": "paid-media-creative-strategist",
+          "name": "创意策略师",
+          "desc": "广告创意方向与素材策略",
+          "source": "翻译",
+          "skills": ["Creative Strategy", "Ad Copy", "Visual Direction", "A/B Creative", "Brand Messaging"]
+        },
+        {
+          "id": "paid-media-paid-social-strategist",
+          "name": "付费社媒策略师",
+          "desc": "社交媒体广告投放与优化",
+          "source": "翻译",
+          "skills": ["Facebook Ads", "Instagram Ads", "LinkedIn Ads", "Audience Targeting", "ROAS Optimization"]
+        },
+        {
+          "id": "paid-media-ppc-strategist",
+          "name": "PPC策略师",
+          "desc": "搜索广告竞价策略与ROI优化",
+          "source": "翻译",
+          "skills": ["Google Ads", "Bing Ads", "Bid Strategy", "Keyword Planning", "Quality Score"]
+        },
+        {
+          "id": "paid-media-programmatic-buyer",
+          "name": "程序化购买师",
+          "desc": "DSP/SSP程序化广告采买",
+          "source": "翻译",
+          "skills": ["DSP", "SSP", "Real-time Bidding", "Audience Segmentation", "Programmatic Strategy"]
+        },
+        {
+          "id": "paid-media-search-query-analyst",
+          "name": "搜索词分析师",
+          "desc": "关键词挖掘与搜索意图分析",
+          "source": "翻译",
+          "skills": ["Search Query Analysis", "Keyword Mining", "Intent Mapping", "Negative Keywords", "Search Trends"]
+        },
+        {
+          "id": "paid-media-tracking-specialist",
+          "name": "追踪专家",
+          "desc": "转化追踪与归因模型配置",
+          "source": "翻译",
+          "skills": ["Conversion Tracking", "Attribution Modeling", "UTM Parameters", "Pixel Implementation", "GA4"]
+        }
+      ]
+    },
+    {
+      "id": "sales",
+      "name": "销售部",
+      "nameEn": "Sales",
+      "description": "找客户、谈交易、拿订单",
+      "agents": [
+        {
+          "id": "sales-account-strategist",
+          "name": "客户策略师",
+          "desc": "大客户关系管理与续约策略",
+          "source": "翻译",
+          "skills": ["Account Management", "Upselling", "Client Retention", "Strategic Planning", "Relationship Building"]
+        },
+        {
+          "id": "sales-coach",
+          "name": "销售教练",
+          "desc": "销售技能培训与话术辅导",
+          "source": "翻译",
+          "skills": ["Sales Coaching", "Objection Handling", "Closing Techniques", "Role-playing", "Skill Assessment"]
+        },
+        {
+          "id": "sales-deal-strategist",
+          "name": "交易策略师",
+          "desc": "复杂交易推进与谈判策略",
+          "source": "翻译",
+          "skills": ["Deal Strategy", "Negotiation", "Stakeholder Mapping", "Value Selling", "Competitive Positioning"]
+        },
+        {
+          "id": "sales-discovery-coach",
+          "name": "需求挖掘教练",
+          "desc": "客户需求发现与痛点诊断",
+          "source": "翻译",
+          "skills": ["Discovery Calls", "Pain Point Analysis", "SPIN Selling", "Qualification", "Active Listening"]
+        },
+        {
+          "id": "sales-engineer",
+          "name": "售前工程师",
+          "desc": "技术方案演示与POC支持",
+          "source": "翻译",
+          "skills": ["Technical Demo", "POC Design", "Solution Architecture", "RFP Response", "Product Knowledge"]
+        },
+        {
+          "id": "sales-outbound-strategist",
+          "name": "主动外联策略师",
+          "desc": "冷启动获客与触达策略",
+          "source": "翻译",
+          "skills": ["Cold Outreach", "Email Sequences", "LinkedIn Prospecting", "ICP Definition", "Response Optimization"]
+        },
+        {
+          "id": "sales-pipeline-analyst",
+          "name": "销售管线分析师",
+          "desc": "销售漏斗分析与预测",
+          "source": "翻译",
+          "skills": ["Pipeline Analysis", "Forecasting", "CRM Analytics", "Win Rate Optimization", "Stage Conversion"]
+        },
+        {
+          "id": "sales-proposal-strategist",
+          "name": "提案策略师",
+          "desc": "商务提案撰写与竞标策略",
+          "source": "翻译",
+          "skills": ["Proposal Writing", "RFP/RFQ", "Competitive Bidding", "Value Proposition", "Executive Summary"]
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "name": "财务部",
+      "nameEn": "Finance",
+      "description": "管账务、做分析、控风险",
+      "agents": [
+        {
+          "id": "finance-bookkeeper-controller",
+          "name": "记账与财务控制",
+          "desc": "账务处理与内控合规",
+          "source": "翻译",
+          "skills": ["Bookkeeping", "Internal Controls", "Reconciliation", "GAAP/IFRS", "Financial Reporting"]
+        },
+        {
+          "id": "finance-financial-analyst",
+          "name": "财务分析师",
+          "desc": "财务报表分析与经营洞察",
+          "source": "翻译",
+          "skills": ["Financial Modeling", "Ratio Analysis", "Variance Analysis", "Excel", "Business Intelligence"]
+        },
+        {
+          "id": "finance-financial-forecaster",
+          "name": "财务预测师",
+          "desc": "收入/成本预测与预算编制",
+          "source": "翻译",
+          "skills": ["Forecasting", "Budgeting", "Scenario Analysis", "Time Series", "Financial Planning"]
+        },
+        {
+          "id": "finance-fpa-analyst",
+          "name": "FP&A分析师",
+          "desc": "财务规划与分析决策支持",
+          "source": "翻译",
+          "skills": ["FP&A", "Rolling Forecasts", "Driver-based Planning", "Board Reporting", "Strategic Finance"]
+        },
+        {
+          "id": "finance-fraud-detector",
+          "name": "欺诈检测师",
+          "desc": "交易异常监测与风险预警",
+          "source": "翻译",
+          "skills": ["Fraud Detection", "Anomaly Detection", "AML/KYC", "Risk Scoring", "Transaction Monitoring"]
+        },
+        {
+          "id": "finance-investment-researcher",
+          "name": "投资研究员",
+          "desc": "行业研究与投资标的分析",
+          "source": "翻译",
+          "skills": ["Equity Research", "Valuation", "Industry Analysis", "Due Diligence", "Investment Memo"]
+        },
+        {
+          "id": "finance-invoice-manager",
+          "name": "发票管理师",
+          "desc": "发票开具核验与税务合规",
+          "source": "翻译",
+          "skills": ["Invoice Processing", "Tax Compliance", "AP/AR", "E-invoicing", "Audit Trail"]
+        },
+        {
+          "id": "finance-tax-strategist",
+          "name": "税务策略师",
+          "desc": "税务筹划与合规优化",
+          "source": "翻译",
+          "skills": ["Tax Planning", "Transfer Pricing", "Tax Compliance", "R&D Credits", "International Tax"]
+        }
+      ]
+    },
+    {
+      "id": "hr",
+      "name": "人力资源部",
+      "nameEn": "HR",
+      "description": "找人才、评绩效、建团队",
+      "agents": [
+        {
+          "id": "hr-recruiter",
+          "name": "招聘专员",
+          "desc": "人才寻访与面试流程管理",
+          "source": "翻译",
+          "skills": ["Talent Sourcing", "Interview Design", "ATS Management", "Employer Branding", "Candidate Experience"]
+        },
+        {
+          "id": "hr-performance-reviewer",
+          "name": "绩效评审师",
+          "desc": "绩效考核设计与反馈辅导",
+          "source": "翻译",
+          "skills": ["Performance Management", "OKR/KPI", "360 Feedback", "Coaching", "Talent Review"]
+        }
+      ]
+    },
+    {
+      "id": "legal",
+      "name": "法务部",
+      "nameEn": "Legal",
+      "description": "审合同、写政策、保合规",
+      "agents": [
+        {
+          "id": "legal-contract-reviewer",
+          "name": "合同审核师",
+          "desc": "合同条款审查与风险识别",
+          "source": "翻译",
+          "skills": ["Contract Review", "Risk Identification", "Clause Analysis", "Negotiation Support", "Compliance"]
+        },
+        {
+          "id": "legal-policy-writer",
+          "name": "政策撰写师",
+          "desc": "合规政策起草与制度文档",
+          "source": "翻译",
+          "skills": ["Policy Drafting", "Regulatory Compliance", "Legal Research", "Documentation", "Governance"]
+        }
+      ]
+    },
+    {
+      "id": "supply-chain",
+      "name": "供应链部",
+      "nameEn": "Supply Chain",
+      "description": "管库存、评供应商、优路线",
+      "agents": [
+        {
+          "id": "supply-chain-inventory-forecaster",
+          "name": "库存预测师",
+          "desc": "需求预测与库存优化",
+          "source": "翻译",
+          "skills": ["Demand Forecasting", "Safety Stock", "Inventory Optimization", "ABC Analysis", "Reorder Point"]
+        },
+        {
+          "id": "supply-chain-vendor-evaluator",
+          "name": "供应商评估师",
+          "desc": "供应商资质评估与绩效管理",
+          "source": "翻译",
+          "skills": ["Vendor Assessment", "Scorecard", "Due Diligence", "Contract Compliance", "Supplier Development"]
+        },
+        {
+          "id": "supply-chain-route-optimizer",
+          "name": "路线优化师",
+          "desc": "物流路线规划与成本优化",
+          "source": "翻译",
+          "skills": ["Route Optimization", "TSP/VRP", "Logistics Cost", "Last-mile Delivery", "Network Design"]
+        },
+        {
+          "id": "supply-chain-strategist",
+          "name": "供应链策略师",
+          "desc": "供应链网络设计与战略规划",
+          "source": "翻译",
+          "skills": ["Supply Chain Strategy", "Network Optimization", "S&OP", "Risk Management", "Sustainability"]
+        }
+      ]
+    },
+    {
+      "id": "product",
+      "name": "产品部",
+      "nameEn": "Product",
+      "description": "定需求、追趋势、听反馈",
+      "agents": [
+        {
+          "id": "product-sprint-prioritizer",
+          "name": "冲刺优先级排序师",
+          "desc": "需求优先级评估与迭代规划",
+          "source": "翻译",
+          "skills": ["Prioritization", "RICE/ICE", "Sprint Planning", "Backlog Management", "Stakeholder Alignment"]
+        },
+        {
+          "id": "product-trend-researcher",
+          "name": "趋势研究员",
+          "desc": "行业趋势洞察与竞品分析",
+          "source": "翻译",
+          "skills": ["Trend Analysis", "Competitive Intelligence", "Market Research", "Technology Scouting", "Insight Synthesis"]
+        },
+        {
+          "id": "product-feedback-synthesizer",
+          "name": "反馈综合师",
+          "desc": "用户反馈聚合与洞察提炼",
+          "source": "翻译",
+          "skills": ["Feedback Analysis", "NPS/CSAT", "Theme Extraction", "User Voice", "Actionable Insights"]
+        },
+        {
+          "id": "product-behavioral-nudge-engine",
+          "name": "行为助推引擎",
+          "desc": "用户行为引导与转化优化",
+          "source": "翻译",
+          "skills": ["Behavioral Economics", "Nudge Theory", "Choice Architecture", "Conversion Optimization", "Habit Formation"]
+        },
+        {
+          "id": "product-manager",
+          "name": "产品经理",
+          "desc": "产品规划与需求管理",
+          "source": "翻译",
+          "skills": ["Product Strategy", "Roadmapping", "User Stories", "Data-driven Decisions", "Cross-functional Leadership"]
+        }
+      ]
+    },
+    {
+      "id": "project-management",
+      "name": "项目管理部",
+      "nameEn": "Project Management",
+      "description": "管进度、跟实验、保交付",
+      "agents": [
+        {
+          "id": "project-management-senior",
+          "name": "高级项目经理",
+          "desc": "复杂项目群管理与风险把控",
+          "source": "翻译",
+          "skills": ["Program Management", "Risk Management", "Stakeholder Management", "Agile/Waterfall", "Resource Planning"]
+        },
+        {
+          "id": "project-management-project-shepherd",
+          "name": "项目守护者",
+          "desc": "项目进度跟踪与障碍清除",
+          "source": "翻译",
+          "skills": ["Progress Tracking", "Blocker Removal", "Daily Standups", "Status Reporting", "Escalation Management"]
+        },
+        {
+          "id": "project-management-experiment-tracker",
+          "name": "实验追踪师",
+          "desc": "A/B实验设计与结果追踪",
+          "source": "翻译",
+          "skills": ["A/B Testing", "Experiment Design", "Statistical Significance", "Feature Flags", "Results Tracking"]
+        },
+        {
+          "id": "project-management-studio-producer",
+          "name": "工作室制作人",
+          "desc": "创意项目排期与资源协调",
+          "source": "翻译",
+          "skills": ["Creative Production", "Timeline Management", "Resource Coordination", "Quality Assurance", "Client Communication"]
+        },
+        {
+          "id": "project-management-studio-operations",
+          "name": "工作室运营",
+          "desc": "团队效能优化与流程改进",
+          "source": "翻译",
+          "skills": ["Operations Management", "Process Improvement", "Team Productivity", "Tool Optimization", "Capacity Planning"]
+        },
+        {
+          "id": "project-management-jira-workflow-steward",
+          "name": "Jira工作流管家",
+          "desc": "工作流配置与看板管理",
+          "source": "翻译",
+          "skills": ["Jira Administration", "Workflow Design", "Board Configuration", "Automation Rules", "Reporting Dashboards"]
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "name": "测试部",
+      "nameEn": "Testing",
+      "description": "采证据、验结果、保质量",
+      "agents": [
+        {
+          "id": "testing-evidence-collector",
+          "name": "证据采集师",
+          "desc": "测试证据收集与文档化",
+          "source": "翻译",
+          "skills": ["Test Evidence", "Documentation", "Screenshot/Video Capture", "Traceability Matrix", "Audit Readiness"]
+        },
+        {
+          "id": "testing-reality-checker",
+          "name": "现实检验师",
+          "desc": "需求与实现一致性验证",
+          "source": "翻译",
+          "skills": ["Requirements Validation", "Gap Analysis", "Acceptance Criteria", "Specification Testing", "Consistency Check"]
+        },
+        {
+          "id": "testing-api-tester",
+          "name": "API测试师",
+          "desc": "接口自动化测试与契约验证",
+          "source": "翻译",
+          "skills": ["API Testing", "Postman", "Contract Testing", "Pact", "Automation Frameworks"]
+        },
+        {
+          "id": "testing-performance-benchmarker",
+          "name": "性能基准测试师",
+          "desc": "性能基准建立与回归检测",
+          "source": "翻译",
+          "skills": ["Performance Testing", "JMeter", "k6", "Benchmarking", "Regression Detection"]
+        },
+        {
+          "id": "testing-accessibility-auditor",
+          "name": "无障碍审计师",
+          "desc": "WCAG合规审计与改进建议",
+          "source": "翻译",
+          "skills": ["WCAG Audit", "axe/Lighthouse", "Screen Reader Testing", "Compliance Reporting", "Remediation Guidance"]
+        },
+        {
+          "id": "testing-test-results-analyzer",
+          "name": "测试结果分析师",
+          "desc": "测试数据统计与趋势分析",
+          "source": "翻译",
+          "skills": ["Test Analytics", "Trend Analysis", "Flaky Test Detection", "Coverage Analysis", "Quality Metrics"]
+        },
+        {
+          "id": "testing-tool-evaluator",
+          "name": "工具评估师",
+          "desc": "测试工具选型与效能评估",
+          "source": "翻译",
+          "skills": ["Tool Evaluation", "PoC Design", "Vendor Comparison", "ROI Analysis", "Integration Assessment"]
+        },
+        {
+          "id": "testing-workflow-optimizer",
+          "name": "工作流优化师",
+          "desc": "测试流程优化与效率提升",
+          "source": "翻译",
+          "skills": ["Process Optimization", "Test Automation Strategy", "CI Integration", "Shift-left Testing", "Cycle Time Reduction"]
+        },
+        {
+          "id": "testing-embedded-qa-engineer",
+          "name": "嵌入式QA工程师",
+          "desc": "嵌入式系统测试与硬件在环验证",
+          "source": "原创",
+          "skills": ["Embedded Testing", "HIL", "Firmware QA", "JTAG/SWD", "Real-time Testing"]
+        }
+      ]
+    },
+    {
+      "id": "support",
+      "name": "支持部",
+      "nameEn": "Support",
+      "description": "响需求、出报告、保运行",
+      "agents": [
+        {
+          "id": "support-support-responder",
+          "name": "支持响应师",
+          "desc": "客户问题响应与工单处理",
+          "source": "翻译",
+          "skills": ["Ticket Management", "Customer Communication", "SLA Compliance", "Knowledge Base", "Escalation"]
+        },
+        {
+          "id": "support-analytics-reporter",
+          "name": "分析报告师",
+          "desc": "运营数据报告与可视化",
+          "source": "翻译",
+          "skills": ["Data Visualization", "Report Generation", "Dashboard Design", "KPI Tracking", "Business Intelligence"]
+        },
+        {
+          "id": "support-legal-compliance-checker",
+          "name": "法律合规检查师",
+          "desc": "业务合规审查与风险提示",
+          "source": "原创",
+          "skills": ["合规审查", "风险提示", "监管要求", "合规报告", "整改跟踪"]
+        },
+        {
+          "id": "support-executive-summary-generator",
+          "name": "执行摘要生成师",
+          "desc": "关键信息提炼与决策摘要",
+          "source": "翻译",
+          "skills": ["Executive Summaries", "Information Synthesis", "Decision Support", "Briefing Documents", "Key Insights"]
+        },
+        {
+          "id": "support-finance-tracker",
+          "name": "财务追踪师",
+          "desc": "财务数据跟踪与异常预警",
+          "source": "翻译",
+          "skills": ["Financial Tracking", "Anomaly Alerting", "Budget Monitoring", "Expense Reporting", "Variance Analysis"]
+        },
+        {
+          "id": "support-infrastructure-maintainer",
+          "name": "基础设施维护师",
+          "desc": "系统运维与基础设施巡检",
+          "source": "翻译",
+          "skills": ["System Administration", "Infrastructure Monitoring", "Patch Management", "Incident Response", "Health Checks"]
+        },
+        {
+          "id": "support-recruitment-specialist",
+          "name": "招聘专员",
+          "desc": "人才寻访与招聘流程支持",
+          "source": "翻译",
+          "skills": ["Recruitment Support", "Candidate Screening", "Interview Scheduling", "Onboarding", "HR Systems"]
+        }
+      ]
+    },
+    {
+      "id": "specialized",
+      "name": "专项部",
+      "nameEn": "Specialized",
+      "description": "跨领域、专技能、解难题",
+      "agents": [
+        {
+          "id": "specialized-orchestrator",
+          "name": "智能体编排师",
+          "desc": "多Agent协作编排与任务调度",
+          "source": "翻译",
+          "skills": ["Agent Orchestration", "Task Decomposition", "Workflow Design", "Multi-agent Coordination", "LLM Chains"]
+        },
+        {
+          "id": "specialized-prompt-engineer",
+          "name": "提示词工程师",
+          "desc": "Prompt设计优化与模板管理",
+          "source": "翻译",
+          "skills": ["Prompt Design", "Few-shot Learning", "Chain-of-Thought", "Template Engineering", "LLM Evaluation"]
+        },
+        {
+          "id": "specialized-agentic-identity-trust",
+          "name": "智能体身份信任",
+          "desc": "Agent身份认证与信任评估",
+          "source": "翻译",
+          "skills": ["Identity Verification", "Trust Frameworks", "Authentication", "Decentralized Identity", "Security Protocols"]
+        },
+        {
+          "id": "specialized-data-consolidation-agent",
+          "name": "数据整合代理",
+          "desc": "多源数据汇聚与清洗整合",
+          "source": "翻译",
+          "skills": ["Data Integration", "ETL", "Data Cleansing", "Schema Mapping", "Data Quality"]
+        },
+        {
+          "id": "specialized-lsp-index-engineer",
+          "name": "LSP索引工程师",
+          "desc": "语言服务协议索引与代码导航",
+          "source": "翻译",
+          "skills": ["LSP", "Code Indexing", "Language Server", "AST Parsing", "IDE Integration"]
+        },
+        {
+          "id": "specialized-report-distribution-agent",
+          "name": "报告分发代理",
+          "desc": "报告自动生成与多渠道分发",
+          "source": "翻译",
+          "skills": ["Report Generation", "Multi-channel Distribution", "Template Engine", "Scheduling", "Format Conversion"]
+        },
+        {
+          "id": "specialized-sales-data-extraction-agent",
+          "name": "销售数据提取代理",
+          "desc": "销售数据采集与结构化提取",
+          "source": "翻译",
+          "skills": ["Data Extraction", "Web Scraping", "Structured Output", "CRM Integration", "Data Pipeline"]
+        },
+        {
+          "id": "specialized-compliance-auditor",
+          "name": "合规审计师",
+          "desc": "业务合规审计与整改跟踪",
+          "source": "原创",
+          "skills": ["合规审计", "整改跟踪", "内控评估", "审计报告", "监管对接"]
+        },
+        {
+          "id": "specialized-livestock-archive-auditor",
+          "name": "畜牧档案审计师",
+          "desc": "养殖档案审核与合规检查",
+          "source": "原创",
+          "skills": ["畜牧档案", "养殖合规", "检疫审核", "溯源管理", "数据校验"]
+        },
+        {
+          "id": "specialized-accounts-payable-agent",
+          "name": "应付账款代理",
+          "desc": "应付账款处理与对账核销",
+          "source": "原创",
+          "skills": ["应付账款", "对账核销", "发票匹配", "付款审批", "账龄分析"]
+        },
+        {
+          "id": "specialized-identity-graph-operator",
+          "name": "身份图谱操作师",
+          "desc": "用户身份图谱构建与关联分析",
+          "source": "原创",
+          "skills": ["身份图谱", "实体关联", "图数据库", "ID Mapping", "关系推理"]
+        },
+        {
+          "id": "specialized-cultural-intelligence-strategist",
+          "name": "文化智能策略师",
+          "desc": "跨文化沟通与本地化策略",
+          "source": "原创",
+          "skills": ["跨文化沟通", "本地化策略", "文化差异分析", "市场适配", "国际化咨询"]
+        },
+        {
+          "id": "specialized-developer-advocate",
+          "name": "开发者布道师",
+          "desc": "技术社区运营与开发者关系",
+          "source": "翻译",
+          "skills": ["Developer Relations", "Technical Writing", "Community Building", "Conference Speaking", "SDK Documentation"]
+        },
+        {
+          "id": "specialized-model-qa",
+          "name": "模型QA",
+          "desc": "大模型质量评估与基准测试",
+          "source": "翻译",
+          "skills": ["Model Evaluation", "Benchmarking", "Red Teaming", "Safety Testing", "Quality Metrics"]
+        },
+        {
+          "id": "specialized-zk-steward",
+          "name": "零知识证明管家",
+          "desc": "ZK证明生成与验证管理",
+          "source": "翻译",
+          "skills": ["Zero-knowledge Proofs", "ZK-SNARKs", "Circom", "Verification", "Privacy Protocols"]
+        },
+        {
+          "id": "specialized-blockchain-security-auditor",
+          "name": "区块链安全审计师",
+          "desc": "智能合约审计与链上安全",
+          "source": "翻译",
+          "skills": ["Smart Contract Audit", "Solidity", "DeFi Security", "Static Analysis", "Penetration Testing"]
+        },
+        {
+          "id": "specialized-study-abroad-advisor",
+          "name": "留学顾问",
+          "desc": "留学方案规划与院校申请",
+          "source": "原创",
+          "skills": ["留学规划", "院校申请", "文书指导", "签证辅导", "背景提升"]
+        },
+        {
+          "id": "specialized-government-digital-presales-consultant",
+          "name": "政务数字化售前顾问",
+          "desc": "政务项目需求分析与方案设计",
+          "source": "原创",
+          "skills": ["政务需求分析", "数字化方案", "招投标支持", "政策解读", "信创适配"]
+        },
+        {
+          "id": "specialized-corporate-training-designer",
+          "name": "企业培训设计师",
+          "desc": "培训课程设计与学习路径规划",
+          "source": "原创",
+          "skills": ["培训设计", "学习路径", "课程开发", "效果评估", "混合式学习"]
+        },
+        {
+          "id": "specialized-mcp-builder",
+          "name": "MCP构建师",
+          "desc": "MCP服务器开发与工具集成",
+          "source": "翻译",
+          "skills": ["MCP Protocol", "Tool Integration", "Server Development", "API Design", "SDK Usage"]
+        },
+        {
+          "id": "specialized-document-generator",
+          "name": "文档生成师",
+          "desc": "技术文档自动生成与维护",
+          "source": "翻译",
+          "skills": ["Document Generation", "API Documentation", "Template Systems", "Markdown", "Version Control"]
+        },
+        {
+          "id": "specialized-workflow-architect",
+          "name": "工作流架构师",
+          "desc": "业务流程建模与自动化设计",
+          "source": "翻译",
+          "skills": ["Workflow Design", "BPMN", "Automation", "Process Modeling", "Integration Architecture"]
+        },
+        {
+          "id": "specialized-automation-governance-architect",
+          "name": "自动化治理架构师",
+          "desc": "RPA治理与自动化合规框架",
+          "source": "翻译",
+          "skills": ["RPA Governance", "Automation Compliance", "Bot Management", "Audit Trails", "Risk Frameworks"]
+        },
+        {
+          "id": "specialized-salesforce-architect",
+          "name": "Salesforce架构师",
+          "desc": "Salesforce方案设计与定制开发",
+          "source": "翻译",
+          "skills": ["Salesforce", "Apex", "Lightning", "Integration", "Data Migration"]
+        },
+        {
+          "id": "specialized-healthcare-marketing-compliance",
+          "name": "医疗营销合规师",
+          "desc": "医疗广告合规审查与风险管控",
+          "source": "原创",
+          "skills": ["医疗广告合规", "风险管控", "法规审查", "内容审核", "合规培训"]
+        },
+        {
+          "id": "specialized-gaokao-college-advisor",
+          "name": "高考志愿顾问",
+          "desc": "志愿填报策略与院校匹配",
+          "source": "原创",
+          "skills": ["高考志愿", "院校匹配", "专业分析", "录取概率", "职业规划"]
+        },
+        {
+          "id": "specialized-pricing-optimizer",
+          "name": "定价优化师",
+          "desc": "动态定价策略与利润优化",
+          "source": "翻译",
+          "skills": ["Dynamic Pricing", "Price Elasticity", "Revenue Optimization", "Competitive Pricing", "A/B Testing"]
+        },
+        {
+          "id": "specialized-ai-policy-writer",
+          "name": "AI政策撰写师",
+          "desc": "AI治理政策与伦理规范起草",
+          "source": "原创",
+          "skills": ["AI治理", "伦理规范", "政策起草", "合规框架", "风险评估"]
+        },
+        {
+          "id": "specialized-risk-assessor",
+          "name": "风险评估师",
+          "desc": "业务风险识别与评估报告",
+          "source": "翻译",
+          "skills": ["Risk Assessment", "Risk Matrix", "Mitigation Planning", "Compliance Risk", "Business Continuity"]
+        },
+        {
+          "id": "specialized-meeting-assistant",
+          "name": "会议助理",
+          "desc": "会议纪要生成与行动项跟踪",
+          "source": "翻译",
+          "skills": ["Meeting Notes", "Action Items", "Transcription", "Summary Generation", "Follow-up Tracking"]
+        },
+        {
+          "id": "specialized-recruitment-specialist",
+          "name": "招聘专员",
+          "desc": "人才寻访与招聘流程管理",
+          "source": "翻译",
+          "skills": ["Talent Acquisition", "Candidate Sourcing", "Interview Process", "Offer Management", "Employer Branding"]
+        },
+        {
+          "id": "specialized-civil-engineer",
+          "name": "土木工程师",
+          "desc": "工程结构设计与施工方案",
+          "source": "翻译",
+          "skills": ["Structural Design", "CAD", "Construction Planning", "Building Codes", "Project Estimation"]
+        },
+        {
+          "id": "specialized-french-consulting-market",
+          "name": "法国咨询市场",
+          "desc": "法国市场进入与商业咨询",
+          "source": "原创",
+          "skills": ["法国市场", "商业咨询", "市场进入", "法规合规", "本地化策略"]
+        },
+        {
+          "id": "specialized-korean-business-navigator",
+          "name": "韩国商务导航",
+          "desc": "韩国市场拓展与商务礼仪",
+          "source": "原创",
+          "skills": ["韩国市场", "商务礼仪", "市场拓展", "本地化运营", "跨境合作"]
+        },
+        {
+          "id": "specialized-technical-translator-agent",
+          "name": "技术翻译代理",
+          "desc": "技术文档多语言翻译与本地化",
+          "source": "原创",
+          "skills": ["技术翻译", "多语言本地化", "术语管理", "CAT工具", "质量保证"]
+        },
+        {
+          "id": "specialized-healthcare-customer-service",
+          "name": "医疗客服",
+          "desc": "患者咨询响应与健康指导",
+          "source": "翻译",
+          "skills": ["Patient Communication", "Health Information", "Triage Support", "HIPAA Compliance", "Empathy"]
+        },
+        {
+          "id": "specialized-hospitality-guest-services",
+          "name": "酒店宾客服务",
+          "desc": "宾客需求响应与服务优化",
+          "source": "翻译",
+          "skills": ["Guest Relations", "Concierge Services", "Complaint Resolution", "Service Recovery", "Loyalty Programs"]
+        },
+        {
+          "id": "specialized-hr-onboarding",
+          "name": "HR入职引导",
+          "desc": "新员工入职流程与知识传递",
+          "source": "翻译",
+          "skills": ["Onboarding Design", "Knowledge Transfer", "Buddy Programs", "Orientation", "First 90 Days"]
+        },
+        {
+          "id": "specialized-language-translator",
+          "name": "语言翻译师",
+          "desc": "多语言翻译与术语管理",
+          "source": "原创",
+          "skills": ["多语言翻译", "术语库管理", "翻译记忆", "本地化工程", "质量评审"]
+        },
+        {
+          "id": "specialized-legal-billing-time-tracking",
+          "name": "法律计费时间追踪",
+          "desc": "律师工时记录与账单生成",
+          "source": "翻译",
+          "skills": ["Time Tracking", "Billing", "Invoice Generation", "Matter Management", "LEDES"]
+        },
+        {
+          "id": "specialized-legal-client-intake",
+          "name": "法律客户Intake",
+          "desc": "客户咨询登记与案件初筛",
+          "source": "翻译",
+          "skills": ["Client Intake", "Conflict Check", "Case Screening", "CRM", "Initial Assessment"]
+        },
+        {
+          "id": "specialized-legal-document-review",
+          "name": "法律文档审核",
+          "desc": "法律文书审查与风险标注",
+          "source": "翻译",
+          "skills": ["Document Review", "Risk Annotation", "Due Diligence", "E-discovery", "Compliance Check"]
+        },
+        {
+          "id": "specialized-loan-officer-assistant",
+          "name": "贷款专员助理",
+          "desc": "贷款申请审核与风险评估",
+          "source": "翻译",
+          "skills": ["Loan Processing", "Credit Analysis", "Risk Assessment", "Documentation", "Compliance"]
+        },
+        {
+          "id": "specialized-real-estate-buyer-seller",
+          "name": "房产买卖顾问",
+          "desc": "房产交易咨询与市场分析",
+          "source": "翻译",
+          "skills": ["Real Estate", "Market Analysis", "Property Valuation", "Transaction Support", "Negotiation"]
+        },
+        {
+          "id": "specialized-retail-customer-returns",
+          "name": "零售退货客服",
+          "desc": "退货流程处理与客户安抚",
+          "source": "翻译",
+          "skills": ["Returns Processing", "Customer Satisfaction", "Refund Management", "Policy Compliance", "Issue Resolution"]
+        },
+        {
+          "id": "specialized-chief-of-staff",
+          "name": "幕僚长",
+          "desc": "高管日程管理与决策支持",
+          "source": "翻译",
+          "skills": ["Executive Support", "Calendar Management", "Decision Briefings", "Cross-functional Coordination", "Strategic Planning"]
+        }
+      ]
+    },
+    {
+      "id": "spatial",
+      "name": "空间计算部",
+      "nameEn": "Spatial Computing",
+      "description": "空间计算、XR交互、沉浸体验",
+      "agents": [
+        {
+          "id": "spatial-visionos-spatial-engineer",
+          "name": "visionOS空间工程师",
+          "desc": "visionOS空间计算应用开发",
+          "source": "原创",
+          "skills": ["visionOS", "RealityKit", "ARKit", "SwiftUI", "Spatial UI"]
+        },
+        {
+          "id": "spatial-macos-spatial-metal-engineer",
+          "name": "macOS空间Metal工程师",
+          "desc": "Metal着色器与空间渲染",
+          "source": "原创",
+          "skills": ["Metal", "Shader Programming", "macOS", "Spatial Rendering", "GPU Optimization"]
+        },
+        {
+          "id": "spatial-xr-interface-architect",
+          "name": "XR交互架构师",
+          "desc": "XR界面架构与空间交互设计",
+          "source": "原创",
+          "skills": ["XR Design", "Spatial Interaction", "Hand Tracking", "Gaze Input", "UX Architecture"]
+        },
+        {
+          "id": "spatial-xr-immersive-developer",
+          "name": "XR沉浸式开发者",
+          "desc": "沉浸式体验开发与3D交互",
+          "source": "原创",
+          "skills": ["Unity XR", "OpenXR", "3D Interaction", "Immersive Design", "Haptic Feedback"]
+        },
+        {
+          "id": "spatial-xr-cockpit-interaction-specialist",
+          "name": "XR座舱交互专家",
+          "desc": "车载/飞行座舱XR交互设计",
+          "source": "原创",
+          "skills": ["Cockpit XR", "Automotive HMI", "HUD Design", "Gesture Control", "Safety-critical UI"]
+        },
+        {
+          "id": "spatial-terminal-integration-specialist",
+          "name": "终端集成专家",
+          "desc": "多终端适配与跨设备交互",
+          "source": "原创",
+          "skills": ["Multi-device", "Cross-platform", "Terminal Adaptation", "Device Sync", "Continuity"]
+        }
+      ]
+    },
+    {
+      "id": "game",
+      "name": "游戏开发部",
+      "nameEn": "Game Development",
+      "description": "做游戏、搭引擎、创世界",
+      "agents": [
+        {
+          "id": "game-game-designer",
+          "name": "游戏设计师",
+          "desc": "游戏机制设计与玩法策划",
+          "source": "翻译",
+          "skills": ["Game Design", "Mechanics Design", "Game Balance", "Prototyping", "Player Psychology"]
+        },
+        {
+          "id": "game-level-designer",
+          "name": "关卡设计师",
+          "desc": "关卡布局与难度曲线设计",
+          "source": "翻译",
+          "skills": ["Level Design", "Difficulty Curves", "Spatial Design", "Player Flow", "Environmental Storytelling"]
+        },
+        {
+          "id": "game-narrative-designer",
+          "name": "叙事设计师",
+          "desc": "游戏剧情编排与对话系统",
+          "source": "翻译",
+          "skills": ["Narrative Design", "Dialogue Systems", "Branching Stories", "World Building", "Character Development"]
+        },
+        {
+          "id": "game-technical-artist",
+          "name": "技术美术",
+          "desc": "着色器开发与美术管线优化",
+          "source": "翻译",
+          "skills": ["Shader Development", "Art Pipeline", "Performance Optimization", "HLSL/GLSL", "VFX Graph"]
+        },
+        {
+          "id": "game-game-audio-engineer",
+          "name": "游戏音频工程师",
+          "desc": "游戏音效设计与空间音频",
+          "source": "翻译",
+          "skills": ["Game Audio", "Spatial Audio", "Wwise/FMOD", "Sound Design", "Audio Programming"]
+        },
+        {
+          "id": "game-unity-architect",
+          "name": "Unity架构师",
+          "desc": "Unity项目架构与性能优化",
+          "source": "翻译",
+          "skills": ["Unity", "C#", "Architecture Patterns", "Performance Optimization", "Asset Management"]
+        },
+        {
+          "id": "game-unity-editor-tool-developer",
+          "name": "Unity编辑器工具开发",
+          "desc": "编辑器扩展与自定义工具",
+          "source": "翻译",
+          "skills": ["Unity Editor", "Editor Scripting", "Custom Tools", "UIElements", "Asset Pipeline"]
+        },
+        {
+          "id": "game-unity-multiplayer-engineer",
+          "name": "Unity多人联机工程师",
+          "desc": "网络同步与多人游戏架构",
+          "source": "翻译",
+          "skills": ["Unity Netcode", "Multiplayer Architecture", "State Synchronization", "Lag Compensation", "Server Authoritative"]
+        },
+        {
+          "id": "game-unity-shader-graph-artist",
+          "name": "Unity Shader Graph美术",
+          "desc": "Shader Graph可视化着色器创作",
+          "source": "翻译",
+          "skills": ["Shader Graph", "Visual Shader", "Material Creation", "Post-processing", "URP/HDRP"]
+        },
+        {
+          "id": "game-unreal-multiplayer-architect",
+          "name": "Unreal多人架构师",
+          "desc": "Unreal多人游戏架构与同步",
+          "source": "翻译",
+          "skills": ["Unreal Engine", "Multiplayer Architecture", "Replication", "Server Setup", "Network Optimization"]
+        },
+        {
+          "id": "game-unreal-systems-engineer",
+          "name": "Unreal系统工程师",
+          "desc": "Gameplay系统与蓝图架构",
+          "source": "翻译",
+          "skills": ["Unreal Engine", "C++", "Gameplay Ability System", "Blueprint Architecture", "Subsystem Design"]
+        },
+        {
+          "id": "game-unreal-technical-artist",
+          "name": "Unreal技术美术",
+          "desc": "Unreal渲染管线与材质优化",
+          "source": "翻译",
+          "skills": ["Unreal Engine", "Material Editor", "Niagara VFX", "Rendering Pipeline", "LOD Optimization"]
+        },
+        {
+          "id": "game-unreal-world-builder",
+          "name": "Unreal世界构建师",
+          "desc": "大世界场景搭建与光照",
+          "source": "翻译",
+          "skills": ["World Building", "Landscape", "Lighting", "Open World", "Level Streaming"]
+        },
+        {
+          "id": "game-blender-addon-engineer",
+          "name": "Blender插件工程师",
+          "desc": "Blender插件开发与工作流扩展",
+          "source": "翻译",
+          "skills": ["Blender", "Python", "Addon Development", "Workflow Automation", "Geometry Nodes"]
+        },
+        {
+          "id": "game-godot-gameplay-scripter",
+          "name": "Godot玩法脚本师",
+          "desc": "GDScript玩法逻辑与系统开发",
+          "source": "翻译",
+          "skills": ["Godot", "GDScript", "Gameplay Programming", "Node System", "Signal Architecture"]
+        },
+        {
+          "id": "game-godot-multiplayer-engineer",
+          "name": "Godot多人联机工程师",
+          "desc": "Godot网络架构与同步方案",
+          "source": "翻译",
+          "skills": ["Godot", "Multiplayer API", "Network Synchronization", "High-level Multiplayer", "Latency Handling"]
+        },
+        {
+          "id": "game-godot-shader-developer",
+          "name": "Godot着色器开发者",
+          "desc": "Godot着色器语言与视觉特效",
+          "source": "翻译",
+          "skills": ["Godot Shading", "Shader Language", "Visual Effects", "2D/3D Shaders", "Post-processing"]
+        },
+        {
+          "id": "game-roblox-systems-scripter",
+          "name": "Roblox系统脚本师",
+          "desc": "Luau系统脚本与游戏逻辑",
+          "source": "原创",
+          "skills": ["Roblox", "Luau", "Systems Programming", "Game Logic", "DataStore"]
+        },
+        {
+          "id": "game-roblox-experience-designer",
+          "name": "Roblox体验设计师",
+          "desc": "Roblox体验设计与变现策略",
+          "source": "原创",
+          "skills": ["Roblox", "Experience Design", "Monetization", "Engagement Mechanics", "UGC Strategy"]
+        },
+        {
+          "id": "game-roblox-avatar-creator",
+          "name": "Roblox头像创作者",
+          "desc": "虚拟形象设计与配件开发",
+          "source": "翻译",
+          "skills": ["Roblox", "Avatar Design", "UGC Items", "Mesh/Texture", "Marketplace"]
+        }
+      ]
+    },
+    {
+      "id": "academic",
+      "name": "学术部",
+      "nameEn": "Academic",
+      "description": "做研究、建理论、促学习",
+      "agents": [
+        {
+          "id": "academic-anthropologist",
+          "name": "人类学家",
+          "desc": "文化人类学研究与田野分析",
+          "source": "翻译",
+          "skills": ["Cultural Anthropology", "Ethnography", "Field Research", "Qualitative Analysis", "Cross-cultural Studies"]
+        },
+        {
+          "id": "academic-geographer",
+          "name": "地理学家",
+          "desc": "空间分析与地理信息系统",
+          "source": "翻译",
+          "skills": ["GIS", "Spatial Analysis", "Cartography", "Remote Sensing", "Geostatistics"]
+        },
+        {
+          "id": "academic-historian",
+          "name": "历史学家",
+          "desc": "史料考证与历史叙事构建",
+          "source": "翻译",
+          "skills": ["Historical Research", "Source Criticism", "Historiography", "Archival Research", "Narrative Construction"]
+        },
+        {
+          "id": "academic-narratologist",
+          "name": "叙事学家",
+          "desc": "叙事结构与故事语法分析",
+          "source": "翻译",
+          "skills": ["Narratology", "Story Grammar", "Discourse Analysis", "Semiotics", "Plot Structures"]
+        },
+        {
+          "id": "academic-psychologist",
+          "name": "心理学家",
+          "desc": "认知行为研究与心理评估",
+          "source": "翻译",
+          "skills": ["Cognitive Psychology", "Behavioral Analysis", "Psychological Assessment", "Research Methods", "Statistical Analysis"]
+        },
+        {
+          "id": "academic-study-planner",
+          "name": "学习规划师",
+          "desc": "学习路径规划与备考策略",
+          "source": "翻译",
+          "skills": ["Study Planning", "Learning Strategies", "Curriculum Design", "Spaced Repetition", "Goal Setting"]
+        }
+      ]
+    }
+  ],
+  "scenarioMap": {
+    "web-fullstack": {
+      "name": "Web全栈项目",
+      "agents": ["engineering-full-stack-developer", "design-ux-architect", "testing-api-tester", "engineering-devops-engineer"]
+    },
+    "mobile-app": {
+      "name": "移动APP",
+      "agents": ["engineering-mobile-developer", "design-ui-designer", "engineering-backend-developer", "marketing-growth-hacker"]
+    },
+    "saas-product": {
+      "name": "SaaS产品",
+      "agents": ["product-manager", "engineering-full-stack-developer", "sales-engineer", "sales-deal-strategist"]
+    },
+    "ecommerce": {
+      "name": "电商网站",
+      "agents": ["engineering-full-stack-developer", "design-ui-designer", "marketing-china-ecommerce-operator", "specialized-pricing-optimizer"]
+    },
+    "game-dev": {
+      "name": "游戏开发",
+      "agents": ["game-game-designer", "game-unity-architect", "game-technical-artist", "game-narrative-designer"]
+    },
+    "ai-application": {
+      "name": "AI应用",
+      "agents": ["engineering-ml-engineer", "specialized-prompt-engineer", "specialized-mcp-builder", "specialized-orchestrator"]
+    },
+    "china-marketing": {
+      "name": "国内营销",
+      "agents": ["marketing-xiaohongshu-operator", "marketing-douyin-strategist", "marketing-private-domain-operator", "marketing-baidu-seo-specialist"]
+    },
+    "overseas-product": {
+      "name": "出海产品",
+      "agents": ["marketing-tiktok-strategist", "marketing-instagram-curator", "marketing-cross-border-ecommerce", "specialized-cultural-intelligence-strategist"]
+    },
+    "enterprise-system": {
+      "name": "企业系统",
+      "agents": ["engineering-architect", "engineering-backend-developer", "legal-contract-reviewer", "finance-fraud-detector"]
+    },
+    "hardware-iot": {
+      "name": "硬件/IoT",
+      "agents": ["engineering-embedded-engineer", "engineering-firmware-engineer", "engineering-iot-engineer", "engineering-pc-host-engineer"]
+    },
+    "xr-spatial": {
+      "name": "XR/空间计算",
+      "agents": ["spatial-visionos-spatial-engineer", "spatial-xr-interface-architect", "spatial-xr-immersive-developer"]
+    },
+    "gov-project": {
+      "name": "政务项目",
+      "agents": ["specialized-government-digital-presales-consultant", "legal-contract-reviewer", "legal-policy-writer"]
+    }
+  }
+}
