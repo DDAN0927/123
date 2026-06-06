@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.ecommerce.mapper.OrdersMapper">
+
+    <!-- 多表关联查询的 resultMap -->
+    <resultMap id="orderDetailResultMap" type="com.example.ecommerce.entity.OrderDetailVO">
+        <id property="orderId" column="order_id"/>
+        <result property="userName" column="user_name"/>
+        <result property="productName" column="product_name"/>
+        <result property="quantity" column="quantity"/>
+        <result property="totalPrice" column="total_price"/>
+        <result property="orderTime" column="order_time"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders (user_id, product_id, quantity, total_price, order_time)
+        VALUES (#{userId}, #{productId}, #{quantity}, #{totalPrice}, #{orderTime})
+    </insert>
+
+    <!-- 多表 JOIN 查询订单详情 -->
+    <select id="selectDetailById" resultMap="orderDetailResultMap">
+        SELECT
+            o.id          AS order_id,
+            u.username    AS user_name,
+            p.product_name AS product_name,
+            o.quantity,
+            o.total_price,
+            DATE_FORMAT(o.order_time, '%Y-%m-%d %H:%i:%s') AS order_time
+        FROM orders o
+        INNER JOIN user u    ON o.user_id    = u.id
+        INNER JOIN product p ON o.product_id = p.id
+        WHERE o.id = #{id}
+    </select>
+
+</mapper>
