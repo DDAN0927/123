@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电商订单查询系统</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="page">
+        <!-- 顶部导航 -->
+        <header class="hero">
+            <div class="hero-content">
+                <div class="logo">
+                    <span class="logo-icon">📦</span>
+                    <span class="logo-text">OrderSys</span>
+                </div>
+                <nav class="nav">
+                    <a href="#products" class="nav-link">商品</a>
+                    <a href="#create" class="nav-link">创建订单</a>
+                    <a href="#query" class="nav-link">查询订单</a>
+                </nav>
+                <div class="status-badge" id="statusBadge">
+                    <span class="status-dot"></span>
+                    <span class="status-text">服务运行中</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主标题区 -->
+        <section class="banner">
+            <h1 class="banner-title">
+                <span class="title-line1">电商订单</span>
+                <span class="title-line2">管理系统</span>
+            </h1>
+            <p class="banner-subtitle">简单、快速、可靠的订单创建与查询平台</p>
+            <div class="stats" id="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="userCount">--</div>
+                    <div class="stat-label">用户数</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value" id="productCount">--</div>
+                    <div class="stat-label">商品数</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalStock">--</div>
+                    <div class="stat-label">总库存</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 商品列表 -->
+        <section class="section" id="products">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <span class="title-icon">🛍️</span>
+                    <span>在售商品</span>
+                </h2>
+                <div class="section-desc">实时库存，随下单动态更新</div>
+            </div>
+            <div class="products-grid" id="productsGrid">
+                <!-- 商品卡片由 JS 动态生成 -->
+            </div>
+        </section>
+
+        <!-- 创建订单 & 查询订单 -->
+        <section class="section">
+            <div class="two-col">
+                <!-- 创建订单卡片 -->
+                <div class="card" id="create">
+                    <div class="card-header">
+                        <div class="card-icon create-icon">➕</div>
+                        <div class="card-title-group">
+                            <h3>创建新订单</h3>
+                            <p>选择用户、商品和数量，一键下单</p>
+                        </div>
+                    </div>
+
+                    <form class="form" id="createForm">
+                        <div class="form-row">
+                            <label for="userId">下单用户</label>
+                            <select id="userId" class="input" required>
+                                <option value="">请选择用户</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="productId">购买商品</label>
+                            <select id="productId" class="input" required>
+                                <option value="">请选择商品</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="quantity">购买数量</label>
+                            <div class="quantity-wrapper">
+                                <button type="button" class="qty-btn" id="qtyMinus">−</button>
+                                <input type="number" id="quantity" class="input qty-input" value="1" min="1" required>
+                                <button type="button" class="qty-btn" id="qtyPlus">+</button>
+                            </div>
+                            <div class="hint" id="stockHint"></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <span>🚀 立即下单</span>
+                        </button>
+                    </form>
+
+                    <div class="result-area" id="createResult" style="display:none;"></div>
+                </div>
+
+                <!-- 查询订单卡片 -->
+                <div class="card" id="query">
+                    <div class="card-header">
+                        <div class="card-icon query-icon">🔍</div>
+                        <div class="card-title-group">
+                            <h3>查询订单详情</h3>
+                            <p>输入订单编号，查看完整订单信息</p>
+                        </div>
+                    </div>
+
+                    <form class="form" id="queryForm">
+                        <div class="form-row">
+                            <label for="orderId">订单编号</label>
+                            <input type="number" id="orderId" class="input" placeholder="例如：1" min="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-secondary">
+                            <span>🔎 查询订单</span>
+                        </button>
+                    </form>
+
+                    <div class="result-area" id="queryResult" style="display:none;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 底部 -->
+        <footer class="footer">
+            <div class="footer-content">
+                <span>© 2026 电商订单查询系统 · Powered by Spring Boot + MyBatis</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 消息提示 -->
+    <div class="toast" id="toast"></div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
