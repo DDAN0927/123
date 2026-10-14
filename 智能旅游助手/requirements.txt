@@ -1,0 +1,28 @@
+# ===== Web 框架 =====
+fastapi>=0.115.0,<1.0
+uvicorn[standard]>=0.30.0
+
+# ===== 多 Agent 编排（langgraph 上限固定：0.3+ 与本地 checkpoint 依赖不兼容） =====
+langgraph>=0.2.60,<0.3
+langchain-core>=0.3.20,<0.4
+langchain-openai>=0.2.10,<0.3
+langchain-text-splitters>=0.3.0,<0.4
+
+# ===== RAG 向量检索（faiss/sklearn 固定版本：新版原生 DLL 受系统策略限制） =====
+numpy>=1.24.0,<2.0
+faiss-cpu>=1.8.0,<1.9
+scikit-learn>=1.5.2,<1.6
+sentence-transformers>=3.0.0
+
+# ===== 前端 =====
+streamlit>=1.38.0,<2.0
+folium>=0.18.0
+streamlit-folium>=0.23.0
+edge-tts>=6.1.0
+pypinyin>=0.53.0
+
+# ===== 其他 =====
+requests>=2.32.0
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+python-dotenv>=1.0.0

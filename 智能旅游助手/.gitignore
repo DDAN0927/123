@@ -1,0 +1,14 @@
+# 本地环境与敏感信息（不进入部署仓库）
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+.git/
+.tools/
+.sthome/
+.hf-space/
+.backup/
+.trae-html-share-packages/
+.screenshots/
+deploy/

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: transparent;
+    color: #333;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 18px 18px 26px; }
+
+  /* ===== 顶部导航（绿底白字） ===== */
+  .topnav { display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 8px; color: #fff;
+    font-size: 1.12rem; font-weight: 700; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; }
+  .nav { display: flex; align-items: center; gap: 22px; }
+  .nav a { color: #fff; font-size: .88rem; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px; opacity: .94; }
+  .nav a:hover { opacity: 1; }
+  .new { background: #ff9f43; color: #fff; font-size: .62rem; font-weight: 700;
+    padding: 1px 5px; border-radius: 4px; line-height: 1.2; }
+  .nav-login { background: #fff; color: #2DB88A; border: none; border-radius: 999px;
+    padding: 7px 18px; font-size: .85rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+  .nav-login:hover { background: #f2fbf8; }
+
+  /* ===== 登录卡片 ===== */
+  .card { margin-top: 22px; display: flex; background: #fff; border-radius: 16px;
+    overflow: hidden; box-shadow: 0 12px 44px rgba(0,0,0,.10); min-height: 470px; }
+  .left { width: 42%; background: #F5F7F7; padding: 34px 26px; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; }
+  .left svg { width: 82%; max-width: 300px; height: auto; }
+  .ltitle { margin-top: 22px; font-size: 1.12rem; font-weight: 700; color: #444; }
+  .lsub { margin-top: 8px; font-size: .8rem; color: #999; }
+  .dots { margin-top: 20px; display: flex; gap: 8px; }
+  .dots span { width: 8px; height: 8px; border-radius: 50%; background: #d8d8d8; }
+  .dots span.on { background: #2DB88A; }
+
+  .right { width: 58%; padding: 46px 46px 40px; display: flex; flex-direction: column;
+    justify-content: center; }
+  .rtitle { text-align: center; font-size: 1.5rem; font-weight: 700; color: #2b2b2b;
+    margin-bottom: 30px; }
+  .field { position: relative; margin-bottom: 16px; }
+  .field .ficon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; color: #b6b6b6; display: flex; align-items: center;
+    justify-content: center; }
+  .field .ficon svg { width: 18px; height: 18px; }
+  .field input { width: 100%; height: 46px; border: 1px solid #e2e2e2; border-radius: 8px;
+    padding: 0 42px 0 42px; font-size: .94rem; color: #333; background: #fafafa;
+    outline: none; transition: border-color .15s, background .15s; }
+  .field input::placeholder { color: #bbb; }
+  .field input:focus { border-color: #2DB88A; background: #fff;
+    box-shadow: 0 0 0 3px rgba(45,184,138,.12); }
+  .eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: #b6b6b6; padding: 0; }
+  .eye svg { width: 19px; height: 19px; display: block; }
+  .links { display: flex; justify-content: space-between; align-items: center;
+    margin: 4px 0 20px; font-size: .82rem; }
+  .link { color: #2DB88A; cursor: pointer; }
+  .link:hover { text-decoration: underline; }
+  .forgot { color: #999; }
+  .submit { width: 100%; height: 46px; border: none; border-radius: 8px; background: #2DB88A;
+    color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .15s; }
+  .submit:hover { background: #26a57c; }
+  .submit:active { background: #1f8f6a; }
+  .orline { display: flex; align-items: center; gap: 14px; margin: 24px 0 18px;
+    color: #aaa; font-size: .78rem; }
+  .orline i { flex: 1; height: 1px; background: #eee; }
+  .orline span { flex-shrink: 0; }
+  .third { display: flex; justify-content: center; gap: 40px; }
+  .tbtn { display: flex; flex-direction: column; align-items: center; gap: 7px;
+    cursor: pointer; }
+  .tbtn .circle { width: 48px; height: 48px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; }
+  .tbtn .circle svg { width: 24px; height: 24px; }
+  .tbtn span { font-size: .72rem; color: #999; }
+  .c-wechat { background: #2DB88A; }
+  .c-weibo { background: #E5573F; }
+  .c-phone { background: #B7B7B7; }
+
+  .errbox { display: none; margin-top: 16px; padding: 10px 12px; border-radius: 8px;
+    background: #FDEBEB; color: #d64545; font-size: .82rem; text-align: center; }
+
+  /* toast */
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%)
+    translateY(20px); background: rgba(43,43,43,.92); color: #fff; font-size: .82rem;
+    padding: 9px 16px; border-radius: 8px; opacity: 0; pointer-events: none;
+    transition: all .25s; z-index: 10; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 移动端 */
+  @media (max-width: 720px) {
+    .nav a { display: none; }
+    .left { display: none; }
+    .right { width: 100%; padding: 30px 22px 28px; }
+    .card { min-height: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- 绿色返回条：在组件内模拟扇贝顶栏（视觉复刻，无实际页面切换） -->
+    <div class="topnav" style="background:#2DB88A;border-radius:14px;padding:12px 18px;">
+      <div class="brand"><span class="logo">✈️</span>旅游智能助手</div>
+      <div class="nav">
+        <a>首页</a><a>攻略</a><a>社区 <span class="new">NEW</span></a><a>帮助</a>
+        <button class="nav-login" id="navLoginBtn">登录 / 注册</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="left">
+        <svg viewBox="0 0 340 264" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="286" cy="48" r="24" fill="#FCE5A9"/>
+          <g fill="#E9EFED">
+            <ellipse cx="60" cy="36" rx="24" ry="11"/>
+            <ellipse cx="82" cy="29" rx="17" ry="8"/>
+            <ellipse cx="206" cy="42" rx="19" ry="8"/>
+          </g>
+          <path d="M0 208 Q120 148 240 198 T340 194 L340 264 L0 264 Z" fill="#EAF3EF"/>
+          <path d="M0 236 Q160 198 340 226 L340 264 L0 264 Z" fill="#DDEBE4"/>
+          <g>
+            <rect x="62" y="166" width="70" height="52" rx="3" fill="#F3E2C2"/>
+            <path d="M54 168 L97 138 L140 168 Z" fill="#D8A676"/>
+            <rect x="90" y="186" width="16" height="32" fill="#ffffff"/>
+            <rect x="68" y="178" width="13" height="13" fill="#BFE0D0"/>
+            <rect x="118" y="178" width="13" height="13" fill="#BFE0D0"/>
+          </g>
+          <g>
+            <circle cx="186" cy="176" r="24" fill="#9FD6BC"/>
+            <circle cx="204" cy="190" r="18" fill="#84CBA8"/>
+            <rect x="192" y="198" width="6" height="22" fill="#D8A676"/>
+          </g>
+          <g>
+            <circle cx="28" cy="198" r="16" fill="#84CBA8"/>
+            <rect x="25" y="210" width="5" height="14" fill="#D8A676"/>
+          </g>
+          <g>
+            <circle cx="150" cy="192" r="8" fill="#F2C79A"/>
+            <path d="M142 212 q8 -14 16 0 l-2 13 h-12 z" fill="#5FD0A5"/>
+            <rect x="152" y="206" width="11" height="9" rx="2" fill="#D98D6A"/>
+            <rect x="155" y="203" width="3" height="4" fill="#D98D6A"/>
+          </g>
+          <g>
+            <rect x="112" y="138" width="54" height="27" rx="13.5" fill="#ffffff"/>
+            <circle cx="125" cy="151" r="2.3" fill="#9AA7A2"/>
+            <circle cx="135" cy="151" r="2.3" fill="#9AA7A2"/>
+            <circle cx="145" cy="151" r="2.3" fill="#9AA7A2"/>
+            <path d="M128 164 l5 9 5 -8 z" fill="#ffffff"/>
+          </g>
+          <g>
+            <rect x="214" y="112" width="42" height="27" rx="13.5" fill="#ffffff"/>
+            <text x="235" y="131" font-size="16" fill="#9AA7A2" font-family="Arial" text-anchor="middle">?</text>
+            <path d="M222 138 l6 6 5 -6 z" fill="#ffffff"/>
+          </g>
+          <g transform="translate(16,16)">
+            <path d="M2 14 L50 0 L34 14 L50 28 L2 14 Z" fill="#2DB88A"/>
+            <path d="M2 14 L34 14 L50 0 Z" fill="#B8E6D7"/>
+          </g>
+        </svg>
+        <div class="ltitle">旅行社区</div>
+        <div class="lsub">加入我们，和伙伴一起说走就走</div>
+        <div class="dots"><span class="on"></span><span></span><span></span></div>
+      </div>
+
+      <div class="right">
+        <div class="rtitle" id="rtitle">欢迎来到旅游智能助手</div>
+
+        <!-- 登录表单 -->
+        <div id="loginForm">
+          <div class="field">
+            <span class="ficon"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg></span>
+            <input id="user" placeholder="用户名" autocomplete="username" />
+          </div>
+          <div class="field">
+            <span class="ficon"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-7 9.7V19H9v-1.3a3 3 0 1 1 4 0z"/></svg></span>
+            <input id="pass" type="password" placeholder="密码" autocomplete="current-password" />
+            <button class="eye" id="eyeBtn" type="button"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 5c-5 0-9 4-9 7s4 7 9 7 9-4 9-7-4-7-9-7zm0 11.5A4.5 4.5 0 1 1 16.5 12 4.5 4.5 0 0 1 12 16.5zm0-7a2.5 2.5 0 1 0 2.5 2.5A2.5 2.5 0 0 0 12 9.5z"/></svg></button>
+          </div>
+          <div class="links">
+            <span class="link" id="toRegister">还没有账号？<b>去注册</b></span>
+            <span class="link forgot" id="forgotPwd">忘记密码？</span>
+          </div>
+          <button class="submit" id="btnSubmit">登　录</button>
+
+          <div class="orline"><i></i><span>OR</span><i></i></div>
+          <div class="third">
+            <div class="tbtn" data-name="微信登录">
+              <div class="circle c-wechat"><svg viewBox="0 0 24 24"><path fill="#fff" d="M8.7 4C5 4 2 6.7 2 10c0 1.9 1 3.5 2.5 4.6l-.6 2 2.1-1c.6.2 1.2.3 1.9.3h.3a5.7 5.7 0 0 1-.2-1.6c0-3.1 2.8-5.5 6.2-5.5h.3C14 6.4 11.6 4 8.7 4zM6.4 7.6a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8zm4.7 0a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8zM21.9 11.4c0-2.5-2.2-4.6-5-4.6s-5 2.1-5 4.6 2.2 4.6 5 4.6c.6 0 1.1-.1 1.6-.2l1.7.9-.5-1.6c1.3-.9 2.2-2.2 2.2-3.7zM15 10.6a.8.8 0 1 1 0-1.5.8.8 0 0 1 0 1.5zm3.9 0a.8.8 0 1 1 0-1.5.8.8 0 0 1 0 1.5z"/></svg></div>
+              <span>微信</span>
+            </div>
+            <div class="tbtn" data-name="微博登录">
+              <div class="circle c-weibo"><svg viewBox="0 0 24 24"><path fill="#fff" d="M12 3c2.8 0 5.5 1.1 7.4 3.1A10.3 10.3 0 0 1 22 12a10 10 0 0 1-3 7.1A10 10 0 0 1 12 22a10 10 0 0 1-7.4-3A10.3 10.3 0 0 1 1.7 13l-.2-1a15 15 0 0 0 2.2 4.3 8 8 0 0 0 6.2 3l.1.4A10 10 0 0 1 12 21a9 9 0 0 0 9-9 9.3 9.3 0 0 0-3-6.8 9.3 9.3 0 0 0-6.9-3c-.3.3-.7.5-1 .8.6.1 1.2.2 1.9.2zM8 12.5c1.9 0 3.5.7 4.5 1.7 1 .9 1.5 2 1.3 3.1 0 .2-.1.4-.2.6.6-.4 1-.9 1.3-1.5.6-1.3.2-2.8-1.1-4.1-1.1-1.1-2.6-1.7-4.2-1.7-1 0-1.9.2-2.7.5.3-.4.7-.6 1.1-.6zM5.5 12.7c1.4-.5 2.9-.5 4-.1 1.2.5 1.9 1.4 1.9 2.5 0 1.3-1 2.4-2.6 3-.2.1-.4.1-.6.2.5.3 1 .4 1.6.4 1.4 0 2.6-.7 3.3-1.8.5-.8.6-1.7.4-2.4-.3-1.1-1.3-1.9-2.9-2.4-1.2-.3-2.4-.2-3.4.3l-1.7.3zM12 15.8c-.9 0-1.6-.6-2.1-1.5 1-.4 2-.5 2.9-.4.5.1 1 .2 1.4.5.2.1.3.2.4.4-.6.6-1.5 1-2.6 1zm-4.3-.6c-1.1 0-2-.5-2.6-1.3.5-.2 1-.4 1.6-.5.9-.2 1.8-.2 2.6.1.4.1.7.3 1 .5-.6.7-1.5 1.2-2.6 1.2z"/></svg></div>
+              <span>微博</span>
+            </div>
+            <div class="tbtn" data-name="手机号登录">
+              <div class="circle c-phone"><svg viewBox="0 0 24 24"><path fill="#fff" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 3v1h10V5zm0 14v1h10v-1zm5-1.5a1.2 1.2 0 1 0 0 1.6.9.9 0 0 0 0-1.6z"/></svg></div>
+              <span>手机号</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 注册表单 -->
+        <div id="registerForm" style="display:none;">
+          <div class="field">
+            <span class="ficon"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg></span>
+            <input id="reg_user" placeholder="用户名" autocomplete="username" />
+          </div>
+          <div class="field">
+            <span class="ficon"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-7 9.7V19H9v-1.3a3 3 0 1 1 4 0z"/></svg></span>
+            <input id="reg_pass" type="password" placeholder="密码" autocomplete="new-password" />
+          </div>
+          <div class="field">
+            <span class="ficon"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M18 8h-1V6a5 5 0 0 0-10 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-7 9.7V19H9v-1.3a3 3 0 1 1 4 0z"/></svg></span>
+            <input id="reg_pass2" type="password" placeholder="确认密码" autocomplete="new-password" />
+          </div>
+          <div class="links">
+            <span class="link" id="toLogin">已有账号？<b>去登录</b></span>
+          </div>
+          <button class="submit" id="btnRegister">注册并登录</button>
+
+          <div class="orline"><i></i><span>OR</span><i></i></div>
+          <div class="third">
+            <div class="tbtn" data-name="微信登录"><div class="circle c-wechat"><svg viewBox="0 0 24 24"><path fill="#fff" d="M8.7 4C5 4 2 6.7 2 10c0 1.9 1 3.5 2.5 4.6l-.6 2 2.1-1c.6.2 1.2.3 1.9.3h.3a5.7 5.7 0 0 1-.2-1.6c0-3.1 2.8-5.5 6.2-5.5h.3C14 6.4 11.6 4 8.7 4zM6.4 7.6a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8zm4.7 0a.9.9 0 1 1 0 1.8.9.9 0 0 1 0-1.8zM21.9 11.4c0-2.5-2.2-4.6-5-4.6s-5 2.1-5 4.6 2.2 4.6 5 4.6c.6 0 1.1-.1 1.6-.2l1.7.9-.5-1.6c1.3-.9 2.2-2.2 2.2-3.7zM15 10.6a.8.8 0 1 1 0-1.5.8.8 0 0 1 0 1.5zm3.9 0a.8.8 0 1 1 0-1.5.8.8 0 0 1 0 1.5z"/></svg></div><span>微信</span></div>
+            <div class="tbtn" data-name="微博登录"><div class="circle c-weibo"><svg viewBox="0 0 24 24"><path fill="#fff" d="M12 3c2.8 0 5.5 1.1 7.4 3.1A10.3 10.3 0 0 1 22 12a10 10 0 0 1-3 7.1A10 10 0 0 1 12 22a10 10 0 0 1-7.4-3A10.3 10.3 0 0 1 1.7 13l-.2-1a15 15 0 0 0 2.2 4.3 8 8 0 0 0 6.2 3l.1.4A10 10 0 0 1 12 21a9 9 0 0 0 9-9 9.3 9.3 0 0 0-3-6.8 9.3 9.3 0 0 0-6.9-3c-.3.3-.7.5-1 .8.6.1 1.2.2 1.9.2zM8 12.5c1.9 0 3.5.7 4.5 1.7 1 .9 1.5 2 1.3 3.1 0 .2-.1.4-.2.6.6-.4 1-.9 1.3-1.5.6-1.3.2-2.8-1.1-4.1-1.1-1.1-2.6-1.7-4.2-1.7-1 0-1.9.2-2.7.5.3-.4.7-.6 1.1-.6zM5.5 12.7c1.4-.5 2.9-.5 4-.1 1.2.5 1.9 1.4 1.9 2.5 0 1.3-1 2.4-2.6 3-.2.1-.4.1-.6.2.5.3 1 .4 1.6.4 1.4 0 2.6-.7 3.3-1.8.5-.8.6-1.7.4-2.4-.3-1.1-1.3-1.9-2.9-2.4-1.2-.3-2.4-.2-3.4.3l-1.7.3zM12 15.8c-.9 0-1.6-.6-2.1-1.5 1-.4 2-.5 2.9-.4.5.1 1 .2 1.4.5.2.1.3.2.4.4-.6.6-1.5 1-2.6 1zm-4.3-.6c-1.1 0-2-.5-2.6-1.3.5-.2 1-.4 1.6-.5.9-.2 1.8-.2 2.6.1.4.1.7.3 1 .5-.6.7-1.5 1.2-2.6 1.2z"/></svg></div><span>微博</span></div>
+            <div class="tbtn" data-name="手机号登录"><div class="circle c-phone"><svg viewBox="0 0 24 24"><path fill="#fff" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 3v1h10V5zm0 14v1h10v-1zm5-1.5a1.2 1.2 0 1 0 0 1.6.9.9 0 0 0 0-1.6z"/></svg></div><span>手机号</span></div>
+          </div>
+        </div>
+
+        <div class="errbox" id="errbox"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+function send(type, data) {
+  window.parent.postMessage(Object.assign({isStreamlitMessage: true, type: type}, data), "*");
+}
+send("streamlit:componentReady", {apiVersion: 1});
+
+var $ = function (id) { return document.getElementById(id); };
+
+function toast(msg) {
+  var t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(function () { t.classList.remove("show"); }, 2400);
+}
+
+function showError(msg) {
+  var e = $("errbox");
+  if (!msg) { e.style.display = "none"; e.textContent = ""; return; }
+  e.style.display = "block";
+  e.textContent = msg;
+}
+
+function fit() {
+  send("streamlit:setFrameHeight", {height: document.body.scrollHeight + 10});
+}
+
+function switchForm(mode) {
+  $("loginForm").style.display = mode === "login" ? "block" : "none";
+  $("registerForm").style.display = mode === "register" ? "block" : "none";
+  $("rtitle").textContent = mode === "login" ? "欢迎来到旅游智能助手" : "加入旅游智能助手";
+  showError("");
+  fit();
+}
+
+function submit(mode) {
+  var u = $(mode === "login" ? "user" : "reg_user").value.trim();
+  var p = $(mode === "login" ? "pass" : "reg_pass").value;
+  if (!u || !p) { showError("请输入用户名和密码"); return; }
+  var p2 = "";
+  if (mode === "register") {
+    p2 = $("reg_pass2").value;
+    if (p !== p2) { showError("两次输入的密码不一致"); return; }
+  }
+  showError("");
+  send("streamlit:setComponentValue", {
+    value: {mode: mode, username: u, password: p, password2: p2,
+            nonce: Date.now().toString(36) + Math.random().toString(36).slice(2, 7)},
+    dataType: "json"
+  });
+  // 提交后清空密码框，失败时也便于重试
+  $(mode === "login" ? "pass" : "reg_pass").value = "";
+  if (mode === "register") { $("reg_pass2").value = ""; }
+}
+
+$("btnSubmit").onclick = function () { submit("login"); };
+$("btnRegister").onclick = function () { submit("register"); };
+$("toRegister").onclick = function () { switchForm("register"); };
+$("toLogin").onclick = function () { switchForm("login"); };
+
+$("forgotPwd").onclick = function () {
+  toast("如忘记密码，请联系管理员重置");
+};
+
+$("eyeBtn").onclick = function () {
+  var p = $("pass");
+  p.type = p.type === "password" ? "text" : "password";
+};
+
+var tbtns = document.querySelectorAll(".tbtn");
+for (var i = 0; i < tbtns.length; i++) {
+  tbtns[i].onclick = function () {
+    toast((this.getAttribute("data-name") || "第三方登录") + "暂未接入，请使用账号密码登录");
+  };
+}
+
+$("navLoginBtn").onclick = function () {
+  $("user").focus();
+  var c = document.querySelector(".card");
+  if (c && c.scrollIntoView) { c.scrollIntoView({behavior: "smooth", block: "center"}); }
+};
+
+window.addEventListener("message", function (e) {
+  if (e.data.type === "streamlit:render" && e.data.args) {
+    var err = e.data.args.error || "";
+    showError(err);
+    fit();
+  }
+});
+
+fit();
+</script>
+</body>
+</html>

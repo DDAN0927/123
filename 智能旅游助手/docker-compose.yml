@@ -1,0 +1,51 @@
+services:
+  # 本地大模型服务（需要 NVIDIA GPU）
+  # 启动: docker compose --profile gpu up -d
+  vllm:
+    image: vllm/vllm-openai:latest
+    profiles: ["gpu"]
+    command: >
+      --model Qwen/Qwen2.5-7B-Instruct
+      --served-model-name Qwen/Qwen2.5-7B-Instruct
+      --enable-auto-tool-choice
+      --tool-call-parser hermes
+      --max-model-len 8192
+    environment:
+      - HF_ENDPOINT=https://hf-mirror.com
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    ports:
+      - "8001:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # 后端 API 服务
+  backend:
+    build: .
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://vllm:8000/v1}
+      - LLM_API_KEY=${LLM_API_KEY:-EMPTY}
+      - LLM_MODEL=${LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      - HF_ENDPOINT=https://hf-mirror.com
+    volumes:
+      - ./knowledge_base:/app/knowledge_base
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+
+  # Streamlit 前端
+  frontend:
+    build: .
+    command: streamlit run frontend/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+    environment:
+      - API_URL=http://backend:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend

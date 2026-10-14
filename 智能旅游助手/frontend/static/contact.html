@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>联系我们 · 旅游智能助手</title>
+<meta name="description" content="准备好出发了吗？联系我们，让旅游智能助手送你一程。">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF5436' d='M2 21l20-8L2 3v7l14 2-14 2z'/></svg>">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M2 21l20-8L2 3v7l14 2-14 2z" fill="#fff"/></svg></span>
+      旅游智能助手
+    </a>
+    <nav class="nav-links" aria-label="主导航">
+      <a href="index.html">首页</a>
+      <a href="features.html">产品功能</a>
+      <a href="about.html">关于我们</a>
+      <a href="contact.html" class="active">联系我们</a>
+    </nav>
+    <div class="nav-cta">
+      <a data-app="" class="btn btn-primary">开始使用 <span class="arr">→</span><span class="fill"></span></a>
+      <button class="nav-burger" aria-label="菜单" aria-expanded="false"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="page-hero">
+  <div class="wash"></div>
+  <div class="container">
+    <span class="eyebrow">CONTACT</span>
+    <h1 class="reveal">下一段旅程，<br>从 <em>这里</em>开始</h1>
+    <p class="lead reveal" data-delay="1" style="max-width:560px;margin-top:22px">无论是想体验产品、洽谈合作，还是仅仅聊聊旅行的想法，我们都非常乐意听到你的声音。</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="container contact-grid">
+    <div class="contact-info reveal" data-dir="left">
+      <div class="ci-item">
+        <div class="ico">✉️</div>
+        <div><b>邮箱</b><span>2512955620@qq.com</span></div>
+      </div>
+      <div class="ci-item">
+        <div class="ico">⏱️</div>
+        <div><b>响应时间</b><span>我们会在 1–2 个工作日内回复</span></div>
+      </div>
+      <div class="ci-item">
+        <div class="ico">🤝</div>
+        <div><b>合作洽谈</b><span>媒体、商务与内容合作欢迎来信</span></div>
+      </div>
+      <div class="ci-item" id="join">
+        <div class="ico">💼</div>
+        <div><b>加入我们</b><span>一起把旅行变得更好</span></div>
+      </div>
+    </div>
+
+    <form class="form reveal" data-dir="right" onsubmit="handleSubmit(event)">
+      <div class="field">
+        <label for="name">你的称呼</label>
+        <input id="name" type="text" placeholder="怎么称呼你？" required>
+      </div>
+      <div class="field">
+        <label for="email">邮箱</label>
+        <input id="email" type="email" placeholder="you@example.com" required>
+      </div>
+      <div class="field">
+        <label for="topic">主题</label>
+        <input id="topic" type="text" placeholder="产品体验 / 商务合作 / 其他">
+      </div>
+      <div class="field">
+        <label for="msg">想说的话</label>
+        <textarea id="msg" rows="5" placeholder="告诉我们你的想法…" required></textarea>
+      </div>
+      <button class="btn btn-accent" type="submit">发送消息 <span class="arr">→</span></button>
+      <p id="form-msg" style="color:var(--teal);font-size:.92rem;font-weight:600" aria-live="polite"></p>
+    </form>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="container">
+    <div class="cta-card reveal" data-dir="scale">
+      <span class="eyebrow center" style="color:#fff">READY TO GO?</span>
+      <h2 class="display">不想等？直接开启动身。</h2>
+      <p class="lead" style="margin-top:16px">现在就把旅行交给 AI 智囊团。</p>
+      <a data-app="" class="btn">立即体验 <span class="arr">→</span></a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="index.html">
+          <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M2 21l20-8L2 3v7l14 2-14 2z" fill="#fff"/></svg></span>
+          旅游智能助手
+        </a>
+        <p>让 AI 多智能体为你的每一次出发出谋划策，把旅行变得更轻松。</p>
+      </div>
+      <div class="footer-col">
+        <h5>产品</h5>
+        <a href="features.html">产品功能</a>
+        <a href="features.html#chat">AI 旅行咨询</a>
+        <a href="features.html#map">城市地图</a>
+        <a href="features.html#transit">交通路线</a>
+      </div>
+      <div class="footer-col">
+        <h5>公司</h5>
+        <a href="about.html">关于我们</a>
+        <a href="about.html#story">品牌故事</a>
+        <a href="about.html#tech">技术实力</a>
+      </div>
+      <div class="footer-col">
+        <h5>联系</h5>
+        <a href="contact.html">联系我们</a>
+        <a href="mailto:2512955620@qq.com">2512955620@qq.com</a>
+        <a href="#join">加入我们</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 旅游智能助手 Travel Copilot. 保留所有权利。</span>
+      <span>用 ❤ 与 AI 打造 · 旅途自有答案</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function handleSubmit(e) {
+    e.preventDefault();
+    const msg = document.querySelector("#form-msg");
+    msg.textContent = "消息已收到！我们会尽快回复你。谢谢 ❤";
+    e.target.reset();
+  }
+</script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Yuanti SC", "幼圆", "Microsoft YaHei", sans-serif; }
+  #wrap { display: flex; align-items: center; gap: 10px; padding: 4px 2px; }
+  #mic {
+    border: 2px solid #2b2b2b; background: #ffd21e; color: #2b1d0e;
+    font-weight: 800; font-size: .88rem; padding: 8px 16px;
+    border-radius: 999px; cursor: pointer; box-shadow: 3px 3px 0 #2b2b2b;
+    transition: all .12s; white-space: nowrap;
+  }
+  #mic:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 #2b2b2b; }
+  #mic:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #2b2b2b; }
+  #mic.on { background: #ff4d4d; color: #fff; animation: beat 1s infinite; }
+  @keyframes beat { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+  #hint { font-size: .78rem; color: #8a6a3b; font-weight: 600; overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <button id="mic">🎤 点击说话</button>
+  <div id="hint"></div>
+</div>
+<script>
+function send(type, data) {
+  window.parent.postMessage(Object.assign({isStreamlitMessage: true, type: type}, data), "*");
+}
+// Streamlit 1.65+ 组件协议：componentReady 必须携带 apiVersion: 1（数字）
+send("streamlit:componentReady", {apiVersion: 1});
+send("streamlit:setFrameHeight", {height: 52});
+window.addEventListener("message", function (e) {
+  if (e.data.type === "streamlit:render") { /* Streamlit 已渲染 */ }
+});
+
+var btn = document.getElementById("mic"), hint = document.getElementById("hint");
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) {
+  btn.disabled = true; btn.style.background = "#eee"; btn.style.cursor = "not-allowed";
+  hint.textContent = "当前浏览器不支持语音，建议使用 Chrome / Edge";
+}
+var rec = null, listening = false;
+btn.onclick = function () {
+  if (!SR) return;
+  if (listening) { rec.stop(); return; }
+  rec = new SR();
+  rec.lang = "zh-CN";
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  listening = true;
+  btn.textContent = "⏹️ 停止";
+  btn.classList.add("on");
+  hint.textContent = "🔴 正在聆听，请说出你的问题…";
+  rec.onresult = function (ev) {
+    var text = ev.results[0][0].transcript;
+    hint.textContent = "✅ " + text;
+    send("streamlit:setComponentValue", {value: {text: text}, dataType: "json"});
+  };
+  rec.onend = function () { listening = false; btn.textContent = "🎤 点击说话"; btn.classList.remove("on"); };
+  rec.onerror = function (ev) {
+    listening = false; btn.textContent = "🎤 点击说话"; btn.classList.remove("on");
+    hint.textContent = "⚠️ 识别失败：" + ev.error + "，点击重试";
+  };
+  rec.start();
+};
+</script>
+</body>
+</html>
