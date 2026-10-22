@@ -1,10 +1,11 @@
 """知识库构建脚本: python scripts/build_kb.py"""
+
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.rag.indexer import build_index  # noqa: E402
+from app.rag.indexer import build_index
 
 
 def main():

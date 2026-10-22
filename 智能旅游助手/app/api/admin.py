@@ -1,4 +1,5 @@
 """运营管理接口：统计看板、会话管理与注册用户使用情况（仅管理员）"""
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import require_admin
@@ -9,7 +10,7 @@ from app.store import create_user, get_session, get_stats, list_sessions, list_u
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-__all__ = ["router", "require_admin"]
+__all__ = ["require_admin", "router"]
 
 
 @router.get("/stats", response_model=StatsResponse)
@@ -25,6 +26,7 @@ def stats(_admin: str = Depends(require_admin)):
         index_ready=retriever.index_ready(),
         llm_provider=settings.llm_provider,
         llm_model=settings.llm_model,
+        llm_usage=s.get("llm_usage", {}),
     )
 
 
@@ -60,12 +62,17 @@ def create_user_api(req: AdminCreateUserRequest, _admin: str = Depends(require_a
     user, err = create_user(req.username, req.password, role=role)
     if user is None:
         raise HTTPException(400, err)
-    return {"ok": True, "username": user["username"], "role": user["role"],
-            "message": f"账号「{user['username']}」已创建"}
+    return {
+        "ok": True,
+        "username": user["username"],
+        "role": user["role"],
+        "message": f"账号「{user['username']}」已创建",
+    }
 
 
 @router.get("/ratelimit")
 def ratelimit_status(_admin: str = Depends(require_admin)):
     """当前限流配置与各窗口占用情况（排查额度被刷时用）"""
     from app.ratelimit import snapshot
+
     return snapshot()

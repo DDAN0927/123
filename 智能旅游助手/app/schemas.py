@@ -1,10 +1,16 @@
 """API 数据模型（Pydantic Schema）"""
+
 from pydantic import BaseModel, Field
 
 
 # ---------- 对话 ----------
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="用户消息")
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="用户消息",
+    )
     session_id: str | None = Field(None, description="会话ID，为空则新建会话")
 
 
@@ -18,6 +24,9 @@ class ChatResponse(BaseModel):
     answer: str
     trace: list[TraceItem] = []
     outputs: dict[str, str] = {}
+    # 专家级降级信息 {专家名: 失败原因}。同步接口此前把它丢掉，
+    # 调用方只看到「回答变短了」，完全无法判断是不是有专家挂了。
+    errors: dict[str, str] = {}
     agent_calls: int = 0
     elapsed_ms: int = 0
 
@@ -80,6 +89,8 @@ class StatsResponse(BaseModel):
     index_ready: bool
     llm_provider: str
     llm_model: str
+    # token 用量与成本估算（AI 应用最核心的运行指标）
+    llm_usage: dict = Field(default_factory=dict)
 
 
 # ---------- 知识库 ----------
@@ -106,11 +117,28 @@ class SimpleResult(BaseModel):
 # 只靠前端转义是单点防御，服务端也必须拦住。
 USERNAME_PATTERN = r"^[\w\u4e00-\u9fff.@-]+$"
 
+# 密码最小长度：注册 / 管理员建号 / 改密三处必须一致。
+# 放在一处定义，避免再出现「某条路径忘了校验」的不一致。
+MIN_PASSWORD_LENGTH = 6
+
 
 class RegisterRequest(BaseModel):
-    username: str = Field(..., min_length=1, max_length=32, pattern=USERNAME_PATTERN,
-                          description="用户名（字母/数字/下划线/点/@/连字符/中文）")
-    password: str = Field(..., min_length=1, max_length=128, description="密码")
+    username: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=USERNAME_PATTERN,
+        description="用户名（字母/数字/下划线/点/@/连字符/中文）",
+    )
+    # 与 AdminCreateUserRequest / ChangePasswordRequest 保持一致。
+    # 早期这里只校验 min_length=1，导致「注册接口能设 1 位密码」——
+    # 前端拦了 6 位但后端没拦，属于典型的「只做客户端校验」。
+    password: str = Field(
+        ...,
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=128,
+        description=f"密码（至少 {MIN_PASSWORD_LENGTH} 位）",
+    )
 
 
 class LoginRequest(BaseModel):
@@ -120,15 +148,32 @@ class LoginRequest(BaseModel):
 
 class AdminCreateUserRequest(BaseModel):
     """管理员创建账号（公网部署关闭开放注册后，新账号由此入口开通）"""
-    username: str = Field(..., min_length=1, max_length=32, pattern=USERNAME_PATTERN,
-                          description="用户名（字母/数字/下划线/点/@/连字符/中文）")
-    password: str = Field(..., min_length=6, max_length=128, description="密码（至少 6 位）")
+
+    username: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=USERNAME_PATTERN,
+        description="用户名（字母/数字/下划线/点/@/连字符/中文）",
+    )
+    password: str = Field(
+        ...,
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=128,
+        description=f"密码（至少 {MIN_PASSWORD_LENGTH} 位）",
+    )
     role: str = Field("user", description="角色：user / admin")
 
 
 class ChangePasswordRequest(BaseModel):
     old_password: str = Field(..., min_length=1, description="旧密码")
-    new_password: str = Field(..., min_length=1, max_length=128, description="新密码")
+    # 改密同样要走长度策略，否则「注册 6 位、改密 1 位」等于绕过策略
+    new_password: str = Field(
+        ...,
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=128,
+        description=f"新密码（至少 {MIN_PASSWORD_LENGTH} 位）",
+    )
 
 
 class AuthResponse(BaseModel):
@@ -140,3 +185,63 @@ class AuthResponse(BaseModel):
 class UserInfo(BaseModel):
     username: str
     role: str
+
+
+# ---------- 外部内容库（小红书 / 抖音 / 手工录入） ----------
+# 说明：小红书与抖音均未向第三方开放通用的旅游内容接口（需企业资质，且只给
+# 订单/商品/授权用户数据），所以这里不做抓取，只提供「管理员导入 + 落库检索」的通道。
+NOTE_SOURCES = ("xiaohongshu", "douyin", "manual", "other")
+
+
+class NoteItem(BaseModel):
+    id: str
+    source: str = "manual"
+    title: str = ""
+    content: str = ""
+    city: str = ""
+    tags: str = ""
+    url: str = ""
+    author: str = ""
+    imported_by: str = ""
+    created_at: float = 0.0
+
+
+class NoteCreateRequest(BaseModel):
+    source: str = Field("manual", description="来源：xiaohongshu / douyin / manual / other")
+    title: str = Field("", max_length=80, description="标题，留空则取正文前 40 字")
+    content: str = Field(..., min_length=1, max_length=20000, description="攻略正文")
+    city: str = Field("", max_length=20, description="关联城市，导出知识库时按城市分组")
+    tags: str = Field("", max_length=120, description="标签，逗号分隔")
+    url: str = Field("", max_length=300, description="原文链接")
+    author: str = Field("", max_length=40, description="原作者")
+
+
+class NoteUpdateRequest(BaseModel):
+    """局部更新：只传需要改的字段，未传（None）的保持原值。"""
+
+    source: str | None = Field(None, description="来源：xiaohongshu / douyin / manual / other")
+    title: str | None = Field(None, max_length=80)
+    content: str | None = Field(None, min_length=1, max_length=20000)
+    city: str | None = Field(None, max_length=20)
+    tags: str | None = Field(None, max_length=120)
+    url: str | None = Field(None, max_length=300)
+    author: str | None = Field(None, max_length=40)
+
+
+class NoteCity(BaseModel):
+    city: str
+    count: int = 0
+
+
+class NoteStats(BaseModel):
+    total: int = 0
+    by_source: dict[str, int] = {}
+    city_count: int = 0
+    cities: list[NoteCity] = []
+
+
+class NoteExportResponse(BaseModel):
+    ok: bool
+    files: int = 0
+    notes: int = 0
+    message: str = ""

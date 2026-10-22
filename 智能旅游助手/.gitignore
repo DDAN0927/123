@@ -12,3 +12,16 @@ data/
 .trae-html-share-packages/
 .screenshots/
 deploy/
+
+# 本地 AI 工作目录与平台产物（不进部署仓库）
+.workbuddy-ai/
+.workbuddy/
+*.genie
+
+# 测试与静态检查产物
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml

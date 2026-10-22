@@ -2,6 +2,7 @@
 - deepseek-reasoner：深度思考模型（专家回答，完整保留思维链）
 - deepseek-chat：快速模型（调度路由 / 结构化输出 / 工具调用）
 """
+
 import time
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -14,12 +15,45 @@ _ROLE_MAP = {"system": "system", "human": "user", "ai": "assistant"}
 
 @dataclass
 class ThinkingResponse:
-    """思考模型响应：正文 + 思维链 + 思考耗时"""
+    """思考模型响应：正文 + 思维链 + 思考耗时 + token 用量"""
+
     content: str = ""
     reasoning_content: str | None = None
     reasoning_tokens: int | None = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
     seconds: float = 0.0
     tool_calls: list = field(default_factory=list)
+
+
+def usage_of(resp) -> tuple[int, int, int]:
+    """统一从各家响应对象里取 (prompt_tokens, completion_tokens, reasoning_tokens)。
+
+    同时兼容三种形态：
+    * 本文件自研的 `ThinkingResponse`（DeepSeek reasoner 原生 SDK）
+    * LangChain 新式 `usage_metadata`
+    * LangChain 旧式 `response_metadata["token_usage"]`
+    """
+    if isinstance(resp, ThinkingResponse):
+        return resp.prompt_tokens, resp.completion_tokens, resp.reasoning_tokens or 0
+
+    meta = getattr(resp, "usage_metadata", None)
+    if meta:
+        details = meta.get("output_token_details") or {}
+        return (
+            int(meta.get("input_tokens") or 0),
+            int(meta.get("output_tokens") or 0),
+            int(details.get("reasoning") or 0),
+        )
+
+    rmeta = getattr(resp, "response_metadata", None) or {}
+    usage = rmeta.get("token_usage") or rmeta.get("usage") or {}
+    details = usage.get("completion_tokens_details") or {}
+    return (
+        int(usage.get("prompt_tokens") or 0),
+        int(usage.get("completion_tokens") or 0),
+        int(details.get("reasoning_tokens") or 0),
+    )
 
 
 class DeepSeekReasoner:
@@ -27,6 +61,7 @@ class DeepSeekReasoner:
 
     def __init__(self):
         from openai import OpenAI
+
         self._client = OpenAI(
             api_key=settings.llm_api_key,
             base_url=settings.llm_base_url,
@@ -57,6 +92,8 @@ class DeepSeekReasoner:
             content=msg.content or "",
             reasoning_content=getattr(msg, "reasoning_content", None),
             reasoning_tokens=getattr(details, "reasoning_tokens", None) if details else None,
+            prompt_tokens=int(getattr(usage, "prompt_tokens", 0) or 0) if usage else 0,
+            completion_tokens=int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0,
             seconds=round(time.time() - t0, 1),
         )
 
@@ -69,6 +106,7 @@ def get_llm():
     if "reasoner" in settings.llm_model.lower():
         return DeepSeekReasoner()
     from langchain_openai import ChatOpenAI
+
     return ChatOpenAI(
         model=settings.llm_model,
         base_url=settings.llm_base_url,
@@ -85,6 +123,7 @@ def get_router_llm():
     if settings.is_mock:
         return None
     from langchain_openai import ChatOpenAI
+
     return ChatOpenAI(
         model=settings.llm_router_model or settings.llm_model,
         base_url=settings.llm_base_url,

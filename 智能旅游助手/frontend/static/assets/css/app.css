@@ -169,6 +169,10 @@
   background: var(--paper-3); color: var(--muted);
 }
 .trace-step.done .ts-idx { background: var(--teal); color: #fff; }
+/* 专家失败：必须和「已完成」在视觉上区分开，否则用户以为这一步成功了 */
+.trace-step.failed .ts-idx { background: var(--coral); color: #fff; }
+.trace-step.failed .ts-name { color: var(--coral); }
+.trace-step.failed .ts-reason { color: var(--coral); opacity: .85; }
 .trace-step .ts-name { font-weight: 700; color: var(--ink); flex: 0 0 auto; }
 .trace-step .ts-reason { color: var(--muted); font-size: .8rem; }
 
@@ -263,4 +267,105 @@
   .msg .bubble { max-width: 92%; }
   .trace-step { flex-wrap: wrap; }
   .think-item pre { max-height: 180px; }
+}
+
+/* ==========================================================================
+   运营管理 · 标签页与内容库
+   ========================================================================== */
+
+/* ---------- 标签栏 ---------- */
+.admin-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 20px; padding: 6px;
+  background: var(--paper-2); border-radius: var(--r-pill);
+  width: fit-content; max-width: 100%;
+}
+.admin-tab {
+  font-family: inherit; font-size: .92rem; font-weight: 700;
+  color: var(--muted); background: transparent; border: 0; cursor: pointer;
+  padding: 10px 22px; border-radius: var(--r-pill);
+  transition: background .25s var(--ease), color .25s var(--ease);
+}
+.admin-tab:hover { color: var(--ink); }
+.admin-tab.is-active { background: #fff; color: var(--ink); box-shadow: 0 6px 18px -10px rgba(23,19,15,.4); }
+
+/* ---------- 内容库：概览小标签 ---------- */
+.note-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.note-chip {
+  font-size: .78rem; color: var(--ink-soft); background: var(--paper-2);
+  border: 1.5px solid var(--line); border-radius: var(--r-pill); padding: 5px 14px;
+}
+.note-tip {
+  margin-top: 14px; font-size: .84rem; line-height: 1.7; color: var(--muted);
+  background: var(--paper-2); border-left: 3px solid var(--amber);
+  border-radius: 0 10px 10px 0; padding: 10px 14px;
+}
+
+/* ---------- 内容库：导入 / 编辑表单 ---------- */
+.note-form {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px; margin-bottom: 12px;
+}
+.note-form .app-input, .note-form .app-select { min-width: 0; width: 100%; }
+.note-textarea {
+  width: 100%; min-height: 150px; resize: vertical;
+  font-family: inherit; font-size: .92rem; line-height: 1.7; color: var(--ink);
+  background: var(--paper); border: 1.5px solid var(--line-strong);
+  border-radius: var(--r-md); padding: 14px 18px; outline: none;
+  transition: border-color .25s;
+}
+.note-textarea:focus { border-color: var(--coral); }
+.note-form-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* ---------- 内容库：列表 ---------- */
+.note-list { display: flex; flex-direction: column; }
+.note-row {
+  display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+  padding: 14px 4px; border-bottom: 1px dashed var(--line);
+}
+.note-row:last-child { border-bottom: 0; }
+.note-row-main { min-width: 0; flex: 1; }
+.note-row-title {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: .95rem; margin-bottom: 4px;
+}
+.note-row-title strong { color: var(--ink); font-weight: 800; }
+.note-city { font-size: .78rem; color: var(--teal); white-space: nowrap; }
+.note-row-meta { font-size: .76rem; color: var(--muted); margin-bottom: 6px; }
+.note-row-preview { font-size: .85rem; color: var(--ink-soft); line-height: 1.65; word-break: break-word; }
+.note-full {
+  margin-top: 10px; padding: 12px 14px;
+  background: var(--paper-2); border-radius: 10px;
+  font-size: .85rem; line-height: 1.8; color: var(--ink-soft);
+  white-space: pre-wrap; word-break: break-word;
+}
+.note-row-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+.note-row-actions .btn { padding: 6px 14px; font-size: .8rem; }
+
+/* ---------- 内容库：来源徽章 ---------- */
+.note-badge {
+  display: inline-block; font-size: .72rem; font-weight: 700;
+  padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap;
+  background: var(--paper-3); color: var(--ink-soft);
+}
+.note-badge-xiaohongshu { background: #FFE8EC; color: #C8102E; }
+.note-badge-douyin { background: #E8E9F0; color: #161823; }
+.note-badge-manual { background: #E0F4F2; color: #0E7C74; }
+.note-badge-other { background: var(--paper-3); color: var(--muted); }
+
+/* ---------- 内容库：分页 ---------- */
+.note-pager {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  flex-wrap: wrap; margin-top: 18px; padding-top: 16px;
+  border-top: 1.5px solid var(--line);
+}
+.note-pager-info { font-size: .84rem; color: var(--muted); }
+
+/* 通用：禁用态（此前全局没有，分页与导出按钮需要） */
+.btn[disabled], .btn:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; }
+
+@media (max-width: 640px) {
+  .note-row { flex-direction: column; }
+  .note-row-actions { width: 100%; }
+  .admin-tab { padding: 9px 16px; font-size: .86rem; }
 }

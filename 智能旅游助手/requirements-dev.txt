@@ -1,0 +1,7 @@
+# 开发期依赖（运行时依赖见 requirements.txt）
+# 安装：pip install -r requirements.txt -r requirements-dev.txt
+
+pytest>=8.0
+pytest-cov>=5.0
+ruff>=0.6
+pre-commit>=3.7

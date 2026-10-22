@@ -209,6 +209,155 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---- 页面其他组件未报错 ----
   check("自定义光标脚本已执行", qa(".cursor-ring").length === 1);
 
+  // ---- 鉴权头：必须用 X-Auth-Token ----
+  // 魔搭创空间（*.ms.show）的边缘 WAF 会拦掉**任何**带 Authorization: Bearer 的请求
+  // （与 token 内容无关，应用层根本收不到）。前端一旦改回标准头，线上所有需要登录的
+  // 功能都会 403，所以在这里钉死。两处都要覆盖：普通 fetch 与 SSE 流式请求。
+  const tokenHeaderCount = (appjs.match(/X-Auth-Token/g) || []).length;
+  check("app.js 用 X-Auth-Token 携带鉴权（普通请求 + SSE 流式各一处）",
+    tokenHeaderCount >= 2, `${tokenHeaderCount} 处`);
+  check("app.js 不再用 Authorization 请求头（会被平台 WAF 拦截）",
+    !/["']Authorization["']\s*:/.test(appjs));
+
+  // ============================================================
+  // 运营管理页：标签切换 + 内容库渲染（独立文档，避免污染上面的断言）
+  // ============================================================
+  const adminHtml = read("admin.html");
+  const NOTES = Array.from({ length: 20 }, (_, i) => ({
+    id: "n" + i,
+    source: i === 0 ? "xiaohongshu" : (i === 1 ? "douyin" : "manual"),
+    title: "攻略标题 " + i,
+    content: "正文内容 " + i + " —— 用于验证列表渲染与展开。",
+    city: i < 10 ? "北京" : "重庆",
+    tags: "测试",
+    url: "",
+    author: "作者" + i,
+    imported_by: "admin",
+    created_at: 1760000000 + i,
+  }));
+  // 故意让「总数(45) > 本页条数(20)」，以验证前端确实是从 X-Total-Count 读总数，
+  // 而不是拿数组长度当总数（那样分页器会永远只有 1 页）。
+  const adminStub = `
+window.matchMedia = function () { return { matches: false, addEventListener: function(){}, removeEventListener: function(){} }; };
+window.IntersectionObserver = function () { this.observe=function(){}; this.unobserve=function(){}; this.disconnect=function(){}; };
+window.requestAnimationFrame = function (cb) { return setTimeout(function(){ cb(0); }, 0); };
+window.cancelAnimationFrame = function (id) { clearTimeout(id); };
+window.scrollTo = function () {};
+window.confirm = function () { return true; };
+localStorage.setItem("tc_token", "test-token");
+localStorage.setItem("tc_user", JSON.stringify({ username: "admin", role: "admin" }));
+window.fetch = function (url, opts) {
+  var u = String(url);
+  var mk = function (payload, total) {
+    return Promise.resolve({
+      ok: true, status: 200,
+      headers: { get: function (k) {
+        return String(k).toLowerCase() === "x-total-count" ? String(total) : null;
+      } },
+      text: function () { return Promise.resolve(JSON.stringify(payload)); },
+      json: function () { return Promise.resolve(payload); },
+    });
+  };
+  if (u.indexOf("/api/notes/stats") >= 0) {
+    return mk({ total: 45, by_source: { "小红书": 1, "抖音": 1, "手工录入": 18 },
+                city_count: 2, cities: [{ city: "北京", count: 10 }, { city: "重庆", count: 10 }] });
+  }
+  if (u.indexOf("/api/notes") >= 0) {
+    // 让关键词 zzz 查不到东西，用来验证「筛选无结果」的空态文案
+    if (u.indexOf("q=zzz") >= 0) return mk([], 0);
+    return mk(${JSON.stringify(NOTES)}, 45);
+  }
+  if (u.indexOf("/api/admin/stats") >= 0) return mk({ total_sessions: 3, total_messages: 9, likes: 1, dislikes: 0 });
+  if (u.indexOf("/api/admin/sessions") >= 0) return mk([]);
+  if (u.indexOf("/api/admin/users") >= 0) return mk({ users: [] });
+  return mk({});
+};
+`;
+  const adminDoc = adminHtml
+    .replace('<script src="assets/js/geo-data.js"></script>', () => `<script>${inline(geo)}</script>`)
+    .replace('<script src="assets/js/app.js"></script>', () => `<script>${inline(appjs)}</script>`)
+    .replace('<script src="assets/js/main.js"></script>', () => `<script>${inline(mainjs)}</script>`)
+    .replace("<body>", () => `<body><script>${adminStub}</script>`);
+
+  const adminDom = new JSDOM(adminDoc, {
+    url: "http://localhost/admin.html",
+    runScripts: "dangerously",
+    pretendToBeVisual: true,
+  });
+  const adminWindow = adminDom.window;
+  const adminDocument = adminWindow.document;
+  const aq = (s) => adminDocument.querySelector(s);
+  const aqa = (s) => adminDocument.querySelectorAll(s);
+
+  await wait(600);
+
+  const tabs = aqa(".admin-tab");
+  check("运营管理页渲染出两个标签（运营看板 / 内容库）",
+    tabs.length === 2 && tabs[1].textContent.includes("内容库"), `实际 ${tabs.length} 个`);
+  check("默认停在运营看板，内容库面板隐藏",
+    !aq("#admin-panel-overview").hidden && aq("#admin-panel-notes").hidden);
+
+  tabs[1].dispatchEvent(new adminWindow.MouseEvent("click", { bubbles: true }));
+  await wait(400);
+
+  check("点「内容库」后切换面板（看板隐藏、内容库显示）",
+    aq("#admin-panel-overview").hidden && !aq("#admin-panel-notes").hidden);
+  check("内容库概览卡片渲染（内容总量 45）",
+    (aq("#admin-panel-notes").textContent || "").includes("45"));
+  check("来源分布小标签渲染",
+    aqa(".note-chip").length >= 3, `实际 ${aqa(".note-chip").length} 个`);
+  check("列表渲染出本页 20 条",
+    aqa(".note-row").length === 20, `实际 ${aqa(".note-row").length} 条`);
+  check("来源徽章区分小红书 / 抖音 / 手工录入",
+    !!aq(".note-badge-xiaohongshu") && !!aq(".note-badge-douyin") && !!aq(".note-badge-manual"));
+  check("城市下拉带条数（北京（10））",
+    (aq("#note-flt-city").textContent || "").includes("北京（10）"));
+  check("分页总数取自 X-Total-Count（45 条 → 3 页）",
+    (aq(".note-pager-info") && aq(".note-pager-info").textContent || "").includes("共 45 条"),
+    aq(".note-pager-info") && aq(".note-pager-info").textContent);
+  check("导入表单与导出按钮都在",
+    !!aq("#note-f-content") && !!aq("#note-save") && !!aq("#note-export"));
+
+  // 点「查看」应展开全文，且不破坏其他行
+  const firstView = aq(".note-view");
+  const firstFull = aq(".note-row .note-full");
+  firstView.dispatchEvent(new adminWindow.MouseEvent("click", { bubbles: true }));
+  check("点「查看」展开该条全文",
+    firstFull.hidden === false && (firstFull.textContent || "").includes("正文内容 0"));
+
+  // 点「编辑」应把该条内容回填到表单，并出现「取消编辑」
+  const firstEdit = aq(".note-edit");
+  firstEdit.dispatchEvent(new adminWindow.MouseEvent("click", { bubbles: true }));
+  await wait(300);
+  check("点「编辑」回填表单并切到编辑态",
+    aq("#note-f-content").value.includes("正文内容 0")
+    && aq("#note-save").textContent.includes("保存修改")
+    && !aq("#note-cancel").hidden);
+
+  // 点「取消编辑」应恢复导入态
+  aq("#note-cancel").dispatchEvent(new adminWindow.MouseEvent("click", { bubbles: true }));
+  await wait(300);
+  check("点「取消编辑」恢复导入态",
+    aq("#note-f-content").value === "" && aq("#note-save").textContent.includes("导入"));
+
+  // 筛选无结果时，空态文案必须是「没有匹配的内容」，而不是「还没有内容」
+  // —— 后者会让用户以为数据被清空了。
+  aq("#note-flt-q").value = "zzz";
+  aq("#note-search").dispatchEvent(new adminWindow.MouseEvent("click", { bubbles: true }));
+  await wait(400);
+  const emptyText = (aq(".app-empty h3") && aq(".app-empty h3").textContent) || "";
+  check("筛选无结果时提示「没有匹配的内容」",
+    emptyText.includes("没有匹配"), `实际「${emptyText}」`);
+  check("筛选无结果时不再显示列表行", aqa(".note-row").length === 0);
+
+  // 重置后应恢复列表
+  aq("#note-reset").dispatchEvent(new adminWindow.MouseEvent("click", { bubbles: true }));
+  await wait(400);
+  check("点「重置」恢复完整列表", aqa(".note-row").length === 20,
+    `实际 ${aqa(".note-row").length} 条`);
+
+  adminWindow.close();
+
   const failed = results.filter(([, ok]) => !ok);
   console.log(`\n通过 ${results.length - failed.length} / ${results.length}`);
   if (failed.length) console.log("失败：" + failed.map(([n]) => n).join("、"));

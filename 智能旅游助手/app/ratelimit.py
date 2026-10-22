@@ -10,6 +10,7 @@
 
 单进程内存实现（uvicorn 默认单 worker），进程重启即清零；零第三方依赖。
 """
+
 import threading
 import time
 from collections import defaultdict, deque
@@ -114,7 +115,10 @@ def _resolve_username(request: Request) -> str | None:
     """尽力解析当前登录用户（失败不影响限流，退化为匿名阈值）。"""
     try:
         from app.api.auth import optional_username
-        return optional_username(request.headers.get("authorization"))
+
+        # 两种鉴权头都试：部分平台（如魔搭创空间）的边缘 WAF 会拦掉
+        # Authorization: Bearer，此时前端改用 X-Auth-Token。
+        return optional_username(request.headers.get("authorization"), request.headers.get("x-auth-token"))
     except Exception:
         return None
 

@@ -1,6 +1,14 @@
+# 本地一键起服务：`docker compose up -d --build`
+#
+# 架构说明：本项目是**单容器**形态 —— 同一个 FastAPI 进程既提供官网静态站（/）
+# 也提供 API（/api），监听 $PORT（默认 7860）。早期那套「FastAPI + Streamlit 双容器」
+# 已经废弃，不要再加 frontend 服务。
+#
+# 需要本地 GPU 大模型时，额外启用 vllm profile：
+#   docker compose --profile gpu up -d
+
 services:
-  # 本地大模型服务（需要 NVIDIA GPU）
-  # 启动: docker compose --profile gpu up -d
+  # 本地大模型服务（需要 NVIDIA GPU，可选）
   vllm:
     image: vllm/vllm-openai:latest
     profiles: ["gpu"]
@@ -24,28 +32,29 @@ services:
               count: all
               capabilities: [gpu]
 
-  # 后端 API 服务
-  backend:
+  # 应用（静态站 + API 同一端口）
+  app:
     build: .
     environment:
+      # 端口必须和下面的 ports 映射一致；start.sh 读取 $PORT
+      - PORT=7860
+      # 持久化目录：与下方 volume 挂载点保持一致，否则数据会写进容器层，重启即丢
+      - DATA_DIR=/app/data
+      - KB_DIR=/app/knowledge_base
       - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      # 默认指向 vllm 服务；用云端 API（如 DeepSeek）时在 .env 里覆盖 LLM_BASE_URL
       - LLM_BASE_URL=${LLM_BASE_URL:-http://vllm:8000/v1}
       - LLM_API_KEY=${LLM_API_KEY:-EMPTY}
       - LLM_MODEL=${LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      # 高德地图（可选）：留空则地图页显示配置提示；这两个值本就下发到浏览器
+      - AMAP_KEY=${AMAP_KEY:-}
+      - AMAP_SECURITY_JS_CODE=${AMAP_SECURITY_JS_CODE:-}
       - HF_ENDPOINT=https://hf-mirror.com
     volumes:
       - ./knowledge_base:/app/knowledge_base
       - ./data:/app/data
     ports:
-      - "8000:8000"
-
-  # Streamlit 前端
-  frontend:
-    build: .
-    command: streamlit run frontend/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
-    environment:
-      - API_URL=http://backend:8000
-    ports:
-      - "8501:8501"
-    depends_on:
-      - backend
+      - "7860:7860"
+    restart: unless-stopped

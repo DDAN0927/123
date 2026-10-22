@@ -1,7 +1,12 @@
 """RAG 检索工具：普通函数（自动注入上下文）+ LangChain 工具（供 Agent 主动检索）"""
+
+import logging
+
 from langchain_core.tools import tool
 
 from app.rag import retriever
+
+logger = logging.getLogger("travel.rag")
 
 
 def get_rag_context(query: str, top_k: int | None = None) -> str:
@@ -9,12 +14,15 @@ def get_rag_context(query: str, top_k: int | None = None) -> str:
     try:
         results = retriever.search(query, top_k)
     except Exception as e:
-        return f"(知识库暂不可用: {e})"
+        # 不要把异常原文写进 prompt：里面有绝对路径和内部实现细节，
+        # 既污染模型上下文，也等于把部署信息送给了模型。
+        logger.warning("知识库检索失败: %s", e)
+        return "(知识库暂不可用，请基于通用知识回答并提示用户核实)"
     if not results:
         return "(知识库中未检索到相关资料)"
     parts = []
     for i, r in enumerate(results, 1):
-        parts.append(f"【资料{i}】(来源: {r['doc']}, 相似度 {r['score']:.2f})\n{r['text']}")
+        parts.append(f"【资料{i}】(来源: {r['doc']}, 相关度 {r['score']:.2f})\n{r['text']}")
     return "\n\n".join(parts)
 
 

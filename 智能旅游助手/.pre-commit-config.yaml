@@ -1,0 +1,31 @@
+# 提交前自动跑静态检查与测试，避免把 lint 不过的代码推上去。
+# 启用：pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(app|scripts|tests)/.*\.py$
+      - id: ruff-format
+        files: ^(app|scripts|tests)/.*\.py$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: \.(md|json|js|css|html)$
+      - id: trailing-whitespace
+        exclude: \.(md|js|css|html)$
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: python -m pytest -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

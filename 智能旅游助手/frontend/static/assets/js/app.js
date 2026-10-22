@@ -9,24 +9,45 @@
   const TOKEN_KEY = "tc_token";
   const USER_KEY = "tc_user";
 
-  // 高德地图 Web 端(JS API) Key 与安全密钥。
+  // 高德地图 Web 端(JS API) Key 与安全密钥 —— 由后端 GET /api/config 下发，前端不硬编码。
   // 注意：JS API 2.0 必须在加载 amap 脚本「之前」注入 window._AMapSecurityConfig，
   // 否则地图会加载失败（INVALID_USER_SCODE），页面表现为一片空白。
-  const AMAP_KEY = "88db79732b445f23505ffa0e5acba520";
-  const AMAP_JS_CODE = "9b91cb0707f38ec51dedd85a0a982fe3";
+  // 这两个值本来就是公开的（要发给浏览器），访问控制靠高德控制台的域名白名单；
+  // 做成运行时配置是为了让自部署者能换成自己的 Key。
+  let AMAP_KEY = "";
+  let AMAP_JS_CODE = "";
+  let _cfgPromise = null;
+  function loadPublicConfig() {
+    if (!_cfgPromise) {
+      _cfgPromise = fetch(API_BASE + "/api/config")
+        .then((r) => (r.ok ? r.json() : {}))
+        .then((c) => {
+          AMAP_KEY = c.amap_key || "";
+          AMAP_JS_CODE = c.amap_security_js_code || "";
+          return c;
+        })
+        .catch(() => ({}));
+    }
+    return _cfgPromise;
+  }
   // 地图加载失败时展示的排查提示（放在 iframe 内，避免出现「莫名其妙一片空白」）
   const AMAP_FAIL_HTML = '<div class="am-fail"><b>⚠️ 地图加载失败</b>'
     + '<span>高德 JS API 未能初始化，常见原因：</span>'
-    + '<span>① Key 未把当前访问域名加入白名单（部署到新域名后必须补上）</span>'
-    + '<span>② 安全密钥 jscode 与 Key 不匹配</span>'
-    + '<span>③ 网络无法访问 webapi.amap.com</span></div>';
+    + '<span>① 未配置 AMAP_KEY（在 .env 里填入自己的高德 Key 与安全密钥）</span>'
+    + '<span>② Key 未把当前访问域名加入白名单（部署到新域名后必须补上）</span>'
+    + '<span>③ 安全密钥 jscode 与 Key 不匹配</span>'
+    + '<span>④ 网络无法访问 webapi.amap.com</span></div>';
 
   /* ---------- 网络 ---------- */
   async function api(method, path, body) {
     const url = API_BASE + path;
     const opts = { method, headers: {} };
     const t = localStorage.getItem(TOKEN_KEY);
-    if (t) opts.headers["Authorization"] = "Bearer " + t;
+    // 用 X-Auth-Token 而不是 Authorization: Bearer ——
+    // 魔搭创空间（*.ms.show）的边缘 WAF 会把任何带 Authorization: Bearer 的请求
+    // 当成「SDK Token 直连」直接 403（与 token 内容无关，应用层根本收不到）。
+    // 后端两种头都认，所以统一用前者，换平台也不用改回来。
+    if (t) opts.headers["X-Auth-Token"] = t;
     if (body) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
@@ -54,10 +75,13 @@
     } else if (data && data.detail && typeof data.detail === "object") {
       data.detail = data.detail.message || data.detail.msg || "请求失败";
     }
-    return { ok: r.ok, status: r.status, data };
+    // headers 一并返回：内容库列表把分页总数放在 X-Total-Count 响应头里，
+    // 这样返回体仍是数组，接口保持向后兼容。
+    return { ok: r.ok, status: r.status, data, headers: r.headers };
   }
   const apiGet = (path) => api("GET", path);
   const apiPost = (path, body) => api("POST", path, body);
+  const apiPut = (path, body) => api("PUT", path, body);
 
   /* ---------- 文本与 Markdown 渲染（自带 HTML 转义，防 XSS） ---------- */
   function escapeHtml(s) {
@@ -94,7 +118,17 @@
       out.push(`<blockquote>${quoteBuf.join("<br>")}</blockquote>`);
       quoteBuf = [];
     };
-    const isTableRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+    // 表格行的判定不能要求「以 | 结尾」——模型输出的表格经常省略最后一列的收尾竖线：
+    //   | 住宿 | 900 |
+    //   | 餐饮（3天） | 300      ← 少了结尾的 |
+    // 旧实现用 /^\s*\|.*\|\s*$/ 判定，这一行会被当成普通段落，页面上直接露出裸管道符。
+    // 现在以「以 | 开头」为准；已进入表格时，还兼容 GFM 那种不带外侧竖线的写法。
+    const isTableRow = (l) => {
+      const t = l.trim();
+      if (t.length < 2) return false;
+      if (t.startsWith("|")) return true;
+      return tableBuf.length > 0 && (t.match(/\|/g) || []).length >= 2;
+    };
     const isSepRow = (l) => /^\s*\|?[\s:|-]+\|?\s*$/.test(l) && l.includes("-");
     const flushTable = () => {
       if (!tableBuf.length) return;
@@ -236,6 +270,9 @@
 
     if (links) {
       if (isAppPage) {
+        // 应用页导航项多，标记出来让 CSS 在窄桌面下收进汉堡菜单
+        links.classList.add("nav-links--app");
+        document.body.classList.add("app-page");
         links.innerHTML = `
           <a href="index.html">首页</a>
           <a href="chat.html">AI旅行咨询</a>
@@ -296,7 +333,10 @@
   }
 
   /* ---------- 高德地图模板（城市景点） ---------- */
-  function renderAmapCity(containerId, city, info) {
+  async function renderAmapCity(containerId, city, info) {
+    await loadPublicConfig();
+    const el0 = document.getElementById(containerId);
+    if (!AMAP_KEY) { if (el0) el0.innerHTML = AMAP_FAIL_HTML; return; }
     const clat = info.center[0], clng = info.center[1];
     const [cLng, cLat] = wgs84ToGcj02(clng, clat);
     const spots = info.spots.map(s => {
@@ -363,7 +403,10 @@ document.querySelectorAll(".amt").forEach(function(btn){btn.addEventListener("cl
   }
 
   /* ---------- 高德地图模板（跨城路线） ---------- */
-  function renderAmapRoute(containerId, fromCity, toCity) {
+  async function renderAmapRoute(containerId, fromCity, toCity) {
+    await loadPublicConfig();
+    const el0 = document.getElementById(containerId);
+    if (!AMAP_KEY) { if (el0) el0.innerHTML = AMAP_FAIL_HTML; return; }
     const [fLat, fLng] = window.CITY_GEO[fromCity].center;
     const [tLat, tLng] = window.CITY_GEO[toCity].center;
     const [fGLng, fGLat] = wgs84ToGcj02(fLng, fLat);
@@ -882,8 +925,8 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       function renderTrace() {
         if (!steps.length && !thinkParts.length) return;
         const stepsHtml = steps.map((s, i) => `
-          <div class="trace-step${s.done ? " done" : ""}">
-            <span class="ts-idx">${i + 1}</span>
+          <div class="trace-step${s.done ? " done" : ""}${s.failed ? " failed" : ""}">
+            <span class="ts-idx">${s.failed ? "!" : i + 1}</span>
             <span class="ts-name">${escapeHtml(agentLabel(s.agent))}</span>
             ${s.reason ? `<span class="ts-reason">${escapeHtml(s.reason)}</span>` : ""}
           </div>`).join("");
@@ -911,6 +954,13 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           sessionId = ev.session_id || sessionId;
         } else if (ev.type === "route") {
           steps.push({ agent: ev.agent, reason: ev.reason || "", done: false });
+          renderTrace();
+        } else if (ev.type === "agent_failed") {
+          // 专家级降级：后端会继续汇总其余专家，但界面必须明确标出这一位没跑通。
+          // 此前这个事件完全没被处理，失败专家在轨迹里还会被标成「已完成」，属于误导。
+          const s = steps.find(x => x.agent === ev.agent && !x.done);
+          if (s) { s.failed = true; s.reason = "执行失败，已跳过"; }
+          else steps.push({ agent: ev.agent, reason: "执行失败，已跳过", done: false, failed: true });
           renderTrace();
         } else if (ev.type === "agent_done") {
           const s = steps.find(x => x.agent === ev.agent && !x.done);
@@ -948,7 +998,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + (localStorage.getItem(TOKEN_KEY) || ""),
+            "X-Auth-Token": (localStorage.getItem(TOKEN_KEY) || ""),
           },
           body: JSON.stringify({ message: text, session_id: sessionId || undefined }),
         });
@@ -1288,19 +1338,70 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
   }
 
   /* ---------- 运营管理页 ---------- */
+  // 内容库来源枚举，与后端 app/notes.py 的 SOURCES 保持一致
+  const NOTE_SOURCES = [
+    { v: "xiaohongshu", t: "小红书" },
+    { v: "douyin", t: "抖音" },
+    { v: "manual", t: "手工录入" },
+    { v: "other", t: "其他" },
+  ];
+  const NOTE_SOURCE_LABEL = NOTE_SOURCES.reduce((m, s) => { m[s.v] = s.t; return m; }, {});
+
+  // 内容库页的本地视图状态：筛选条件 / 分页 / 正在编辑的那一条
+  const noteView = { city: "", source: "", q: "", page: 0, size: 20, editing: null };
+
   async function initAdminPage() {
     const container = document.getElementById("admin-app");
     if (!container) return;
     const user = authState();
-    if (!user || user.role !== "admin") { container.innerHTML = `<div class="app-gate"><h2>权限不足</h2><p>仅管理员可访问此页面</p></div>`; return; }
-    container.innerHTML = `<div class="app-panel"><div class="skeleton" style="height:200px"></div></div>`;
+    if (!user || user.role !== "admin") {
+      container.innerHTML = `<div class="app-gate"><h2>权限不足</h2><p>仅管理员可访问此页面</p></div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="admin-tabs" role="tablist">
+        <button class="admin-tab is-active" data-tab="overview" role="tab" aria-selected="true">运营看板</button>
+        <button class="admin-tab" data-tab="notes" role="tab" aria-selected="false">内容库</button>
+      </div>
+      <div id="admin-panel-overview"></div>
+      <div id="admin-panel-notes" hidden></div>`;
+
+    const tabs = Array.prototype.slice.call(container.querySelectorAll(".admin-tab"));
+    const overview = container.querySelector("#admin-panel-overview");
+    const notesHost = container.querySelector("#admin-panel-notes");
+    let notesLoaded = false;
+
+    tabs.forEach((btn) => btn.addEventListener("click", () => {
+      const showNotes = btn.dataset.tab === "notes";
+      tabs.forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      overview.hidden = showNotes;
+      notesHost.hidden = !showNotes;
+      // 首次切到「内容库」才拉数据，避免一进页面就多打两个接口
+      if (showNotes && !notesLoaded) { notesLoaded = true; renderNotesTab(notesHost); }
+    }));
+
+    renderAdminOverview(overview);
+  }
+
+  async function renderAdminOverview(host) {
+    host.innerHTML = `<div class="app-panel"><div class="skeleton" style="height:200px"></div></div>`;
     const [sr, lr, ur] = await Promise.all([apiGet("/api/admin/stats"), apiGet("/api/admin/sessions?limit=20"), apiGet("/api/admin/users")]);
-    if (!sr.ok || !lr.ok || !ur.ok) { container.innerHTML = `<div class="app-gate"><h2>无法加载</h2><p>需要管理员身份（请重新登录后访问）</p></div>`; return; }
+    if (!sr.ok || !lr.ok || !ur.ok) { host.innerHTML = `<div class="app-gate"><h2>无法加载</h2><p>需要管理员身份（请重新登录后访问）</p></div>`; return; }
     const s = sr.data || {};
     const sessions = (lr.data || []);
     const users = (ur.data && ur.data.users) || [];
     const fmt = (ts) => ts ? new Date(ts * 1000).toLocaleString("zh-CN", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
-    container.innerHTML = `
+    // token 用量：AI 应用最该被看见的指标。只统计调用次数无法回答「烧了多少钱」。
+    const usage = s.llm_usage || {};
+    const fmtTok = (n) => !n ? "0" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(n);
+    const usageRows = Object.entries(usage.by_agent || {}).map(([name, v]) =>
+      `<div class="session-row"><span>${escapeHtml(name)}</span><span style="color:var(--muted);font-size:.8rem">${v.calls||0} 次 · ${fmtTok(v.prompt_tokens)} 入 / ${fmtTok(v.completion_tokens)} 出</span></div>`).join("");
+    host.innerHTML = `
       <div class="app-panel">
         <h3 style="margin-bottom:16px">运营看板</h3>
         <div class="stat-grid">
@@ -1309,6 +1410,14 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           <div class="stat-card"><div class="stat-num">${s.likes||0}</div><div class="stat-label">点赞</div></div>
           <div class="stat-card"><div class="stat-num">${s.dislikes||0}</div><div class="stat-label">点踩</div></div>
         </div>
+        <h4 style="margin:24px 0 12px">模型用量与成本</h4>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-num">${fmtTok(usage.total_tokens||0)}</div><div class="stat-label">累计 tokens</div></div>
+          <div class="stat-card"><div class="stat-num">${usage.calls||0}</div><div class="stat-label">模型调用</div></div>
+          <div class="stat-card"><div class="stat-num">¥${(usage.estimated_cost_cny||0).toFixed(2)}</div><div class="stat-label">估算成本</div></div>
+          <div class="stat-card"><div class="stat-num">${fmtTok(usage.reasoning_tokens||0)}</div><div class="stat-label">思维链 tokens</div></div>
+        </div>
+        <div class="session-list">${usageRows || `<div class="session-row"><span style="color:var(--muted)">暂无模型调用记录（Mock 模式不产生 token 消耗）</span></div>`}</div>
         <h4 style="margin:24px 0 12px">开通新账号</h4>
         <div class="app-toolbar">
           <input id="au-name" class="app-input" type="text" placeholder="用户名" autocomplete="off" />
@@ -1339,19 +1448,236 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       </div>`;
 
     // 开通账号：公网部署关闭开放注册后，这里是唯一的开号入口
-    const auErr = container.querySelector("#au-err");
-    container.querySelector("#au-go").addEventListener("click", async () => {
+    const auErr = host.querySelector("#au-err");
+    host.querySelector("#au-go").addEventListener("click", async () => {
       auErr.textContent = "";
-      const username = container.querySelector("#au-name").value.trim();
-      const password = container.querySelector("#au-pwd").value.trim();
-      const role = container.querySelector("#au-role").value;
+      const username = host.querySelector("#au-name").value.trim();
+      const password = host.querySelector("#au-pwd").value.trim();
+      const role = host.querySelector("#au-role").value;
       if (!username || !password) { auErr.textContent = "请填写用户名和密码"; return; }
       if (password.length < 6) { auErr.textContent = "密码至少 6 位"; return; }
       const r = await apiPost("/api/admin/users", { username, password, role });
       if (!r.ok) { auErr.textContent = r.data.detail || "创建失败"; return; }
       toast(r.data.message || "账号已创建");
-      initAdminPage();
+      renderAdminOverview(host);
     });
+  }
+
+  /* ---------- 运营管理 · 内容库标签页 ---------- */
+  function noteSourceBadge(src) {
+    const key = NOTE_SOURCE_LABEL[src] ? src : "other";
+    return `<span class="note-badge note-badge-${key}">${escapeHtml(NOTE_SOURCE_LABEL[key])}</span>`;
+  }
+
+  async function renderNotesTab(host) {
+    host.innerHTML = `<div class="app-panel"><div class="skeleton" style="height:220px"></div></div>`;
+
+    const qs = new URLSearchParams();
+    if (noteView.city) qs.set("city", noteView.city);
+    if (noteView.source) qs.set("source", noteView.source);
+    if (noteView.q) qs.set("q", noteView.q);
+    qs.set("limit", String(noteView.size));
+    qs.set("offset", String(noteView.page * noteView.size));
+
+    const [stR, lsR] = await Promise.all([
+      apiGet("/api/notes/stats"),
+      apiGet("/api/notes?" + qs.toString()),
+    ]);
+    if (!stR.ok || !lsR.ok) {
+      const d = (stR.data && stR.data.detail) || (lsR.data && lsR.data.detail) || "请重新登录后再试";
+      host.innerHTML = `<div class="app-panel"><div class="app-gate"><h2>无法加载内容库</h2><p>${escapeHtml(d)}</p></div></div>`;
+      return;
+    }
+
+    const st = stR.data || {};
+    const items = Array.isArray(lsR.data) ? lsR.data : [];
+    // 分页总数走响应头（返回体仍是数组，保持接口向后兼容）
+    const rawTotal = (lsR.headers && typeof lsR.headers.get === "function")
+      ? lsR.headers.get("X-Total-Count") : null;
+    const total = rawTotal != null ? Number(rawTotal) : items.length;
+    const pageCount = Math.max(1, Math.ceil(total / noteView.size));
+    // 删掉某页最后一条后，当前页码可能已经越界。这时不能只改页码就往下渲染 ——
+    // items 是按旧 offset 拉的，会渲染出「空列表 + 第 1/1 页」这种自相矛盾的界面。
+    // 直接带着修正后的页码重拉一次。
+    if (noteView.page > pageCount - 1) {
+      noteView.page = pageCount - 1;
+      return renderNotesTab(host);
+    }
+
+    const byId = {};
+    items.forEach((n) => { byId[n.id] = n; });
+
+    const fmtTs = (ts) => ts ? new Date(ts * 1000).toLocaleString("zh-CN", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+    const cityOpts = [`<option value="">全部城市</option>`].concat((st.cities || []).map((c) =>
+      `<option value="${escapeHtml(c.city)}"${c.city === noteView.city ? " selected" : ""}>${escapeHtml(c.city)}（${c.count}）</option>`)).join("");
+    const srcOpts = [`<option value="">全部来源</option>`].concat(NOTE_SOURCES.map((s) =>
+      `<option value="${s.v}"${s.v === noteView.source ? " selected" : ""}>${s.t}</option>`)).join("");
+    const srcChips = Object.keys(st.by_source || {}).map((k) =>
+      `<span class="note-chip">${escapeHtml(k)} ${st.by_source[k]}</span>`).join("")
+      || `<span class="note-chip">暂无内容</span>`;
+
+    const e = noteView.editing || {};
+    // 空态要分两种情况：库本身是空的 vs 筛选没命中。
+    // 都显示「还没有内容 / 去导入第一条」会让用户以为数据丢了。
+    const hasFilter = !!(noteView.city || noteView.source || noteView.q);
+    const emptyHtml = hasFilter
+      ? `<div class="app-empty"><h3>没有匹配的内容</h3><p>换个城市 / 来源或关键词试试，或点「重置」</p></div>`
+      : `<div class="app-empty"><h3>还没有内容</h3><p>用上面的表单导入第一条攻略吧</p></div>`;
+    const rows = items.map((n) => {
+      const body = n.content || "";
+      const short = body.slice(0, 110);
+      return `
+        <div class="note-row" data-id="${escapeHtml(n.id)}">
+          <div class="note-row-main">
+            <div class="note-row-title">
+              ${noteSourceBadge(n.source)}
+              <strong>${escapeHtml(n.title || "（无标题）")}</strong>
+              ${n.city ? `<span class="note-city">📍 ${escapeHtml(n.city)}</span>` : ""}
+            </div>
+            <div class="note-row-meta">${fmtTs(n.created_at)}${n.author ? " · 作者 " + escapeHtml(n.author) : ""}${n.tags ? " · " + escapeHtml(n.tags) : ""}</div>
+            <div class="note-row-preview">${escapeHtml(short)}${body.length > 110 ? "…" : ""}</div>
+            <div class="note-full" hidden>${escapeHtml(body)}</div>
+          </div>
+          <div class="note-row-actions">
+            <button class="btn btn-primary note-view" data-id="${escapeHtml(n.id)}">查看</button>
+            <button class="btn btn-primary note-edit" data-id="${escapeHtml(n.id)}">编辑</button>
+            <button class="btn btn-primary note-del" data-id="${escapeHtml(n.id)}">删除</button>
+          </div>
+        </div>`;
+    }).join("");
+
+    host.innerHTML = `
+      <div class="app-panel">
+        <h3 style="margin-bottom:14px">内容库概览</h3>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-num">${st.total || 0}</div><div class="stat-label">内容总量</div></div>
+          <div class="stat-card"><div class="stat-num">${st.city_count || 0}</div><div class="stat-label">覆盖城市</div></div>
+          <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">当前筛选结果</div></div>
+        </div>
+        <div class="note-chips">${srcChips}</div>
+        <p class="note-tip">小红书 / 抖音均未开放通用旅游内容接口（需企业资质），所以这里走「人工导入 → 落库检索 → 导出知识库」的合规通道。导入后点「导出到知识库」，内容即可被智能助手检索引用。</p>
+      </div>
+
+      <div class="app-panel" style="margin-top:18px" id="note-form-panel">
+        <h4 style="margin-bottom:14px">${e.id ? "编辑内容" : "导入一条攻略"}</h4>
+        <div class="note-form">
+          <select id="note-f-source" class="app-select">
+            ${NOTE_SOURCES.map((s) => `<option value="${s.v}"${(e.source || "manual") === s.v ? " selected" : ""}>${s.t}</option>`).join("")}
+          </select>
+          <input id="note-f-city" class="app-input" type="text" placeholder="城市（如 北京，可留空）" value="${escapeHtml(e.city || "")}" />
+          <input id="note-f-title" class="app-input" type="text" placeholder="标题（留空取正文前 40 字）" value="${escapeHtml(e.title || "")}" />
+          <input id="note-f-tags" class="app-input" type="text" placeholder="标签，逗号分隔" value="${escapeHtml(e.tags || "")}" />
+          <input id="note-f-author" class="app-input" type="text" placeholder="原作者" value="${escapeHtml(e.author || "")}" />
+          <input id="note-f-url" class="app-input" type="text" placeholder="原文链接" value="${escapeHtml(e.url || "")}" />
+        </div>
+        <textarea id="note-f-content" class="note-textarea" placeholder="粘贴攻略正文…（上限 20000 字）">${escapeHtml(e.content || "")}</textarea>
+        <div class="modal-err" id="note-err"></div>
+        <div class="note-form-actions">
+          <button class="btn btn-accent" id="note-save">${e.id ? "保存修改" : "导入内容"}</button>
+          <button class="btn btn-primary" id="note-cancel"${e.id ? "" : " hidden"}>取消编辑</button>
+          <button class="btn btn-primary" id="note-export">导出到知识库</button>
+        </div>
+      </div>
+
+      <div class="app-panel" style="margin-top:18px">
+        <h4 style="margin-bottom:14px">内容列表（${total}）</h4>
+        <div class="app-toolbar">
+          <select id="note-flt-city" class="app-select">${cityOpts}</select>
+          <select id="note-flt-source" class="app-select">${srcOpts}</select>
+          <input id="note-flt-q" class="app-input" type="text" placeholder="搜索标题 / 正文 / 标签" value="${escapeHtml(noteView.q)}" />
+          <button class="btn btn-accent" id="note-search">搜索</button>
+          <button class="btn btn-primary" id="note-reset">重置</button>
+        </div>
+        <div class="note-list">${items.length ? rows : emptyHtml}</div>
+        ${pageCount > 1 ? `<div class="note-pager">
+          <button class="btn btn-primary" data-page="${noteView.page - 1}"${noteView.page <= 0 ? " disabled" : ""}>上一页</button>
+          <span class="note-pager-info">第 ${noteView.page + 1} / ${pageCount} 页 · 共 ${total} 条</span>
+          <button class="btn btn-primary" data-page="${noteView.page + 1}"${noteView.page >= pageCount - 1 ? " disabled" : ""}>下一页</button>
+        </div>` : ""}
+      </div>`;
+
+    const $ = (sel) => host.querySelector(sel);
+
+    // 筛选：城市 / 来源改变立即生效；关键词支持回车
+    $("#note-flt-city").addEventListener("change", (ev) => { noteView.city = ev.currentTarget.value; noteView.page = 0; renderNotesTab(host); });
+    $("#note-flt-source").addEventListener("change", (ev) => { noteView.source = ev.currentTarget.value; noteView.page = 0; renderNotesTab(host); });
+    $("#note-search").addEventListener("click", () => { noteView.q = $("#note-flt-q").value.trim(); noteView.page = 0; renderNotesTab(host); });
+    $("#note-flt-q").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { noteView.q = ev.currentTarget.value.trim(); noteView.page = 0; renderNotesTab(host); } });
+    $("#note-reset").addEventListener("click", () => { noteView.city = ""; noteView.source = ""; noteView.q = ""; noteView.page = 0; renderNotesTab(host); });
+
+    // 导入 / 保存修改
+    const err = $("#note-err");
+    $("#note-save").addEventListener("click", async () => {
+      err.textContent = "";
+      const payload = {
+        source: $("#note-f-source").value,
+        city: $("#note-f-city").value.trim(),
+        title: $("#note-f-title").value.trim(),
+        tags: $("#note-f-tags").value.trim(),
+        author: $("#note-f-author").value.trim(),
+        url: $("#note-f-url").value.trim(),
+        content: $("#note-f-content").value.trim(),
+      };
+      if (!payload.content) { err.textContent = "正文不能为空"; return; }
+      const btn = $("#note-save");
+      const editing = noteView.editing;
+      btn.disabled = true;
+      const r = editing
+        ? await apiPut("/api/notes/" + encodeURIComponent(editing.id), payload)
+        : await apiPost("/api/notes", payload);
+      btn.disabled = false;
+      if (!r.ok) { err.textContent = r.data.detail || "保存失败"; return; }
+      toast(editing ? "已保存修改" : "已导入");
+      noteView.editing = null;
+      renderNotesTab(host);
+    });
+
+    $("#note-cancel").addEventListener("click", () => { noteView.editing = null; renderNotesTab(host); });
+
+    // 导出到知识库并重建索引（首次会加载向量模型，较慢）
+    $("#note-export").addEventListener("click", async (ev) => {
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      btn.textContent = "⏳ 导出并重建索引中…";
+      const r = await apiPost("/api/notes/export-to-kb", {});
+      btn.disabled = false;
+      btn.textContent = "导出到知识库";
+      toast(r.ok ? (r.data.message || "导出完成") : (r.data.detail || "导出失败"));
+    });
+
+    // 查看全文 / 编辑 / 删除
+    host.querySelectorAll(".note-view").forEach((b) => b.addEventListener("click", (ev) => {
+      const row = ev.currentTarget.closest(".note-row");
+      const full = row && row.querySelector(".note-full");
+      if (!full) return;
+      full.hidden = !full.hidden;
+      ev.currentTarget.textContent = full.hidden ? "查看" : "收起";
+    }));
+
+    host.querySelectorAll(".note-edit").forEach((b) => b.addEventListener("click", (ev) => {
+      noteView.editing = byId[ev.currentTarget.dataset.id] || null;
+      renderNotesTab(host);
+      const panel = document.getElementById("note-form-panel");
+      if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    }));
+
+    host.querySelectorAll(".note-del").forEach((b) => b.addEventListener("click", async (ev) => {
+      const id = ev.currentTarget.dataset.id;
+      const item = byId[id];
+      const name = (item && item.title) || id;
+      if (typeof window.confirm === "function" && !window.confirm(`确定删除「${name}」？该操作不可撤销。`)) return;
+      const r = await api("DELETE", "/api/notes/" + encodeURIComponent(id));
+      if (!r.ok) { toast(r.data.detail || "删除失败"); return; }
+      if (noteView.editing && noteView.editing.id === id) noteView.editing = null;
+      toast("已删除");
+      renderNotesTab(host);
+    }));
+
+    // 分页
+    host.querySelectorAll("[data-page]").forEach((b) => b.addEventListener("click", (ev) => {
+      const p = Number(ev.currentTarget.dataset.page);
+      if (!isNaN(p) && p >= 0 && p < pageCount) { noteView.page = p; renderNotesTab(host); }
+    }));
   }
 
   /* ---------- 知识库管理页 ---------- */

@@ -1,0 +1,57 @@
+# 构建上下文排除清单
+# 目标：只把「运行镜像真正需要」的东西送进 docker build。
+# 需要 COPY 的只有：app/ frontend/ knowledge_base/ scripts/ start.sh requirements.txt
+
+# ---- 虚拟环境 / 依赖缓存 ----
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ---- 版本控制与工具 ----
+.git/
+.github/
+.gitattributes
+.gitignore
+.pre-commit-config.yaml
+.tools/
+.trae-html-share-packages/
+
+# ---- 运行时产物（绝不能进镜像）----
+data/
+deploy/
+.screenshots/
+logs/
+*.log
+*.db
+*.db-wal
+*.db-shm
+
+# ---- 本地配置与密钥 ----
+.env
+.env.*
+!.env.example
+
+# ---- 开发/测试/文档 ----
+tests/
+docs/
+.backup/
+.hf-space/
+.sthome/
+.workbuddy/
+.workbuddy-ai/
+.genie
+*.genie
+
+# ---- 系统垃圾 ----
+.DS_Store
+Thumbs.db
+mingit.zip

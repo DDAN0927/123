@@ -28,7 +28,14 @@ window.requestAnimationFrame = function (cb) { return setTimeout(function(){ cb(
 window.cancelAnimationFrame = function (id) { clearTimeout(id); };
 window.scrollTo = function () {};
 window.fetch = function () {
-  return Promise.resolve({ ok: true, status: 200, text: function () { return Promise.resolve("{}"); } });
+  // /api/config 会走 r.json()，其余接口走 r.text()，两个都给上，
+  // 否则地图页拿不到 AMAP_KEY，只会渲染「未配置」提示而没有 iframe。
+  var body = { amap_key: "test-key-0123456789", amap_security_js_code: "test-jscode" };
+  return Promise.resolve({
+    ok: true, status: 200,
+    json: function () { return Promise.resolve(body); },
+    text: function () { return Promise.resolve("{}"); },
+  });
 };
 `;
 
@@ -56,7 +63,7 @@ function ok(name, cond, extra) {
 const mapDom = build("map.html");
 const trDom = build("transit.html");
 
-setTimeout(() => {
+setTimeout(async () => {
   const doc = mapDom.window.document;
   const geoObj = mapDom.window.CITY_GEO;
   const allCities = Object.keys(geoObj);
@@ -160,6 +167,11 @@ setTimeout(() => {
   ok("添加后出现「恢复默认」按钮", !!doc.querySelector('#spot-list [data-act="reset"]'));
   ok("添加已持久化到 localStorage",
      (w.localStorage.getItem("tc_spot_overrides") || "").indexOf("亮马河") >= 0);
+  // 地图改为异步渲染（要先 await /api/config 拿高德 Key），
+  // 断言 iframe 内容前必须让出几个事件循环，否则读到的是上一次的旧 srcdoc。
+  const tick = () => new Promise((r) => setTimeout(r, 30));
+  await tick();
+
   ok("自定义景点也进了地图数据",
      doc.querySelector("#amap-wrap iframe").getAttribute("srcdoc").indexOf("亮马河") >= 0);
 
@@ -202,6 +214,7 @@ setTimeout(() => {
   ok("含 </script> 的景点名被正常保存", spotNames().some((n) => n === evil), spotNames()[spotNames().length - 1]);
   ok("名字里的尖括号被转义（列表里没有真的 img 元素）",
      doc.querySelectorAll("#spot-list img").length === 0);
+  await tick();
   ok("地图数据里的尖括号被转成 \\u003c（否则会截断 iframe 脚本）",
      doc.querySelector("#amap-wrap iframe").getAttribute("srcdoc").indexOf("\\u003c") >= 0);
 

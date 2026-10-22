@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # 同一分支的新推送取消上一次未完成的跑批，省额度
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: 后端 · lint + 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      # 只装跑测试必需的依赖。
+      # 完整 requirements.txt 里的 faiss / sentence-transformers / torch 有几百 MB，
+      # CI 里没必要装：pytest 用的是 mock 模型，RAG 路径不在覆盖范围内。
+      - name: 安装测试依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastapi "uvicorn[standard]" pydantic pydantic-settings \
+                      python-dotenv requests httpx pytest pytest-cov ruff
+
+      - name: 静态检查
+        run: |
+          ruff check app scripts tests
+          ruff format --check app scripts tests
+
+      - name: 运行测试
+        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=55
+
+  frontend:
+    name: 前端 · DOM 与数据校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 安装 jsdom
+        run: npm install --no-save jsdom
+
+      - name: geo-data 数据质量
+        run: node scripts/city_check.js
+
+      - name: 地图页模板与转义
+        run: node scripts/map_check.js
+
+      - name: Markdown 渲染
+        run: node scripts/md_render_check.js
+
+      - name: 应用页 DOM 行为
+        run: node scripts/dom_check.js
+
+      - name: 文案数字与真实数据一致性
+        run: node scripts/copy_check.js

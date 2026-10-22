@@ -1,4 +1,5 @@
 """📊 数据分析师"""
+
 from app.agents.base import run_expert
 from app.agents.prompts import ANALYST_PROMPT
 from app.tools.budget import estimate_budget
@@ -12,5 +13,5 @@ DESCRIPTION = "天气分析、预算估算与出行决策支持"
 TOOLS = [query_weather, estimate_budget, search_knowledge]
 
 
-def run(query: str, context: str, outputs: dict) -> str:
-    return run_expert(NAME, TITLE, ANALYST_PROMPT, query, context, outputs, TOOLS)
+def run(query: str, context: str, outputs: dict, history: list | None = None) -> str:
+    return run_expert(NAME, TITLE, ANALYST_PROMPT, query, context, outputs, TOOLS, history=history)

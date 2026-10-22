@@ -1,4 +1,5 @@
 """知识库管理接口：文档列表/上传/删除与索引重建（仅管理员）"""
+
 import re
 import time
 from pathlib import Path
@@ -84,5 +85,5 @@ def rebuild(_admin: str = Depends(require_admin)):
         stats = build_index()
         retriever.reset()
     except Exception as e:
-        raise HTTPException(500, f"重建失败: {e}")
+        raise HTTPException(500, f"重建失败: {e}") from e
     return RebuildResponse(**stats)

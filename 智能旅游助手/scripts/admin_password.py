@@ -2,14 +2,14 @@
 
 为什么要两个模式
 ----------------
-管理员账号由 `ensure_default_admin()` 在**首次启动**时写入 `data/users.json`，
-之后只在账号不存在时创建。所以：
+管理员账号由 `ensure_default_admin()` 在**首次启动**时写入 SQLite
+（`$DATA_DIR/travel.db` 的 `users` 表），之后只在账号不存在时创建。所以：
 
 * 改 `.env` 里的 `ADMIN_PASSWORD` 只对「还没建过账号」的全新环境有效；
 * 已经存在账号的环境（本地 data/、线上数据卷），必须**主动改密码**才生效。
 
 用法：
-    # 本地：直接改 data/users.json 里 admin 的密码哈希
+    # 本地：直接改 SQLite 里 admin 的密码哈希
     python scripts/admin_password.py --local <新密码>
 
     # 线上：走 /api/auth/change-password 接口
@@ -18,12 +18,12 @@
 
 脚本只打印状态码与结果，不回显任何密码。
 """
+
 import argparse
 import json
 import sys
 import urllib.error
 import urllib.request
-import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,6 +34,7 @@ _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 # ---------------------------------------------------------------- 公共
+
 
 def _deploy_env() -> dict:
     env = ROOT / "deploy" / ".env"
@@ -48,30 +49,23 @@ def _deploy_env() -> dict:
 
 # ---------------------------------------------------------------- 本地模式
 
+
 def set_local(new_pw: str) -> int:
-    from app import store
+    from app import db, store
     from app.config import settings
 
     username = settings.admin_username
-    store._load_users()  # noqa: SLF001 - 运维脚本，直接操作存储层
-    with store._lock:  # noqa: SLF001
-        user = store._users.get(username)  # noqa: SLF001
-        existed = user is not None
-        if user is None:
-            user = {"username": username, "role": "admin",
-                    "created_at": store._now()}  # noqa: SLF001
-            store._users[username] = user  # noqa: SLF001
-        user["salt"] = uuid.uuid4().hex
-        user["password_hash"] = store._hash_password(new_pw, user["salt"])  # noqa: SLF001
-        store._save_users()  # noqa: SLF001
+    existed = store.set_user_password(username, new_pw, role="admin")
 
     print(f"→ 数据目录: {settings.data_dir}")
+    print(f"→ 数据库: {db.db_path()}")
     print(f"→ 账号: {username}（{'已存在，密码已重置' if existed else '不存在，已新建'}）")
     print("✅ 本地管理员密码已更新")
     return 0
 
 
 # ---------------------------------------------------------------- 线上模式
+
 
 def _post(base: str, path: str, payload: dict, token: str = "") -> tuple[int, str]:
     req = urllib.request.Request(
@@ -112,8 +106,9 @@ def set_remote(base: str, new_pw: str, old_pw: str) -> int:
         return 1
     token = json.loads(body)["token"]
 
-    code, body = _post(base, "/api/auth/change-password",
-                       {"old_password": old_pw, "new_password": new_pw}, token)
+    code, body = _post(
+        base, "/api/auth/change-password", {"old_password": old_pw, "new_password": new_pw}, token
+    )
     print(f"   修改密码: HTTP {code} — {body}")
     if code != 200:
         return 1
@@ -131,10 +126,8 @@ def set_remote(base: str, new_pw: str, old_pw: str) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description="设置管理员密码（本地 / 线上）")
     g = ap.add_mutually_exclusive_group(required=True)
-    g.add_argument("--local", action="store_true",
-                   help="改本地 data/users.json 里的 admin 密码")
-    g.add_argument("--remote", metavar="站点根地址",
-                   help="改已发布站点的 admin 密码")
+    g.add_argument("--local", action="store_true", help="改本地 data/users.json 里的 admin 密码")
+    g.add_argument("--remote", metavar="站点根地址", help="改已发布站点的 admin 密码")
     ap.add_argument("new_password", help="新密码")
     ap.add_argument("old_password", nargs="?", default="", help="旧密码（仅 --remote，可省略）")
     a = ap.parse_args()

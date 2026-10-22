@@ -72,6 +72,25 @@ const checks = [
   ["表格分隔行未渲染为数据行", !/<td>-{2,}<\/td>/.test(html)],
 ];
 
+// ---- 回归：模型输出的表格经常省略「最后一列的收尾竖线」 ----
+// 旧实现要求整行以 | 结尾，导致最后一行掉出表格、页面上露出裸管道符。
+const mdNoTailPipe = [
+  "| 项目 | 估算 |",
+  "| --- | --- |",
+  "| 住宿 2 晚 | 900 |",
+  "| 餐饮（3 天，含烤鸭） | 300",
+  "",
+  "合计约 1200 元。",
+].join("\n");
+const html2 = renderMarkdown(mdNoTailPipe);
+const bodyRows2 = ((html2.match(/<tbody>[\s\S]*<\/tbody>/) || [""])[0].split("<tr>").length - 1);
+checks.push(
+  ["末列缺收尾竖线仍解析为表格", /<tbody>/.test(html2)],
+  ["末列缺收尾竖线时行数=2", bodyRows2 === 2],
+  ["无裸管道符残留", !/<p>[^<]*\|[^<]*<\/p>/.test(html2)],
+  ["表格之后的段落正常", /<p>合计约 1200 元。<\/p>/.test(html2)],
+);
+
 let bad = 0;
 for (const [name, ok] of checks) {
   console.log(`${ok ? "✅" : "❌"} ${name}`);

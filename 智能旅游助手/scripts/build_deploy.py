@@ -8,6 +8,7 @@
 用法：python scripts/build_deploy.py
 可重复执行，每次都会重建 deploy/。
 """
+
 import secrets
 import shutil
 import sys
@@ -26,6 +27,10 @@ REQUIREMENTS = """\
 
 fastapi>=0.115.0,<1.0
 uvicorn[standard]>=0.30.0
+# 知识库上传接口用了 UploadFile，FastAPI 注册路由时就校验这个包；
+# 缺了它 app.main 导入即失败（RuntimeError: Form data requires "python-multipart"）。
+# 之前它由 streamlit 顺带装上，删掉 streamlit 后必须显式声明。
+python-multipart>=0.0.9
 
 langgraph>=0.2.60,<0.3
 langchain-core>=0.3.20,<0.4
@@ -44,6 +49,23 @@ requests>=2.32.0
 pydantic>=2.8.0
 pydantic-settings>=2.4.0
 python-dotenv>=1.0.0
+"""
+
+# 沙箱安装脚本：**不能**只写 `pip install -r requirements.txt`。
+# 沙箱基座镜像（pyenv 3.11）预装了 CUDA 版 torchaudio / torchvision，
+# 而本包装的是 CPU 版 torch —— 三者的 C 扩展互相不匹配，sentence-transformers
+# 导入时会连带加载它们，直接抛：
+#   OSError: libtorch_cuda.so: cannot open shared object file
+#   RuntimeError: operator torchvision::nms does not exist
+# 后果是整条 RAG 链路静默失效（进程照样起得来，只看 /health 的 index_ready 看不出来）。
+# 本项目不使用音视频/图像能力，把这两个包卸掉最省事也最稳。
+INSTALL_SH = """\
+#!/usr/bin/env bash
+# 依赖安装（由 scripts/build_deploy.py 生成，请勿手改）
+set -e
+pip install -r requirements.txt
+echo "[install] 移除基座镜像预装的 CUDA 版 torchaudio / torchvision"
+pip uninstall -y torchaudio torchvision || true
 """
 
 
@@ -73,14 +95,12 @@ def build_env(prev_admin_pw: str = "") -> tuple[str, str]:
     lines = src.read_text(encoding="utf-8").splitlines() if src.exists() else []
 
     admin_user = _read_env_value(lines, "ADMIN_USERNAME") or "admin"
-    admin_pw = (_read_env_value(lines, "ADMIN_PASSWORD")
-                or prev_admin_pw or secrets.token_urlsafe(9))
+    admin_pw = _read_env_value(lines, "ADMIN_PASSWORD") or prev_admin_pw or secrets.token_urlsafe(9)
     allow_reg = (_read_env_value(lines, "ALLOW_REGISTRATION") or "false").lower()
 
     # 这些键由部署包自行决定，不继承本地开发值
     overridden = ("ADMIN_USERNAME", "ADMIN_PASSWORD", "ALLOW_REGISTRATION")
-    kept = [l for l in lines
-            if l.strip() and not l.strip().startswith(overridden)]
+    kept = [line for line in lines if line.strip() and not line.strip().startswith(overridden)]
     kept.append("")
     kept.append("# ===== 管理员账号（公网发布用，本地 .env 不受影响）=====")
     kept.append(f"ADMIN_USERNAME={admin_user}")
@@ -137,8 +157,9 @@ def main():
     else:
         print("⚠️  未找到本地 HF 模型缓存，部署后将需要联网下载模型")
 
-    # 6) 依赖 / 启动脚本 / 环境变量
+    # 6) 依赖 / 安装脚本 / 启动脚本 / 环境变量
     (OUT / "requirements.txt").write_text(REQUIREMENTS, encoding="utf-8")
+    (OUT / "install.sh").write_text(INSTALL_SH.replace("\r\n", "\n"), encoding="utf-8")
     shutil.copy2(ROOT / "start.sh", OUT / "start.sh")
     env_text, admin_pw = build_env(prev_admin_pw)
     (OUT / ".env").write_text(env_text, encoding="utf-8")
