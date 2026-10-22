@@ -1,5 +1,32 @@
 # 变更记录
 
+## 2026-10-22 — 配置模板补齐 + 对外数字校准
+
+一次「还有什么是过期的」核查，发现两处**照文档做会踩坑**的地方。
+
+### 🔧 `.env.example` 漏了 9 个配置项
+
+`Settings` 有 29 个字段，模板只写了 20 个。漏掉的里面有三个是真会被踩到的：
+
+| 漏项 | 不配会怎样 |
+| --- | --- |
+| `LLM_ROUTER_MODEL` | 主模型用思考类（deepseek-reasoner）时，工具调用**静默失效** —— 不报错，只是永远不调工具 |
+| `RETRIEVAL_MIN_SCORE` | 不知道有这档开关，语料换了也不会去重新校准检索阈值 |
+| `DATA_DIR` / `KB_DIR` | 容器部署不知道该挂哪个目录，重建即丢全部账号与会话 |
+
+另外补上 `TOKEN_TTL_SECONDS` 与 4 个 `LLM_PRICE_*`（成本估算单价，双模型必须分开计价）。
+注释里写清「为什么需要」，而不只是「值是多少」。
+
+### 📏 pytest 数量：128 → 129
+
+README、CHANGELOG、备忘里都写 128，实测 `129 passed`。
+起因是当初用 `pytest -q | grep -o "\." | wc -l` 数点，把进度字符也算进去了 ——
+**以后一律用 `pytest` 汇总行的 `N passed` 为准**。
+
+> 顺带确认：`Dockerfile` / `docker-compose.yml` / `start.sh` 已无 `streamlit / folium /
+> edge-tts / pypinyin` 残留（此前记的「待用户决策」项实际已清理），
+> 全仓库无 `TODO / FIXME`，README 引用的 3 张截图均在位。
+
 ## 2026-10-22 — 按资深 AI 工程师标准审阅：把「能跑」推到「可度量、可降级、可归因」
 
 前一轮（HR 视角）解决的是**工程交付面**：CI、覆盖率、lint、依赖守卫、文案一致性。
@@ -116,7 +143,7 @@ rag_imports.sentence_transformers: OSError: libtorch_cuda.so: cannot open shared
 
 | 项 | 之前 | 现在 |
 | --- | --- | --- |
-| pytest | 85 | **128** |
+| pytest | 85 | **129** |
 | 脚本化回归 | 407（8 组） | **441（9 组，含 RAG 检索质量 33）** |
 | 覆盖率 | 63% | **69%** |
 | 端到端评估 | 无 | 6 条真实链路 |
