@@ -17,6 +17,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from app.config import settings
+from app.rag import coverage
 
 logger = logging.getLogger("travel.rag")
 
@@ -80,6 +81,8 @@ def reset():
         _ready = False
         _last_error = None
     _search_cached.cache_clear()
+    # 知识库文档变了，覆盖城市清单也跟着变（新增「哈尔滨.md」即自动纳入覆盖范围）
+    coverage.reset_cache()
 
 
 def _read_chunks() -> list[dict]:
@@ -306,4 +309,13 @@ def search(query: str, top_k: int | None = None) -> list[dict]:
     k = min(settings.retrieval_top_k if top_k is None else top_k, len(_chunks))
     if k <= 0:
         return []
+    # 用户点名的城市全都不在攻略库里 → 直接返回空，宁可「没查到」也不要拿
+    # 别的城市的内容顶包。此前问「哈尔滨有什么好玩的」会返回北京的段落，
+    # 分数还能过 0.55 的门槛（「有什么好玩的」这种通用短语贡献了大部分相似度），
+    # 模型于是拿北京的资料回答哈尔滨 —— 比答不上来更糟。
+    cov = coverage.detect(query)
+    if cov.uncovered and not cov.covered:
+        logger.info("查询城市无攻略库覆盖，跳过检索: %s", "、".join(cov.uncovered))
+        return []
     return [{"doc": d, "text": t, "score": s} for d, t, s in _search_cached(query, k)]
+

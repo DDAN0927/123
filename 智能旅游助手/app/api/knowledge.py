@@ -8,12 +8,23 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from app.api.deps import require_admin
 from app.config import settings
-from app.rag import retriever
+from app.rag import coverage, retriever
 from app.schemas import DocumentInfo, RebuildResponse, SimpleResult
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
 _MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2MB
+
+
+@router.get("/coverage")
+def get_coverage():
+    """知识库覆盖范围（公开，无需登录）。
+
+    前端用它渲染「攻略库覆盖 N 城」的提示。放在公开路由是有意的：
+    用户在下单（提问）之前就该知道自己问的城市有没有资料，而不是答完才发现。
+    只暴露城市名与计数，不含文档大小、路径等运营信息。
+    """
+    return coverage.summary()
 
 
 def _safe_name(name: str) -> str:

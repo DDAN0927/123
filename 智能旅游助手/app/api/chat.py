@@ -10,6 +10,7 @@ from app.agents import EXPERTS
 from app.agents.graph import get_graph
 from app.api.auth import optional_username
 from app.api.deps import require_user
+from app.rag import coverage
 from app.ratelimit import llm_rate_limit
 from app.schemas import (
     AgentInfo,
@@ -74,6 +75,11 @@ def _run_pipeline(req: ChatRequest, username: str | None = None):
     # 先把会话ID下发，前端即使后续失败也能恢复历史
     yield {"type": "session", "session_id": session["id"]}
 
+    # 城市覆盖判定在调度之前下发：前端能立刻把「这个城市没有攻略库」的提示条
+    # 显示出来，而不是等模型答完再补一句免责声明。
+    cov = coverage.detect(message).to_dict()
+    yield {"type": "coverage", **cov}
+
     error_message = None
     try:
         for update in get_graph().stream(state, stream_mode="updates"):
@@ -127,6 +133,7 @@ def _run_pipeline(req: ChatRequest, username: str | None = None):
         "trace": trace,
         "outputs": outputs,
         "errors": errors,
+        "coverage": cov,
         "agent_calls": len(outputs),
         "elapsed_ms": elapsed_ms,
         "error": error_message,
@@ -145,6 +152,7 @@ def chat(req: ChatRequest, authorization: str | None = Header(None), x_auth_toke
         "trace": [],
         "outputs": {},
         "errors": {},
+        "coverage": {},
         "agent_calls": 0,
         "elapsed_ms": 0,
     }
@@ -155,7 +163,10 @@ def chat(req: ChatRequest, authorization: str | None = Header(None), x_auth_toke
             result["answer"] = evt["content"]
         elif evt["type"] == "done":
             result.update(
-                {k: evt[k] for k in ("session_id", "trace", "outputs", "errors", "agent_calls", "elapsed_ms")}
+                {
+                    k: evt[k]
+                    for k in ("session_id", "trace", "outputs", "errors", "coverage", "agent_calls", "elapsed_ms")
+                }
             )
 
     return ChatResponse(
@@ -164,6 +175,7 @@ def chat(req: ChatRequest, authorization: str | None = Header(None), x_auth_toke
         trace=[TraceItem(**t) for t in result["trace"]],
         outputs=result["outputs"],
         errors=result["errors"],
+        coverage=result["coverage"],
         agent_calls=result["agent_calls"],
         elapsed_ms=result["elapsed_ms"],
     )

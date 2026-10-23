@@ -74,6 +74,11 @@ window.fetch = function (url, opts) {
     body = { ok: true };
   } else if (u.indexOf("/api/chat/sessions") >= 0) {
     body = [];
+  } else if (u.indexOf("/api/knowledge/coverage") >= 0) {
+    body = {
+      cities: ["上海", "北京", "成都", "杭州", "西安", "重庆"],
+      count: 6, map_cities: 355, map_spots: 1558,
+    };
   } else if (u.indexOf("/api/auth/register") >= 0) {
     // 模拟 FastAPI 的 422：detail 是「数组」，前端必须压成人话
     var p = JSON.parse((opts && opts.body) || "{}");
@@ -145,6 +150,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check("会话历史区块存在", !!q("#cs-sessions"));
   check("消息区存在", !!q("#chat-msgs"));
   check("输入框与发送按钮存在", !!q("#chat-in") && !!q("#chat-send"));
+  // 地图 355 城 ≠ 攻略库 6 城，用户提问前就该看到这个边界
+  check(
+    "输入框上方展示知识库覆盖范围",
+    (q("#chat-kb-hint") || {}).textContent?.includes("6 城"),
+    (q("#chat-kb-hint") || {}).textContent
+  );
   check("新建对话按钮存在", !!q("#chat-new"));
   check("顾问团列表已渲染", qa(".cs-list .cs-agent").length === 2, qa(".cs-list .cs-agent").length);
   check("首屏欢迎语已展示", (q("#chat-msgs") || {}).textContent?.includes("tester"));

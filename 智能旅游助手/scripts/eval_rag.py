@@ -73,6 +73,20 @@ CASES: list[tuple[str, str, str]] = [
 RECALL_K = (1, 3)
 THRESHOLDS = {"recall@3": 0.90, "mrr": 0.75, "city@1": 0.90}
 
+# 知识库只覆盖 6 城。其余城市必须**返回空**，而不是拿别的城市的段落顶包。
+# 升级前的真实表现：问「哈尔滨有什么好玩的」，向量被「有什么好玩的」这种通用短语
+# 带偏，北京段落能过 0.55 阈值，于是模型拿北京资料回答哈尔滨 —— 比答不上来更糟。
+# 这条是「宁可说不知道」的底线，允许的泄漏条数为 0。
+OUT_OF_SCOPE: list[str] = [
+    "哈尔滨有什么好玩的",
+    "三亚适合几月去",
+    "拉萨布达拉宫门票",
+    "青岛啤酒节什么时候",
+    "长沙茶颜悦色在哪买",
+    "张家界几天能玩完",
+]
+MAX_OOB_LEAKS = 0
+
 
 def evaluate(verbose: bool = False) -> dict:
     from app.rag import retriever
@@ -122,7 +136,20 @@ def evaluate(verbose: bool = False) -> dict:
         "city@1": city_hit / n,
         "cases": n,
     }
-    return {"metrics": metrics, "details": details}
+
+    # 越界查询：知识库没有这个城市，检索必须返回空
+    leaks = []
+    for query in OUT_OF_SCOPE:
+        results = retriever.search(query, 3)
+        if results:
+            leaks.append({"query": query, "top1": f"{results[0]['doc']}｜{results[0]['text'][:30]}"})
+    metrics["oob_cases"] = len(OUT_OF_SCOPE)
+    metrics["oob_leaks"] = len(leaks)
+    if verbose:
+        for item in leaks:
+            print(f"✗ 越界泄漏  {item['query']}  got {item['top1']}")
+
+    return {"metrics": metrics, "details": details, "leaks": leaks}
 
 
 def main() -> int:
@@ -142,16 +169,28 @@ def main() -> int:
         print("-" * 20)
         for key in ("recall@1", "recall@3", "mrr", "city@1"):
             print(f"{key:<12}{m[key]:>8.3f}")
+        print(f"{'越界泄漏':<10}{m['oob_leaks']:>6}/{m['oob_cases']}")
 
     failed = [k for k, th in THRESHOLDS.items() if m[k] < th]
     if failed:
         print()
         for k in failed:
             print(f"✗ {k} = {m[k]:.3f}，低于门禁 {THRESHOLDS[k]:.2f}")
+    if m["oob_leaks"] > MAX_OOB_LEAKS:
+        print()
+        print(f"✗ 越界泄漏 {m['oob_leaks']} 条：知识库没有该城市，却返回了别的城市的内容")
+        for item in report["leaks"]:
+            print(f"    {item['query']}  →  {item['top1']}")
+        failed.append("oob_leaks")
+
+    if failed:
         print(f"\nRAG 评估未通过：{len(failed)} 项指标低于阈值")
         return 1
 
-    print(f"\nRAG 评估通过：{m['cases']} 条 query，Recall@3 {m['recall@3']:.0%}，MRR {m['mrr']:.3f}")
+    print(
+        f"\nRAG 评估通过：{m['cases']} 条 query，Recall@3 {m['recall@3']:.0%}，MRR {m['mrr']:.3f}，"
+        f"越界泄漏 {m['oob_leaks']}/{m['oob_cases']}"
+    )
     return 0
 
 

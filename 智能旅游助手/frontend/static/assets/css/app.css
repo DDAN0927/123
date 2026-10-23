@@ -369,3 +369,33 @@
   .note-row-actions { width: 100%; }
   .admin-tab { padding: 9px 16px; font-size: .86rem; }
 }
+
+/* ==========================================================================
+   知识库覆盖边界
+   --------------------------------------------------------------------------
+   系统有两套城市数据：地图 355 城（只有坐标），攻略库 6 城（有门票/开放时间）。
+   这两条提示的作用就是让用户一眼看出「这个问题我有没有资料」，而不是答完才猜。
+   ========================================================================== */
+
+/* 输入框上方的常驻提示（提问前） */
+.chat-kb-hint {
+  padding: 8px 16px;
+  border-top: 1.5px dashed var(--line);
+  font-size: .78rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.chat-kb-hint:empty { display: none; }
+.chat-kb-hint strong { color: var(--ink-soft); font-weight: 600; }
+
+/* 单条回答底部的提示条（提问后，仅当该城市无攻略库时出现） */
+.coverage-tip {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1.5px solid #fed7aa;
+  color: #9a3412;
+  font-size: .84rem;
+  line-height: 1.7;
+}

@@ -59,6 +59,33 @@ def main():
         r = c.get("/api/agents")
         check("Agent 团队接口可用", r.status_code == 200 and len(r.json().get("experts", [])) == 5)
 
+        # ---------- 知识库覆盖边界 ----------
+        # 地图 355 城（只有坐标）与攻略库 6 城（有门票/开放时间）不是一回事，
+        # 接口必须能把「哪些城市有资料」单独讲清楚，且无需登录即可查。
+        r = c.get("/api/knowledge/coverage")
+        cv = r.json() if r.status_code == 200 else {}
+        check("知识库覆盖接口公开可用", r.status_code == 200 and isinstance(cv.get("cities"), list), r.text[:120])
+        check(
+            "覆盖接口带出地图规模（355 城 / 1558 景点）",
+            cv.get("map_cities") == 355 and cv.get("map_spots") == 1558,
+            cv,
+        )
+
+        from app.rag import coverage as cov_mod
+
+        check("长白山不会被误判为吉林白山市", cov_mod.detect("长白山怎么去").asked == ())
+        check("峨眉山不会被误判为四川眉山市", cov_mod.detect("峨眉山值得去吗").asked == ())
+        check("马鞍山按最长匹配识别为马鞍山", cov_mod.detect("马鞍山有什么景点").asked == ("马鞍山",))
+        check("无城市的问题不做城市判定", cov_mod.detect("三天行程怎么安排").asked == ())
+
+        r = c.post("/api/chat", json={"message": "北京故宫门票多少钱"})
+        body = r.json() if r.status_code == 200 else {}
+        check(
+            "对话响应带出城市覆盖判定",
+            r.status_code == 200 and isinstance(body.get("coverage"), dict) and "asked" in body["coverage"],
+            r.text[:120],
+        )
+
         # ---------- 静态资源容错：非法/不存在的路径必须 404，不能 500 ----------
         for p in ["/a*b", "/%EF%BC%8C%60index_ready%3A", "/not-exist-page", "/x?y"]:
             r = c.get(p)

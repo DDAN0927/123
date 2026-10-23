@@ -11,11 +11,13 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from app.agents import EXPERTS
+from app.agents.base import coverage_scope
 from app.agents.prompts import SYNTHESIZE_PROMPT
 from app.agents.supervisor import route_supervisor
 from app.llm import get_llm, usage_of
+from app.rag import coverage
 from app.store import record_agent_call, record_llm_usage
-from app.tools.rag_tool import get_rag_context
+from app.tools.rag_tool import get_rag_context_ex
 
 logger = logging.getLogger("travel.graph")
 
@@ -40,6 +42,7 @@ class AgentState(TypedDict, total=False):
     thinking: dict  # {专家名: {"content", "seconds"}} 思维链
     trace: list  # 路由轨迹 [{"agent", "reason"}]
     steps: int  # 已路由次数
+    coverage: dict  # 知识库城市覆盖判定（见 app.rag.coverage）
     final_answer: str
     final_thinking: str
     thinking_seconds: float
@@ -53,6 +56,10 @@ def supervisor_node(state: AgentState) -> Command:
     decision = route_supervisor(state["query"], state.get("history", []), done, state.get("steps", 0))
     entry = {"agent": decision.next_agent, "reason": decision.reason}
     update = {"trace": [*state.get("trace", []), entry]}
+    # 覆盖判定在第一次进入调度中心时算一次即可：后续每一轮都带着同一份 query，
+    # 重复解析 355 个城市名纯属浪费，也没必要每轮都刷一遍 state。
+    if "coverage" not in state:
+        update["coverage"] = coverage.detect(state["query"]).to_dict()
     if decision.next_agent == "FINISH":
         return Command(goto="synthesize", update=update)
     return Command(goto=decision.next_agent, update={**update, "steps": state.get("steps", 0) + 1})
@@ -87,12 +94,15 @@ def _make_expert_node(name: str):
     module = EXPERTS[name]
 
     def node(state: AgentState) -> dict:
-        # 自动检索知识库，注入专家上下文
-        context = get_rag_context(state["query"])
         try:
-            result = _call_expert(
-                module, state["query"], context, state.get("outputs", {}), state.get("history", [])
-            )
+            # 自动检索知识库，并把「城市覆盖判定」一并带出来：
+            # 检索为空时，专家必须知道是「这个城市没收录」还是「这句问法没匹配上」，
+            # 否则两种情况都只会得到一句「未检索到资料」，模型只能靠猜。
+            context, cov = get_rag_context_ex(state["query"])
+            with coverage_scope(cov):
+                result = _call_expert(
+                    module, state["query"], context, state.get("outputs", {}), state.get("history", [])
+                )
         except Exception as e:
             # 真实缺陷修复：此前这里没有兜底，任一专家抛异常都会击穿 LangGraph stream，
             # 用户拿到 502，且**已经成功完成的专家输出全部丢失**（final_answer 为空，
@@ -200,6 +210,19 @@ def synthesize_node(state: AgentState) -> dict:
             f"（{'、'.join(EXPERTS[k].TITLE for k in errors)}）未能完成分析，"
             "以上内容来自其余专家，相关部分可能不够完整。"
         )
+
+    # 回答正文之外的覆盖声明：专家已经按提示词在正文里标了「通用建议」，
+    # 但汇总阶段可能被压缩掉，所以这里再补一条固定脚注 —— 用户和答辩老师
+    # 都需要一个「这段到底经没经过攻略库校验」的明确答案。
+    uncovered = (state.get("coverage") or {}).get("uncovered") or []
+    if uncovered:
+        kb = "、".join((state.get("coverage") or {}).get("kb_cities") or [])
+        answer += (
+            f"\n\n---\n\n> 📍 **知识库覆盖提示**：本地攻略库目前覆盖 {kb}。"
+            f"本次回答中涉及「{'、'.join(uncovered)}」的部分来自通用知识，"
+            "未经攻略库校验，门票、开放时间、预约政策等易变信息请以官方渠道为准。"
+        )
+
     return {
         "final_answer": answer,
         "final_thinking": final_thinking,

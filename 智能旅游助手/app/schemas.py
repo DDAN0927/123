@@ -27,6 +27,9 @@ class ChatResponse(BaseModel):
     # 专家级降级信息 {专家名: 失败原因}。同步接口此前把它丢掉，
     # 调用方只看到「回答变短了」，完全无法判断是不是有专家挂了。
     errors: dict[str, str] = {}
+    # 知识库城市覆盖判定：{asked, covered, uncovered, kb_cities, map_cities}。
+    # 调用方据此判断「这段回答是攻略库内容还是通用建议」，不再只能靠猜。
+    coverage: dict = {}
     agent_calls: int = 0
     elapsed_ms: int = 0
 

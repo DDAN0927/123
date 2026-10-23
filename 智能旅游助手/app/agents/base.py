@@ -1,6 +1,8 @@
 """专家 Agent 运行基座：统一的 RAG 上下文注入、工具调用循环、思维链捕获"""
 
+import contextvars
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
@@ -9,6 +11,56 @@ from app.store import record_llm_usage
 
 _MAX_TOOL_ROUNDS = 4  # 单个专家最多工具调用轮次
 _MAX_PARALLEL_TOOLS = 4  # 同一轮内并发执行的工具上限
+
+# 请求级的「知识库覆盖判定」，由 graph 在进入专家节点前设置。
+#
+# 为什么用 ContextVar 而不是再加一个函数参数：专家契约 `run(query, context, outputs, history)`
+# 已经因为加 history 做过一次签名探测兼容，再扩散一个参数会让 5 个专家模块、
+# `_call_expert` 的探测逻辑、以及所有测试替身同时改动。而 coverage 本质是
+# 「这次请求的上下文」，不是专家的入参，ContextVar 正是干这个的。
+# 注意：只在同步链路内有效（FastAPI 的 def 端点、LangGraph 的同步 stream 都在同一线程），
+# 不要指望它能穿过线程池 —— 工具调用里用不到它。
+_coverage: contextvars.ContextVar[dict | None] = contextvars.ContextVar("kb_coverage", default=None)
+
+
+@contextmanager
+def coverage_scope(cov: dict | None):
+    """在 with 块内把覆盖判定暴露给 `build_prompt`。"""
+    token = _coverage.set(cov or {})
+    try:
+        yield
+    finally:
+        _coverage.reset(token)
+
+
+def current_coverage() -> dict:
+    return _coverage.get() or {}
+
+
+def _coverage_block(cov: dict) -> str:
+    """把「哪些城市没有攻略库」翻译成模型能执行的约束。
+
+    没有这段，模型拿不到资料时会静默改用通用知识，用户以为看的是攻略库内容 ——
+    门票价格、开放时间这类信息一旦过时，责任在系统而不在模型。
+    """
+    uncovered = cov.get("uncovered") or []
+    if not uncovered:
+        return ""
+    kb = "、".join(cov.get("kb_cities") or [])
+    miss = "、".join(uncovered)
+    return (
+        "\n\n## 知识库覆盖边界（必须遵守）\n"
+        f"本地攻略库目前只覆盖：{kb}。用户提到的「{miss}」**不在覆盖范围内**，"
+        "检索不到任何该城市的资料属于正常情况。因此：\n"
+        f"1. 涉及「{miss}」的内容只能来自你的通用知识，必须在相关段落开头明确写出"
+        f"「⚠️ {miss}暂无本地攻略库，以下为通用建议」；\n"
+        "2. **不要编造**具体门票价格、开放时间、预约方式、电话号码等易变信息；"
+        "确需给出时写成「约 X 元 / 通常 X 点开放，请以官方渠道为准」；\n"
+        "3. 不要因为缺少资料就拒绝回答或反复强调局限，用户要的是能直接执行的建议；\n"
+        "4. 若用户同时问了覆盖城市与未覆盖城市，覆盖城市部分照常用资料回答，"
+        "两部分不要混为一谈。"
+    )
+
 
 
 def _mock_expert_answer(title: str, query: str, context: str) -> str:
@@ -112,6 +164,9 @@ def build_prompt(
     （例如外部文档里的指令被提升成系统指令），跑接口是看不出问题的。
     """
     prompt = system_prompt + _SAFETY_NOTE
+    # 覆盖边界放在资料**之前**：它是对「这批资料能回答什么」的元约束，
+    # 排在被围栏的参考资料后面会被当成附注忽略。
+    prompt += _coverage_block(current_coverage())
     if context:
         # 用显式分隔符把「资料」和「指令」隔开。知识库可由管理员导入站外内容
         # （小红书/抖音攻略），一旦某篇文档里写了「忽略上面的要求」，不加边界

@@ -762,6 +762,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
         </div>
         <div class="chat-main">
           <div class="chat-messages" id="chat-msgs"></div>
+          <div class="chat-kb-hint" id="chat-kb-hint"></div>
           <div class="chat-inputbar">
             <input id="chat-in" type="text" placeholder="输入你的旅行需求，按回车发送…" autocomplete="off" />
             <button id="chat-send" class="btn btn-accent">发送</button>
@@ -778,6 +779,19 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
     let assistantCount = 0;
 
     const scrollDown = () => { msgs.scrollTop = msgs.scrollHeight; };
+
+    /* ---- 知识库覆盖范围：提问之前就告诉用户边界，而不是答完再免责 ---- */
+    (async () => {
+      const hint = container.querySelector("#chat-kb-hint");
+      if (!hint) return;
+      try {
+        const r = await apiGet("/api/knowledge/coverage");
+        if (!r.ok || !r.data || !r.data.count) return;
+        const d = r.data;
+        hint.innerHTML = `📚 本地攻略库覆盖 <strong>${d.count} 城</strong>：`
+          + `${escapeHtml(d.cities.join(" · "))}；其余城市仅提供通用建议`;
+      } catch (e) { /* 提示拉取失败不影响聊天 */ }
+    })();
 
     /* ---- 会话列表 ---- */
     function renderSessions() {
@@ -916,6 +930,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       const ansEl = botEl.querySelector('[data-role="answer"]');
 
       let answer = "";
+      let cov = null;
       let streamDone = false;
       let typerDone = false;
       let actionsAttached = false;
@@ -941,9 +956,22 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
 
       const steps = [];
 
+      // 后端在回答正文里已按提示词标注「通用建议」，这里再在气泡底部补一条
+      // 结构化提示：正文可能被汇总阶段压缩，提示条不会。
+      function renderCoverageTip() {
+        if (!cov || !cov.uncovered || !cov.uncovered.length) return;
+        const tip = document.createElement("div");
+        tip.className = "coverage-tip";
+        tip.innerHTML = `📍 <strong>${escapeHtml(cov.uncovered.join("、"))}</strong> 暂无本地攻略库`
+          + `（当前覆盖 ${escapeHtml((cov.kb_cities || []).join(" · "))}），`
+          + "以上相关部分为通用建议，未经攻略库校验。";
+        botEl.querySelector(".bubble").appendChild(tip);
+      }
+
       function tryFinish() {
         if (!streamDone || !typerDone || actionsAttached) return;
         actionsAttached = true;
+        renderCoverageTip();
         assistantCount++;
         attachActions(botEl.querySelector(".bubble"), answer, assistantCount);
         if (answer) upsertSession(sessionId, text, assistantCount * 2);
@@ -952,6 +980,8 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       function handle(ev) {
         if (ev.type === "session") {
           sessionId = ev.session_id || sessionId;
+        } else if (ev.type === "coverage") {
+          cov = ev;
         } else if (ev.type === "route") {
           steps.push({ agent: ev.agent, reason: ev.reason || "", done: false });
           renderTrace();
