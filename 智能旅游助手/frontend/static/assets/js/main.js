@@ -241,7 +241,7 @@
   /* ---------- 应用直达链接：官网内功能页 ---------- */
   function initAppLinks() {
     const pageMap = { "": "chat.html", chat: "chat.html", map: "map.html",
-      transit: "transit.html", kb: "kb.html", fav: "favorites.html", admin: "admin.html" };
+      transit: "transit.html", trips: "trips.html", kb: "kb.html", fav: "favorites.html", admin: "admin.html" };
     document.querySelectorAll("a[data-app]").forEach((a) => {
       const page = a.getAttribute("data-app");
       a.setAttribute("href", pageMap[page] || "chat.html");

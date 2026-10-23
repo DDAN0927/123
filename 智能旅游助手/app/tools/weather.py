@@ -160,6 +160,92 @@ def _query_mock(key: str, days: int) -> str:
     return "\n".join(lines)
 
 
+def forecast(city: str, days: int = 7, start_date: str = "") -> list[dict] | None:
+    """结构化预报：`[{date, tmin, tmax, code, cond, precip, wind}]`，失败返回 None。
+
+    和 `query_weather` 的区别：那个是给模型看的自然语言，这个是给**代码**用的
+    —— 装备清单要按实际最高温决定带不带羽绒服，靠正则解析一段中文描述太脆。
+
+    `start_date` 用来对齐行程首日（open-meteo 最多只能看未来 16 天，
+    超出范围的行程由调用方退化为季节估算）。
+    """
+    key = _city_key((city or "").strip())
+    if key is None:
+        return None
+    lat, lon = _CITY_COORD[key]
+    try:
+        r = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
+                "precipitation_probability_max,wind_speed_10m_max",
+                "timezone": "auto",
+                "forecast_days": 16,
+            },
+            timeout=8,
+        )
+        r.raise_for_status()
+        d = r.json()["daily"]
+    except Exception:
+        return None
+
+    rows: list[dict] = []
+    for i, date_str in enumerate(d.get("time") or []):
+        code = d["weather_code"][i]
+        cond, _ = _WMO.get(code, ("未知天气", ""))
+        rows.append(
+            {
+                "date": date_str,
+                "tmin": round(d["temperature_2m_min"][i]),
+                "tmax": round(d["temperature_2m_max"][i]),
+                "code": code,
+                "cond": cond,
+                "precip": d["precipitation_probability_max"][i],
+                "wind": round(d["wind_speed_10m_max"][i]),
+            }
+        )
+    if start_date:
+        rows = [x for x in rows if x["date"] >= start_date]
+    return rows[: max(1, min(int(days), 16))] or None
+
+
+def advice(rows: list[dict]) -> list[str]:
+    """把预报压成几条能直接执行的出行建议（穿衣 / 雨具 / 防晒 / 大风）。"""
+    if not rows:
+        return []
+    out: list[str] = []
+    hi = max(x["tmax"] for x in rows)
+    lo = min(x["tmin"] for x in rows)
+    wet = max((x["precip"] or 0) for x in rows)
+    windy = max(x["wind"] for x in rows)
+
+    if hi - lo >= 12:
+        out.append(f"行程期间温差达 {hi - lo}℃，早晚要加一件外套（{lo}~{hi}℃）")
+    elif lo <= 5:
+        out.append(f"最低 {lo}℃，需要厚外套或羽绒，注意保暖")
+    elif hi >= 30:
+        out.append(f"最高 {hi}℃，注意防暑补水，避开正午长时间户外")
+    else:
+        out.append(f"气温 {lo}~{hi}℃，常规春秋装即可")
+
+    if wet >= 50:
+        out.append(f"降水概率最高 {round(wet)}%，务必带伞，户外行程留一个备选方案")
+    elif wet >= 30:
+        out.append(f"可能有阵雨（最高 {round(wet)}%），带把折叠伞更稳妥")
+
+    if hi >= 28:
+        out.append("紫外线较强，防晒霜、帽子、太阳镜建议备齐")
+    if windy >= 30:
+        out.append(f"最大风速 {windy}km/h，高空项目、索道、游船可能临时停运，出发前确认")
+
+    rain_days = [x["date"] for x in rows if (x["precip"] or 0) >= 60]
+    if rain_days:
+        out.append("高概率降雨日：" + "、".join(x[5:] for x in rain_days) + "，可考虑安排室内景点")
+    return out
+
+
 @tool
 def query_weather(city: str, days: int = 3) -> str:
     """查询指定城市未来几天的天气预报（open-meteo 实时数据）。city: 城市名；days: 查询天数，1-7。"""

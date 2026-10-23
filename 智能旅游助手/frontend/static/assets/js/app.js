@@ -278,6 +278,7 @@
           <a href="chat.html">AI旅行咨询</a>
           <a href="map.html">城市地图</a>
           <a href="transit.html">交通路线</a>
+          <a href="trips.html">我的行程</a>
           <a href="favorites.html">我的收藏</a>
           ${adminLinks}
           <a href="about.html">关于我们</a>
@@ -1367,6 +1368,297 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
     }));
   }
 
+  /* ---------- 行程工作台 ---------- */
+  // 与收藏夹的分工：收藏是「把一段文字存起来」，行程是「把一次旅行排好并跟踪进度」。
+  // 所以这里所有写操作都按条目粒度做（勾一条、加一条），不整篇覆盖 ——
+  // 整篇覆盖会让用户勾了半天的进度在改一个字之后全部归零。
+  const tripsView = { list: [], current: null };
+
+  const TRIP_KIND_ICON = {
+    spot: "🏛", food: "🍜", stay: "🛏", transit: "🚇", experience: "🎭", packing: "🎒", doc: "📄",
+  };
+
+  function tripPhaseText(t) {
+    if (t.phase === "undated") return "日期待定";
+    if (t.phase === "ongoing") return "旅行进行中";
+    if (t.phase === "past") return "已完成";
+    if (t.countdown === 0) return "今天出发";
+    return `还有 ${t.countdown} 天出发`;
+  }
+
+  function tripProgressBar(progress, big) {
+    const pct = progress ? progress.percent : 0;
+    return `<div class="trip-bar${big ? " trip-bar--big" : ""}"><i style="width:${pct}%"></i></div>`;
+  }
+
+  async function initTripsPage() {
+    const container = document.getElementById("trips-app");
+    if (!container) return;
+    const user = authState();
+    if (!user) {
+      container.innerHTML = `<div class="app-gate"><h2>请先登录</h2><p>登录后即可创建并管理你的行程</p><a href="index.html#login" class="btn btn-primary">去登录 <span class="fill"></span></a></div>`;
+      return;
+    }
+    tripsView.el = container;
+    if (tripsView.current) renderTripDetail(tripsView.current);
+    else await renderTripList();
+  }
+
+  function tripNewFormHtml() {
+    const cities = Object.keys(window.CITY_GEO || {}).sort();
+    return `
+      <div class="app-panel trip-new">
+        <div class="trip-new-row">
+          <input id="trip-city" list="trip-city-list" placeholder="目的地，如 北京" autocomplete="off" />
+          <datalist id="trip-city-list">${cities.map(c => `<option value="${escapeHtml(c)}"></option>`).join("")}</datalist>
+          <input id="trip-date" type="date" title="出发日期（可留空）" />
+          <input id="trip-days" type="number" min="1" max="30" value="3" title="天数" />
+          <input id="trip-budget" type="number" min="0" step="100" placeholder="人均预算(元)" />
+          <button class="btn btn-accent" id="trip-create">创建行程</button>
+        </div>
+        <div class="trip-new-hint">创建后可一键生成每日安排与行前装备清单，逐项打勾跟踪进度。</div>
+      </div>`;
+  }
+
+  async function renderTripList() {
+    const el = tripsView.el;
+    el.innerHTML = `${tripNewFormHtml()}<div class="app-panel" id="trip-list"><div class="skeleton" style="height:100px"></div></div>`;
+
+    el.querySelector("#trip-create").addEventListener("click", createTripFromForm);
+    el.querySelector("#trip-city").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") createTripFromForm();
+    });
+
+    const r = await apiGet("/api/trips");
+    const box = el.querySelector("#trip-list");
+    if (!r.ok) {
+      box.innerHTML = `<div class="app-empty"><h3>行程加载失败</h3><p>${escapeHtml((r.data && r.data.detail) || "登录可能已过期")}</p></div>`;
+      return;
+    }
+    const list = (r.data || {}).trips || [];
+    tripsView.list = list;
+    if (!list.length) {
+      box.innerHTML = `<div class="app-empty"><div style="font-size:52px">🧳</div><h3>还没有行程</h3><p>在上面填一个目的地，就能开始排你的旅行</p></div>`;
+      return;
+    }
+    box.innerHTML = `<div class="trip-grid">${list.map(t => `
+      <article class="trip-card" data-id="${escapeHtml(t.id)}">
+        <div class="trip-card-top">
+          <h3>${escapeHtml(t.city)}</h3>
+          <span class="trip-chip">${t.days} 天</span>
+        </div>
+        <div class="trip-cd">${escapeHtml(tripPhaseText(t))}</div>
+        <div class="trip-meta">${escapeHtml(t.start_date || "日期待定")}${t.budget ? ` · 预算 ¥${t.budget}` : ""}</div>
+        ${tripProgressBar(t.progress)}
+        <div class="trip-foot">已完成 ${t.progress.done}/${t.progress.total} 项</div>
+      </article>`).join("")}</div>`;
+
+    box.querySelectorAll(".trip-card").forEach(card => {
+      card.addEventListener("click", () => openTrip(card.dataset.id));
+    });
+  }
+
+  async function createTripFromForm() {
+    const el = tripsView.el;
+    const city = (el.querySelector("#trip-city").value || "").trim();
+    if (!city) { toast("先填目的地"); return; }
+    const days = parseInt(el.querySelector("#trip-days").value, 10) || 3;
+    const budget = parseInt(el.querySelector("#trip-budget").value, 10) || 0;
+    const start = el.querySelector("#trip-date").value || "";
+    const r = await apiPost("/api/trips", { city, days, budget, start_date: start });
+    if (!r.ok) { toast((r.data && r.data.detail) || "创建失败"); return; }
+    toast("行程已创建");
+    tripsView.current = r.data.trip;
+    renderTripDetail(r.data.trip);
+  }
+
+  async function openTrip(id) {
+    const r = await apiGet("/api/trips/" + encodeURIComponent(id));
+    if (!r.ok) { toast((r.data && r.data.detail) || "行程不存在"); return; }
+    tripsView.current = r.data.trip;
+    renderTripDetail(r.data.trip);
+  }
+
+  function prepGroups(items) {
+    const groups = [];
+    const index = {};
+    items.forEach(it => {
+      const key = it.slot || "其他";
+      if (!(key in index)) { index[key] = groups.length; groups.push({ name: key, items: [] }); }
+      groups[index[key]].items.push(it);
+    });
+    return groups;
+  }
+
+  function itemRow(it) {
+    return `
+      <label class="trip-item${it.done ? " done" : ""}">
+        <input type="checkbox" class="trip-check" data-id="${it.id}"${it.done ? " checked" : ""} />
+        <span class="trip-item-title">${escapeHtml(it.title)}</span>
+        ${it.note ? `<span class="trip-item-note">${escapeHtml(it.note)}</span>` : ""}
+        <button class="trip-item-del" data-id="${it.id}" title="删除">×</button>
+      </label>`;
+  }
+
+  function renderTripDetail(t) {
+    const el = tripsView.el;
+    const prep = t.prep || [];
+    const groups = prepGroups(prep);
+    const itinerary = t.itinerary || [];
+
+    el.innerHTML = `
+      <div class="trip-detail-head">
+        <button class="btn btn-ghost" id="trip-back">← 返回列表</button>
+        <div class="trip-actions">
+          <button class="btn btn-accent" data-act="plan">✨ 生成每日行程</button>
+          <button class="btn btn-primary" data-act="packing">🎒 生成装备清单</button>
+          <button class="btn btn-ghost" data-act="weather">🌦 天气与建议</button>
+          <button class="btn btn-ghost trip-danger" data-act="del">🗑 删除行程</button>
+        </div>
+      </div>
+
+      <div class="app-panel trip-hero">
+        <div class="trip-hero-main">
+          <div class="trip-cd-big">${t.countdown !== null && t.countdown > 0 ? t.countdown : "—"}<span>${t.countdown !== null && t.countdown > 0 ? "天后出发" : escapeHtml(tripPhaseText(t))}</span></div>
+          <div>
+            <h2>${escapeHtml(t.title)}</h2>
+            <div class="trip-meta">${escapeHtml(t.start_date || "日期待定")} · ${t.days} 天${t.budget ? ` · 人均预算 ¥${t.budget}` : ""}</div>
+          </div>
+        </div>
+        ${tripProgressBar(t.progress, true)}
+        <div class="trip-foot">已完成 ${t.progress.done}/${t.progress.total} 项（${t.progress.percent}%）</div>
+      </div>
+
+      <div id="trip-weather"></div>
+
+      <div class="app-panel">
+        <div class="trip-sec-head"><h3>行前清单</h3><span class="trip-meta">${prep.length} 项</span></div>
+        ${groups.length ? groups.map(g => `
+          <div class="trip-group">
+            <div class="trip-group-name">${escapeHtml(g.name)}</div>
+            ${g.items.map(itemRow).join("")}
+          </div>`).join("") : `<div class="app-empty" style="padding:24px"><p>还没有清单，点上方「🎒 生成装备清单」自动生成</p></div>`}
+        <div class="trip-add-row">
+          <input class="trip-add-input" data-day="0" placeholder="手动添加一条行前准备…" />
+          <button class="btn btn-ghost trip-add-btn" data-day="0">添加</button>
+        </div>
+      </div>
+
+      <div class="app-panel">
+        <div class="trip-sec-head"><h3>每日行程</h3><span class="trip-meta">${itinerary.length} 天</span></div>
+        ${itinerary.length ? itinerary.map(d => `
+          <div class="trip-day">
+            <div class="trip-day-name">第 ${d.day} 天</div>
+            ${d.items.map(itemRow).join("")}
+            <div class="trip-add-row">
+              <input class="trip-add-input" data-day="${d.day}" placeholder="给第 ${d.day} 天加一项…" />
+              <button class="btn btn-ghost trip-add-btn" data-day="${d.day}">添加</button>
+            </div>
+          </div>`).join("") : `<div class="app-empty" style="padding:24px"><p>还没有安排，点上方「✨ 生成每日行程」让 AI 排一版</p></div>`}
+      </div>`;
+
+    el.querySelector("#trip-back").addEventListener("click", () => {
+      tripsView.current = null;
+      renderTripList();
+    });
+
+    el.querySelectorAll(".trip-check").forEach(box => {
+      box.addEventListener("change", async (e) => {
+        const id = e.currentTarget.dataset.id;
+        const r = await api("PATCH", `/api/trips/${encodeURIComponent(t.id)}/items/${id}`, { done: e.currentTarget.checked });
+        if (!r.ok) { toast("更新失败"); e.currentTarget.checked = !e.currentTarget.checked; return; }
+        tripsView.current = r.data.trip;
+        renderTripDetail(r.data.trip);
+      });
+    });
+
+    el.querySelectorAll(".trip-item-del").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = e.currentTarget.dataset.id;
+        const r = await api("DELETE", `/api/trips/${encodeURIComponent(t.id)}/items/${id}`);
+        if (!r.ok) { toast("删除失败"); return; }
+        await openTrip(t.id);
+      });
+    });
+
+    el.querySelectorAll(".trip-add-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const day = parseInt(e.currentTarget.dataset.day, 10) || 0;
+        const input = el.querySelector(`.trip-add-input[data-day="${day}"]`);
+        const title = (input.value || "").trim();
+        if (!title) return;
+        const r = await apiPost(`/api/trips/${encodeURIComponent(t.id)}/items`, {
+          title, day_index: day, kind: day === 0 ? "doc" : "spot",
+        });
+        if (!r.ok) { toast((r.data && r.data.detail) || "添加失败"); return; }
+        await openTrip(t.id);
+      });
+    });
+
+    el.querySelectorAll(".trip-actions [data-act]").forEach(btn => {
+      btn.addEventListener("click", () => tripAction(btn.dataset.act, t, btn));
+    });
+  }
+
+  async function tripAction(act, t, btn) {
+    const id = encodeURIComponent(t.id);
+    if (act === "del") {
+      if (!confirm(`删除行程「${t.title}」？清单与安排会一起删除。`)) return;
+      const r = await api("DELETE", `/api/trips/${id}`);
+      if (!r.ok) { toast("删除失败"); return; }
+      tripsView.current = null;
+      toast("已删除");
+      renderTripList();
+      return;
+    }
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = act === "plan" ? "生成中…" : act === "packing" ? "生成中…" : "查询中…";
+    try {
+      if (act === "weather") {
+        const r = await apiGet(`/api/trips/${id}/weather`);
+        renderTripWeather(r.ok ? r.data : { supported: false, reason: (r.data && r.data.detail) || "查询失败" });
+      } else if (act === "packing") {
+        const r = await apiPost(`/api/trips/${id}/packing`);
+        if (!r.ok) { toast((r.data && r.data.detail) || "生成失败"); return; }
+        toast(r.data.source === "forecast" ? "已按行程期间天气生成清单" : "已按季节估算生成清单");
+        await openTrip(t.id);
+      } else if (act === "plan") {
+        const r = await apiPost(`/api/trips/${id}/plan`);
+        if (!r.ok) { toast((r.data && r.data.detail) || "生成失败，可手动添加"); return; }
+        toast(`已生成 ${r.data.items} 项安排`);
+        await openTrip(t.id);
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
+  function renderTripWeather(data) {
+    const box = document.getElementById("trip-weather");
+    if (!box) return;
+    if (!data || data.supported === false) {
+      box.innerHTML = `<div class="app-panel trip-weather"><h3>🌦 天气与出行建议</h3><p class="trip-meta">${escapeHtml((data && data.reason) || "暂无预报")}</p></div>`;
+      return;
+    }
+    const rows = data.rows || [];
+    const advice = data.advice || [];
+    box.innerHTML = `<div class="app-panel trip-weather">
+      <h3>🌦 行程期间天气</h3>
+      <div class="trip-wx-grid">${rows.map(w => `
+        <div class="trip-wx">
+          <div class="trip-wx-date">${escapeHtml(w.date.slice(5))}</div>
+          <div class="trip-wx-cond">${escapeHtml(w.cond)}</div>
+          <div class="trip-wx-temp">${w.tmin}~${w.tmax}℃</div>
+          <div class="trip-wx-pop">降水 ${w.precip === null || w.precip === undefined ? "-" : w.precip + "%"}</div>
+        </div>`).join("")}</div>
+      ${advice.length ? `<ul class="trip-advice">${advice.map(a => `<li>${escapeHtml(a)}</li>`).join("")}</ul>` : ""}
+    </div>`;
+  }
+
   /* ---------- 运营管理页 ---------- */
   // 内容库来源枚举，与后端 app/notes.py 的 SOURCES 保持一致
   const NOTE_SOURCES = [
@@ -1842,6 +2134,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
     initChatPage();
     initMapPage();
     initTransitPage();
+    initTripsPage();
     initFavoritesPage();
     initAdminPage();
     initKbPage();

@@ -399,3 +399,103 @@
   font-size: .84rem;
   line-height: 1.7;
 }
+
+/* ==========================================================================
+   行程工作台
+   --------------------------------------------------------------------------
+   设计目标：一眼看出「还有几天、做完几件事」。
+   倒计时和进度条是主角，行程明细退居其次 —— 攻略文字到处都是，
+   用户真正缺的是「这趟旅行我准备到哪一步了」。
+   ========================================================================== */
+
+.trip-new { padding: 16px; }
+.trip-new-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.trip-new-row input {
+  border: 1.5px solid var(--line-strong); border-radius: var(--r-pill);
+  padding: 10px 16px; font-family: inherit; font-size: .92rem; outline: none;
+  background: #fff; color: var(--ink);
+}
+.trip-new-row input:focus { border-color: var(--coral); }
+.trip-new-row #trip-city { flex: 1 1 200px; min-width: 160px; }
+.trip-new-row #trip-date { flex: 0 0 160px; }
+.trip-new-row #trip-days { flex: 0 0 84px; }
+.trip-new-row #trip-budget { flex: 0 0 140px; }
+.trip-new-hint { margin-top: 10px; font-size: .8rem; color: var(--muted); }
+
+.trip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.trip-card {
+  background: #fff; border: 1.5px solid var(--line); border-radius: var(--r-md);
+  padding: 16px; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.trip-card:hover { transform: translateY(-2px); border-color: var(--coral); box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.trip-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.trip-card-top h3 { margin: 0; font-size: 1.1rem; color: var(--ink); }
+.trip-chip { font-size: .74rem; padding: 3px 9px; border-radius: var(--r-pill); background: var(--paper); color: var(--ink-soft); }
+.trip-cd { margin: 8px 0 2px; font-size: 1.28rem; font-weight: 700; color: var(--coral); }
+.trip-meta { font-size: .82rem; color: var(--muted); }
+
+.trip-bar { height: 6px; border-radius: 999px; background: var(--paper); overflow: hidden; margin: 10px 0 6px; }
+.trip-bar i { display: block; height: 100%; background: var(--grad-sunset); border-radius: 999px; transition: width .3s ease; }
+.trip-bar--big { height: 10px; }
+.trip-foot { font-size: .78rem; color: var(--muted); }
+
+.trip-detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.trip-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.trip-actions .btn { padding: 9px 16px; font-size: .86rem; }
+.trip-danger { color: #b42318; border-color: #fda29b; }
+
+.trip-hero { padding: 20px; }
+.trip-hero-main { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.trip-hero-main h2 { margin: 0 0 4px; font-size: 1.3rem; color: var(--ink); }
+.trip-cd-big { font-size: 2.6rem; font-weight: 800; color: var(--coral); line-height: 1; }
+.trip-cd-big span { display: block; font-size: .8rem; font-weight: 500; color: var(--muted); margin-top: 4px; }
+
+.trip-sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.trip-sec-head h3 { margin: 0; font-size: 1.05rem; color: var(--ink); }
+
+.trip-group, .trip-day { margin-bottom: 18px; }
+.trip-group-name, .trip-day-name {
+  font-size: .84rem; font-weight: 700; color: var(--ink-soft);
+  padding-bottom: 6px; border-bottom: 1.5px dashed var(--line); margin-bottom: 8px;
+}
+
+.trip-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  transition: background .15s ease;
+}
+.trip-item:hover { background: var(--paper); }
+.trip-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--coral); flex: 0 0 auto; }
+.trip-item-title { font-size: .9rem; color: var(--ink); line-height: 1.5; }
+.trip-item-note { font-size: .78rem; color: var(--muted); }
+.trip-item.done .trip-item-title { text-decoration: line-through; color: var(--muted); }
+.trip-item-del {
+  margin-left: auto; border: 0; background: transparent; color: var(--muted);
+  font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+}
+.trip-item-del:hover { color: #b42318; background: #fef3f2; }
+
+.trip-add-row { display: flex; gap: 8px; margin-top: 8px; }
+.trip-add-input {
+  flex: 1; border: 1.5px dashed var(--line-strong); border-radius: var(--r-pill);
+  padding: 9px 14px; font-family: inherit; font-size: .86rem; outline: none; background: #fff;
+}
+.trip-add-input:focus { border-color: var(--coral); border-style: solid; }
+.trip-add-btn { padding: 8px 14px; font-size: .84rem; }
+
+.trip-weather h3 { margin: 0 0 12px; font-size: 1.05rem; color: var(--ink); }
+.trip-wx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.trip-wx { background: var(--paper); border-radius: 10px; padding: 10px; text-align: center; }
+.trip-wx-date { font-size: .76rem; color: var(--muted); }
+.trip-wx-cond { font-size: .84rem; color: var(--ink); margin: 4px 0; }
+.trip-wx-temp { font-size: .9rem; font-weight: 700; color: var(--ink); }
+.trip-wx-pop { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+.trip-advice { margin: 14px 0 0; padding-left: 20px; }
+.trip-advice li { font-size: .86rem; color: var(--ink-soft); line-height: 1.8; }
+
+@media (max-width: 720px) {
+  .trip-new-row #trip-date,
+  .trip-new-row #trip-days,
+  .trip-new-row #trip-budget { flex: 1 1 120px; }
+  .trip-cd-big { font-size: 2.1rem; }
+}

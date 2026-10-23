@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, auth, chat, favorites, knowledge, notes
+from app.api import admin, auth, chat, favorites, knowledge, notes, trips
 from app.config import settings
 from app.rag import retriever
 from app.store import ensure_default_admin
@@ -58,16 +58,7 @@ async def lifespan(app: FastAPI):
     logger.info("数据库文件：%s", db.db_path())
 
     ensure_default_admin()
-    if not retriever.index_ready():
-        try:
-            from app.rag.indexer import build_index, load_documents
-
-            if load_documents():
-                logger.info("未发现知识库索引，开始自动构建（首次需下载 BGE 模型，请耐心等待）...")
-                stats = build_index()
-                logger.info(f"知识库索引构建完成: {stats}")
-        except Exception as e:
-            logger.warning(f"索引自动构建失败（可稍后运行 python scripts/build_kb.py）: {e}")
+    _ensure_index()
 
     # 后台预热检索链路（加载 FAISS + BGE 模型 + 跑一次编码）。
     # 不预热的话，第一个真实用户要独自承担 3~10s 的模型加载开销。
@@ -75,6 +66,38 @@ async def lifespan(app: FastAPI):
         threading.Thread(target=retriever.warmup, name="rag-warmup", daemon=True).start()
 
     yield
+
+
+def _ensure_index():
+    """索引缺失或已落后于知识库时重建。
+
+    「文件在」不等于「内容是新的」：容器把攻略库放在持久化卷上，镜像里的
+    `knowledge_base/` 更新后，旧索引仍然指向旧正文。只判断 `index_ready()`
+    会让线上一直用旧攻略回答，而本地测试一切正常 —— 这类问题最难发现。
+    """
+    try:
+        from app.rag.indexer import build_index, index_stale, load_documents
+    except Exception as e:  # 重型依赖缺失时不影响站点启动
+        logger.warning(f"索引检查跳过（{e}）")
+        return
+
+    if not retriever.index_ready():
+        reason = "未发现知识库索引"
+    elif index_stale():
+        reason = "索引落后于知识库（攻略文档有更新）"
+    else:
+        return
+
+    try:
+        if not load_documents():
+            logger.warning("知识库目录为空，跳过索引构建")
+            return
+        logger.info("%s，开始构建（首次需下载 BGE 模型，请耐心等待）...", reason)
+        stats = build_index()
+        retriever.reset()
+        logger.info(f"知识库索引构建完成: {stats}")
+    except Exception as e:
+        logger.warning(f"索引自动构建失败（可稍后运行 python scripts/build_kb.py）: {e}")
 
 
 app = FastAPI(title="旅游智能助手 Travel Copilot", version="1.0.0", lifespan=lifespan)
@@ -100,6 +123,7 @@ app.include_router(admin.router)
 app.include_router(knowledge.router)
 app.include_router(favorites.router)
 app.include_router(notes.router)
+app.include_router(trips.router)
 app.include_router(auth.router)
 
 
@@ -117,6 +141,7 @@ def health():
         "llm_provider": settings.llm_provider,
         "llm_model": settings.llm_model,
         "index_ready": retriever.index_ready(),
+        "index_stale": _index_stale(),
         "rag_ready": retriever.ready(),
         "rag_state": retriever.state(),
         "rag_error": retriever.last_error(),
@@ -128,6 +153,16 @@ def health():
     if payload["rag_state"] == "failed":
         payload["rag_imports"] = retriever.probe_imports()
     return payload
+
+
+def _index_stale() -> bool:
+    """索引是否落后于知识库（健康检查用，出错按「不陈旧」处理，不误报）。"""
+    try:
+        from app.rag.indexer import index_stale
+
+        return bool(index_stale())
+    except Exception:
+        return False
 
 
 def _has_module(name: str) -> bool:

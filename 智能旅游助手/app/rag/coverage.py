@@ -85,6 +85,44 @@ def map_spot_count() -> int:
     return total
 
 
+@lru_cache(maxsize=1)
+def city_centers() -> dict[str, tuple[float, float]]:
+    """城市中心坐标 {城市名: (纬度, 经度)}。
+
+    装备清单要靠纬度判断「南方还是北方」（12 月去哈尔滨和去三亚带的东西完全不同），
+    而这份坐标前端地图已经在用了，没必要再维护第二份城市纬度表。
+    """
+    try:
+        text = _GEO_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    block = re.search(r"var RAW\s*=\s*\[(.*?)\n\s*\];", text, re.S)
+    if not block:
+        return {}
+    out: dict[str, tuple[float, float]] = {}
+    for item in re.findall(r'"([^"]*)"', block.group(1)):
+        parts = item.split("|")
+        if len(parts) < 4:
+            continue
+        try:
+            lat, lng = (float(x) for x in parts[2].split(","))
+        except (ValueError, TypeError):
+            continue
+        out[parts[0]] = (lat, lng)
+    return out
+
+
+def city_center(name: str) -> tuple[float, float] | None:
+    """按城市名取中心坐标；先精确匹配，再退化为「包含」匹配（「北京市」→「北京」）。"""
+    centers = city_centers()
+    if name in centers:
+        return centers[name]
+    for city, coord in centers.items():
+        if city in name:
+            return coord
+    return None
+
+
 _kb_cache: tuple[tuple, tuple[str, ...]] | None = None
 
 
@@ -141,6 +179,7 @@ def reset_cache() -> None:
     _kb_cache = None
     map_cities.cache_clear()
     map_spot_count.cache_clear()
+    city_centers.cache_clear()
 
 
 @dataclass(frozen=True)

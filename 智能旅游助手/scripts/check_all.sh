@@ -72,6 +72,7 @@ run "城市数据质量 (city_check)"   "$NODE_BIN" scripts/city_check.js
 run "地图页 (map_check)"         "$NODE_BIN" scripts/map_check.js
 run "Markdown 渲染 (md_render)"  "$NODE_BIN" scripts/md_render_check.js
 run "前端 DOM (dom_check)"       "$NODE_BIN" scripts/dom_check.js
+run "行程工作台 (trips_check)"    "$NODE_BIN" scripts/trips_check.js
 run "文案数字一致性 (copy_check)" "$NODE_BIN" scripts/copy_check.js
 
 # ---------- 汇总 ----------

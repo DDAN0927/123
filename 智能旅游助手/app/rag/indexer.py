@@ -7,6 +7,7 @@
 
 import json
 import re
+import time
 from pathlib import Path
 
 from app.config import settings
@@ -69,6 +70,41 @@ def split_document(name: str, text: str) -> list[dict]:
     return chunks
 
 
+def doc_signature() -> dict[str, float]:
+    """知识库文档签名：{文件名: mtime}。
+
+    用它判断「索引是不是旧的」比比对文件数可靠得多 —— 改内容不改文件名
+    （这次给 6 城补「住宿建议」「特色体验项目」就是这种情况）文件数不变，
+    但 mtime 一定变。
+    """
+    kb = Path(settings.kb_dir)
+    sig: dict[str, float] = {}
+    for f in sorted(kb.glob("**/*")):
+        if f.suffix.lower() not in (".md", ".txt"):
+            continue
+        try:
+            sig[f.name] = round(f.stat().st_mtime, 3)
+        except OSError:
+            continue
+    return sig
+
+
+def index_stale() -> bool:
+    """索引与当前知识库是否已经不同步（需要重建）。
+
+    没有 `meta.json` 的是旧版本索引（那时不记签名），无法确认内容是否最新，
+    一律按「过期」处理 —— 重建一次的代价远小于线上一直用旧攻略回答。
+    """
+    meta_path = settings.index_dir / "meta.json"
+    if not meta_path.exists():
+        return True
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return True
+    return meta.get("docs") != doc_signature()
+
+
 def build_index() -> dict:
     """构建 FAISS 向量索引，返回 {documents, chunks, dimension}"""
     import faiss
@@ -106,5 +142,15 @@ def build_index() -> dict:
     # 纯数据用 JSON，不用 pickle：反序列化 pickle 等价于执行任意代码
     (out / "chunks.json").write_text(json.dumps(chunks, ensure_ascii=False), encoding="utf-8")
     (out / "chunks.pkl").unlink(missing_ok=True)  # 清掉历史遗留的 pickle 入口
+
+    # 记下构建时的文档签名，供 index_stale() 判断索引是否已经落后于知识库
+    meta = {
+        "built_at": round(time.time(), 3),
+        "documents": len(docs),
+        "chunks": len(chunks),
+        "dimension": int(embeddings.shape[1]),
+        "docs": doc_signature(),
+    }
+    (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return {"documents": len(docs), "chunks": len(chunks), "dimension": int(embeddings.shape[1])}

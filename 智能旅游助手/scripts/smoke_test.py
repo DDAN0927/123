@@ -64,7 +64,11 @@ def main():
         # 接口必须能把「哪些城市有资料」单独讲清楚，且无需登录即可查。
         r = c.get("/api/knowledge/coverage")
         cv = r.json() if r.status_code == 200 else {}
-        check("知识库覆盖接口公开可用", r.status_code == 200 and isinstance(cv.get("cities"), list), r.text[:120])
+        check(
+            "知识库覆盖接口公开可用",
+            r.status_code == 200 and isinstance(cv.get("cities"), list),
+            r.text[:120],
+        )
         check(
             "覆盖接口带出地图规模（355 城 / 1558 景点）",
             cv.get("map_cities") == 355 and cv.get("map_spots") == 1558,

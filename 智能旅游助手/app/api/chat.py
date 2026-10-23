@@ -165,7 +165,15 @@ def chat(req: ChatRequest, authorization: str | None = Header(None), x_auth_toke
             result.update(
                 {
                     k: evt[k]
-                    for k in ("session_id", "trace", "outputs", "errors", "coverage", "agent_calls", "elapsed_ms")
+                    for k in (
+                        "session_id",
+                        "trace",
+                        "outputs",
+                        "errors",
+                        "coverage",
+                        "agent_calls",
+                        "elapsed_ms",
+                    )
                 }
             )
 

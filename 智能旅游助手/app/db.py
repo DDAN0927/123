@@ -115,6 +115,39 @@ CREATE TABLE IF NOT EXISTS notes (
     created_at  REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_notes_city ON notes(city, created_at DESC);
+
+-- 行程工作台：把「AI 生成的一段攻略」变成一次真实旅行的可执行载体。
+-- 只有问答没有行程时，用户看完还得自己抄到备忘录里 —— 收藏夹解决的是「存起来」，
+-- 这里解决的是「按天排好、能打勾、有倒计时、有进度」。
+CREATE TABLE IF NOT EXISTS trips (
+    id         TEXT PRIMARY KEY,
+    username   TEXT NOT NULL DEFAULT '',
+    title      TEXT NOT NULL DEFAULT '',
+    city       TEXT NOT NULL DEFAULT '',
+    start_date TEXT NOT NULL DEFAULT '',      -- YYYY-MM-DD，空表示未定
+    days       INTEGER NOT NULL DEFAULT 1,
+    budget     INTEGER NOT NULL DEFAULT 0,    -- 人均总预算（元），0 = 未设置
+    note       TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_trips_user ON trips(username, updated_at DESC);
+
+-- 行程条目。day_index = 0 表示「行前准备清单」（证件/装备/预订），
+-- 1..N 表示第几天。一张表存两类东西，是为了让「勾选进度」只有一个口径：
+-- 用户关心的是「这趟旅行我还差几件事没做」，而不是清单和行程分开算。
+CREATE TABLE IF NOT EXISTS trip_items (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    trip_id   TEXT NOT NULL,
+    day_index INTEGER NOT NULL DEFAULT 0,
+    slot      TEXT NOT NULL DEFAULT '',       -- 上午 / 下午 / 晚上 / 空
+    kind      TEXT NOT NULL DEFAULT 'spot',   -- spot/food/stay/transit/experience/packing/doc
+    title     TEXT NOT NULL DEFAULT '',
+    note      TEXT NOT NULL DEFAULT '',
+    done      INTEGER NOT NULL DEFAULT 0,
+    sort      INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_trip_items ON trip_items(trip_id, day_index, sort);
 """
 
 

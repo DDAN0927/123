@@ -258,8 +258,13 @@ def _search_cached(query: str, k: int) -> tuple[tuple[str, str, float], ...]:
     # 城市一致性：查询里点名的城市，只在该城市文档内检索。
     # 不做这一步时，「上海去苏州怎么走」的 top-1 会返回北京的颐和园 ——
     # 向量相似度被「怎么走」这种通用短语带偏，而旅游场景里城市是硬约束。
+    #
+    # 但「通用文档」（行前装备、证件、通用避坑）不是任何城市，必须放行：
+    # 问「北京要带什么」时，装备知识在《行前准备与装备》里，而 北京.md 里没有 ——
+    # 按城市一刀切会把它滤掉，等于城市约束把正确答案挡在门外。
     stems = {c["doc"].rsplit(".", 1)[0] for c in _chunks}
     mentioned = {s for s in stems if s in query}
+    city_docs = set(coverage.map_cities())
 
     matched: list[tuple[str, str, float]] = []
     fallback: list[tuple[str, str, float]] = []
@@ -272,7 +277,8 @@ def _search_cached(query: str, k: int) -> tuple[tuple[str, str, float], ...]:
             continue
         item = (chunk["doc"], chunk["text"], fused)
         fallback.append(item)
-        if not mentioned or chunk["doc"].rsplit(".", 1)[0] in mentioned:
+        stem = chunk["doc"].rsplit(".", 1)[0]
+        if not mentioned or stem in mentioned or stem not in city_docs:
             matched.append(item)
 
     chosen = matched if mentioned else fallback
@@ -318,4 +324,3 @@ def search(query: str, top_k: int | None = None) -> list[dict]:
         logger.info("查询城市无攻略库覆盖，跳过检索: %s", "、".join(cov.uncovered))
         return []
     return [{"doc": d, "text": t, "score": s} for d, t, s in _search_cached(query, k)]
-

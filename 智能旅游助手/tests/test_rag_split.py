@@ -6,7 +6,10 @@
 3. 词法重排未按稀有度加权，通用词「门票」压过了实体「故宫」
 """
 
-from app.rag.indexer import split_document
+import json
+import os
+
+from app.rag.indexer import doc_signature, index_stale, split_document
 from app.rag.retriever import _bigram_coverage
 
 DOC = """# 北京旅游攻略
@@ -80,3 +83,54 @@ def test_bigram_coverage_is_bounded():
     assert 0.0 <= _bigram_coverage("故宫", "故宫") <= 1.0
     assert _bigram_coverage("", "任意文本") == 0.0
     assert _bigram_coverage("单", "单") == 0.0  # 单字无法构成 bigram
+
+
+# ------------------------------------------------------------ 索引过期检测
+# 容器把攻略库放在持久化卷上，镜像里的 knowledge_base/ 更新后旧索引仍在。
+# 只判断「索引文件在」会让线上一直用旧攻略回答，本地却一切正常。
+
+
+def test_index_is_stale_without_meta(tmp_path, monkeypatch):
+    """旧版本索引没有 meta.json，无法确认内容，必须按「过期」处理。"""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    assert index_stale() is True
+
+
+def test_index_is_fresh_when_signature_matches(tmp_path, monkeypatch):
+    from app.config import settings
+
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    (kb / "北京.md").write_text("## 必游景点\n故宫\n", encoding="utf-8")
+    monkeypatch.setattr(settings, "kb_dir", str(kb))
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+
+    idx = settings.index_dir
+    idx.mkdir(parents=True, exist_ok=True)
+    meta = {"built_at": 1.0, "documents": 1, "chunks": 1, "dimension": 512, "docs": doc_signature()}
+    (idx / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    assert index_stale() is False
+
+
+def test_index_goes_stale_after_doc_edit(tmp_path, monkeypatch):
+    """改名不算变化，改内容才算 —— 这次补「住宿建议」正是改内容不改文件名。"""
+    from app.config import settings
+
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    doc = kb / "北京.md"
+    doc.write_text("## 必游景点\n故宫\n", encoding="utf-8")
+    monkeypatch.setattr(settings, "kb_dir", str(kb))
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+
+    idx = settings.index_dir
+    idx.mkdir(parents=True, exist_ok=True)
+    (idx / "meta.json").write_text(json.dumps({"docs": doc_signature()}), encoding="utf-8")
+    assert index_stale() is False
+
+    doc.write_text("## 住宿建议\n王府井一带\n", encoding="utf-8")
+    os.utime(doc, (1, 1))  # 显式改 mtime，避免文件系统时间精度导致漏判
+    assert index_stale() is True

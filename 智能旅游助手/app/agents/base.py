@@ -62,7 +62,6 @@ def _coverage_block(cov: dict) -> str:
     )
 
 
-
 def _mock_expert_answer(title: str, query: str, context: str) -> str:
     """Mock 模式：无 LLM 时的降级回答（用于演示与联调）"""
     lines = [
