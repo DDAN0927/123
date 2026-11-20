@@ -1,0 +1,16 @@
+name = "guanchao-api"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "guanchao"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+# 必须改成你的前端域名,例如 "https://guanchao.pages.dev"。留空则浏览器的跨域请求会被拒绝。
+ALLOWED_ORIGIN = ""
+ALERT_FROM = "alerts@example.com"
