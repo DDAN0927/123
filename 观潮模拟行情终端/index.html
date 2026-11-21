@@ -4702,9 +4702,20 @@ function median(arr) {
   const m = Math.floor(a.length / 2);
   return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
 }
+/* FE-02:同行业中位 PE 缓存。键取 s.group 原值(undefined 由 Map 天然支持,不转字符串),
+   与下面的过滤谓词 x.group === s.group 完全同义,保证命中值与逐行全市场扫描逐位一致。
+   空组兜底值 (s.pe || 22) 随个股变化,不入缓存。
+   pe 在单个 universe 内无写入,因此只需在 universe 整体替换时清空:
+   applyImportedUniverse / resetUniverseTo / loadSnapshotIntoUniverse,与 boardCache 同址。 */
+const peerPECache = new Map();
 function peerMedianPE(s) {
-  const peers = STOCKS.filter((x) => x.group === s.group && x.pe > 0).map((x) => x.pe);
-  return peers.length ? median(peers) : (s.pe || 22);
+  const key = s.group;
+  if (peerPECache.has(key)) return peerPECache.get(key);
+  const peers = STOCKS.filter((x) => x.group === key && x.pe > 0).map((x) => x.pe);
+  if (!peers.length) return s.pe || 22;
+  const med = median(peers);
+  peerPECache.set(key, med);
+  return med;
 }
 function valPctOf(s) {
   if (!s.pe) return clamp(52 + (hashStr(s.code) % 18), 30, 78);
@@ -6431,6 +6442,7 @@ function applyImportedUniverse(stocks) {
   STOCKS = stocks;
   BY_CODE = indexByCode(STOCKS);
   boardCache = {};
+  peerPECache.clear();
   syncFavFlags();
   fillSectorOptions();
   renderBreadth();
@@ -7143,6 +7155,7 @@ function resetUniverseTo(stocks, keepStatus) {
   STOCKS = stocks;
   BY_CODE = indexByCode(STOCKS);
   boardCache = {};
+  peerPECache.clear();
   syncFavFlags();
   state.market = 'all';
   state.sector = 'all';
@@ -7188,6 +7201,7 @@ function loadSnapshotIntoUniverse() {
   STOCKS = stocks;
   BY_CODE = indexByCode(STOCKS);
   boardCache = {};
+  peerPECache.clear();
   return snap;
 }
 /* 数据源优先级:自建 Worker 快照 → 东方财富 clist → 新浪 Market_Center。
