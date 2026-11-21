@@ -27,3 +27,6 @@ deliverables/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# 评估过程产物（截图、探针脚本、本地依赖）
+deliverables/
