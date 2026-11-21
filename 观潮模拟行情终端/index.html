@@ -6857,10 +6857,16 @@ async function cloudRequest(path, opts = {}) {
 function buildCloudState() {
   return {
     v: 1,
-    favorites: Array.from(favCodeSet('all')).slice(0, 120),
-    favGroups: favGroups.slice(0, FAV_GROUP_MAX).map((g) => ({ name: g.name, codes: g.codes.slice(0, 120) })),
+    /* 写侧上限必须与读侧对齐,否则第 N+1 条写出去就被砍,下次拉取用截断集合覆盖本地:
+       favorites 对齐 sanitizeCloudState 的 500、favGroups 对齐 normalizeFavGroups 的每组 500、
+       alerts 对齐 sanitizeCloudState 的 200(同时收窄外部输入进入渲染层的规模)。
+       注意 favorites 是扁平兼容层、不是真相:分组才是唯一数据源(拉取时走 favGroups 分支),
+       超过 500 的部分只存在于 favGroups 里,这里截断不会丢分组数据。 */
+    favorites: Array.from(favCodeSet('all')).slice(0, 500),
+    favGroups: favGroups.slice(0, FAV_GROUP_MAX).map((g) => ({ name: g.name, codes: g.codes.slice(0, 500) })),
     compare: cmpCodes.slice(0, 4),
-    alerts: alerts.map((a) => ({ ...a })),
+    /* 取末尾 200 条:alerts.push 追加在尾部、新提醒在最后,slice(0,200) 砍掉的会是最新的 */
+    alerts: alerts.slice(-200).map((a) => ({ ...a })),
     account: {
       cash: account.cash,
       positions: account.positions,
@@ -6901,7 +6907,8 @@ function sanitizeCloudState(data) {
       .filter((a) => a && typeof a === 'object' && typeof a.code === 'string' && CODE_RE.test(a.code)
         && ALERT_DIRS.includes(a.dir) && typeof a.price === 'number' && isFinite(a.price) && a.price > 0
         && (!isPctDir(a.dir) || a.price <= 100))
-      .slice(0, 200)
+      /* 与写侧同向取末尾 200 条:alerts 是追加序,最新在尾部;两侧都取末尾才不会错位 */
+      .slice(-200)
       .map((a) => cleanValue(a, 0));
   }
   const ac = data.account;
@@ -6964,10 +6971,22 @@ function applyCloudState(raw) {
     renderDrawerGroups(s);
   }
 }
+/* 后端 putState 对 JSON.stringify(state).length > 400000 直接 413 并整体拒绝;
+   自动上传的 .catch(()=>{}) 会把它吞掉,用户只看到"没同步"却不知道原因。
+   这里留 50KB 余量提前拦截,本地数据不动,并明确告知。 */
+const CLOUD_STATE_MAX = 350000;
 async function cloudPush(silent) {
   if (!cloud.token) return false;
+  const payload = buildCloudState();
+  const size = JSON.stringify(payload).length;
+  if (size > CLOUD_STATE_MAX) {
+    const kb = Math.round(size / 1024);
+    setCloudStatus(`数据过大 · ${kb}KB,本次未上传`);
+    toast(`云端同步数据过大(${kb}KB),本次未上传,本地数据不受影响`, 'err');
+    return false;
+  }
   setCloudStatus('上传中…');
-  await cloudRequest('/api/state', { method: 'PUT', body: JSON.stringify({ state: buildCloudState() }) });
+  await cloudRequest('/api/state', { method: 'PUT', body: JSON.stringify({ state: payload }) });
   setCloudStatus(`已上传 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
   if (!silent) toast('已上传到云端');
   return true;
