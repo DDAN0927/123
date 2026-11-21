@@ -2281,7 +2281,7 @@ table.hot td:nth-child(2){min-width:230px}
 
     <div class="cloud-about">
       <span class="version-badge">v1.7.0</span> · BUILD 2026-11-19 · AETHER TERMINAL<br>
-      数据源:内置模拟 / 东方财富公开接口 / 自建 Worker 快照<br>
+      数据源:内置模拟 / 东方财富公开接口 / 新浪财经(兜底) / 自建 Worker 快照<br>
       演示用途,不构成投资建议。
     </div>
   </div>
@@ -5618,10 +5618,12 @@ function wireEvents() {
     btn.disabled = true;
     $('#syncClear').disabled = true;
     $('#syncBar').style.width = '0%';
-    $('#syncStatus').textContent = '连接东方财富…';
+    $('#syncStatus').textContent = '连接行情源…';
     $('#syncCount').textContent = '';
     try {
       let rows = null;
+      let source = 'worker';
+      let skipped = 0;
       if (getCloudBase()) {
         try {
           $('#syncStatus').textContent = '尝试云端快照…';
@@ -5651,18 +5653,28 @@ function wireEvents() {
           $('#syncCount').textContent = `${got.toLocaleString('en-US')} / ${(tot || got).toLocaleString('en-US')}`;
         });
         rows = res.rows;
+        source = res.source;
+        skipped = res.skipped || 0;
       }
       const stocks = liveStocksFromRows(rows);
-      saveSnapshot(rows);
+      saveSnapshot(rows, source);
       resetUniverseTo(stocks, true);
-      setDataStatus(true, Date.now(), stocks.length);
+      setDataStatus(true, Date.now(), stocks.length, source);
       $('#syncBar').style.width = '100%';
-      $('#syncStatus').textContent = '同步完成 · 已缓存到本机';
+      if (skipped) {
+        $('#syncStatus').textContent = `同步完成(部分) · 缺失 ${skipped} 页`;
+        toast(`已同步 ${stocks.length.toLocaleString('en-US')} 只,有 ${skipped} 页拉取失败,数据不完整`, 'err');
+      } else {
+        $('#syncStatus').textContent = '同步完成 · 已缓存到本机';
+        toast(`已同步 ${stocks.length.toLocaleString('en-US')} 只真实 A 股`);
+      }
       $('#syncCount').textContent = `${stocks.length.toLocaleString('en-US')} 只`;
-      toast(`已同步 ${stocks.length.toLocaleString('en-US')} 只真实 A 股`);
-      setTimeout(closeSyncModal, 1400);
+      setTimeout(closeSyncModal, skipped ? 3000 : 1400);
     } catch (err) {
-      $('#syncStatus').textContent = err.message === 'timeout' ? '连接超时 · 请检查网络' : '连接失败 · 可能被网络或面板拦截';
+      const msg = err.message === 'timeout' ? '连接超时 · 请检查网络'
+        : err.message === 'fallback-partial' ? '兜底数据源不稳定 · 请稍后重试'
+          : '连接失败 · 可能被网络或面板拦截';
+      $('#syncStatus').textContent = msg;
       $('#syncCount').textContent = '—';
       toast('同步失败:请把 index.html 下载到本机用浏览器打开后重试', 'err');
     } finally {
@@ -7025,6 +7037,31 @@ function emPageUrl(pn) {
   });
   return 'https://push2.eastmoney.com/api/qt/clist/get?' + p.toString();
 }
+/* 兜底数据源:新浪财经全市场列表。
+   东方财富 /api/qt/clist/get 在部分网络下被端点级重置(同主机 ulist.np 与 push2his 正常),
+   实测 clist 在 push2/82.push2/7.push2/push2delay/push2his 五个主机上全部连接中断。
+   新浪该接口返回 Access-Control-Allow-Origin: *,可直接 fetch。
+   注意 num 必须 < 100:num=100 时响应正常但缺 CORS 头,浏览器端会报 Failed to fetch,
+   num=99 及以下正常。这里取 80 留余量,80 页 × 80 条可覆盖 6000 只以上。
+   代价:不含行业字段,行业统一回落为「综合」。 */
+const SINA_PAGE_URL = (pn) => 'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData'
+  + `?page=${pn}&num=80&sort=symbol&asc=1&node=hs_a&symbol=&_s_r_a=page`;
+async function sinaPage(pn) {
+  const res = await fetch(SINA_PAGE_URL(pn), { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error('sina ' + res.status);
+  const arr = await res.json();
+  if (!Array.isArray(arr)) throw new Error('sina format');
+  return arr;
+}
+function mapSinaRows(arr) {
+  return arr.map((x) => ({
+    code: String(x.code || '').trim(), name: String(x.name || '').trim(),
+    price: Number(x.trade), chg: Number(x.changepercent),
+    pe: Number(x.per), pb: Number(x.pb),
+    mcap: x.mktcap ? Math.round(Number(x.mktcap) * 1e4) : 0, // 万元 -> 元
+    sector: '综合',
+  })).filter((r) => r.code && r.name);
+}
 function mapEmRows(rows) {
   return rows.map((x) => ({
     code: String(x.f12 || ''), name: String(x.f14 || ''),
@@ -7042,8 +7079,8 @@ function liveStocksFromRows(rows) {
   });
   return stocks;
 }
-function saveSnapshot(rows) {
-  try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ t: Date.now(), rows })); } catch (e) {}
+function saveSnapshot(rows, source) {
+  try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ t: Date.now(), rows, source: source || 'eastmoney' })); } catch (e) {}
 }
 function readSnapshot() {
   try {
@@ -7059,11 +7096,12 @@ function fmtSnapshotTime(t) {
     return new Date(t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch (e) { return ''; }
 }
-function setDataStatus(live, t, count) {
+const SOURCE_LABEL = { eastmoney: '东方财富', sina: '新浪财经', worker: '自建 Worker 快照' };
+function setDataStatus(live, t, count, source) {
   const el = $('#dataStatus');
   if (!el) return;
   el.textContent = live
-    ? `数据源:东方财富 · ${fmtSnapshotTime(t)} · ${Number(count).toLocaleString('en-US')} 只`
+    ? `数据源:${SOURCE_LABEL[source] || SOURCE_LABEL.eastmoney} · ${fmtSnapshotTime(t)} · ${Number(count).toLocaleString('en-US')} 只`
     : '数据源:内置模拟';
 }
 function resetUniverseTo(stocks, keepStatus) {
@@ -7117,6 +7155,8 @@ function loadSnapshotIntoUniverse() {
   boardCache = {};
   return snap;
 }
+/* 数据源优先级:自建 Worker 快照 → 东方财富 clist → 新浪 Market_Center。
+   返回 { rows, total, source },source 用于界面标签,避免把兜底数据标成东方财富。 */
 async function syncEastmoney(onProgress) {
   const cloudBase = getCloudBase();
   if (cloudBase) {
@@ -7126,24 +7166,65 @@ async function syncEastmoney(onProgress) {
       const rows = [...(r1.rows || []), ...(r2.rows || [])];
       if (rows.length > 100) {
         if (onProgress) onProgress(rows.length, rows.length, 1);
-        return { rows, total: rows.length };
+        return { rows, total: rows.length, source: 'worker' };
       }
     } catch (e) {}
   }
-  const raw = [];
-  let total = 0;
-  for (let pn = 1; pn <= 90; pn++) {
-    const j = await jsonp(emPageUrl(pn), 20000);
-    const d = j && j.data;
-    if (!d || !Array.isArray(d.diff) || !d.diff.length) break;
-    total = d.total || total;
-    raw.push(...d.diff);
-    if (onProgress) onProgress(raw.length, total, pn);
-    if (raw.length >= total) break;
-    await new Promise((r) => setTimeout(r, 280));
+
+  // 主源:东方财富分页 clist
+  let emRows = [];
+  try {
+    const raw = [];
+    let total = 0;
+    for (let pn = 1; pn <= 90; pn++) {
+      const j = await jsonp(emPageUrl(pn), 20000);
+      const d = j && j.data;
+      if (!d || !Array.isArray(d.diff) || !d.diff.length) break;
+      total = d.total || total;
+      raw.push(...d.diff);
+      if (onProgress) onProgress(raw.length, total, pn);
+      if (raw.length >= total) break;
+      await new Promise((r) => setTimeout(r, 280));
+    }
+    if (raw.length >= 100) emRows = mapEmRows(raw);
+  } catch (e) {
+    emRows = [];
   }
-  if (raw.length < 100) throw new Error('empty');
-  return { rows: mapEmRows(raw), total: total || raw.length };
+  if (emRows.length >= 100) return { rows: emRows, total: emRows.length, source: 'eastmoney' };
+
+  // 兜底:新浪全市场(无行业字段)。
+  // 新浪这个接口对浏览器请求不稳定:实测 30 页里约 40% 随机返回缺 CORS 头的响应
+  // (net::ERR_FAILED),且失败分布随机而非持续限流。因此按页重试、失败跳过、
+  // 最后再补一轮,允许个别页缺失,但要求最终覆盖率足够。
+  const sinaPages = new Map();
+  const MAX_PAGE = 80;
+  const fetchSinaInto = async (pn) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const arr = await sinaPage(pn);
+        sinaPages.set(pn, arr);
+        return true;
+      } catch (e) {
+        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+      }
+    }
+    return false;
+  };
+  for (let pn = 1; pn <= MAX_PAGE; pn++) {
+    const done = await fetchSinaInto(pn);
+    if (done && !sinaPages.get(pn).length) { sinaPages.delete(pn); break; } // 空页 = 到尾
+    if (onProgress) onProgress(sinaPages.size * 80, 5600, pn);
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  // 补一轮失败页
+  for (let pn = 1; pn <= MAX_PAGE; pn++) {
+    if (!sinaPages.has(pn)) await fetchSinaInto(pn);
+  }
+  const sinaRaw = [];
+  Array.from(sinaPages.keys()).sort((a, b) => a - b).forEach((pn) => sinaRaw.push(...sinaPages.get(pn)));
+  const sinaRows = mapSinaRows(sinaRaw);
+  if (sinaRows.length < 500) throw new Error('fallback-partial');
+  return { rows: sinaRows, total: sinaRows.length, source: 'sina', skipped: MAX_PAGE - sinaPages.size };
 }
 function openSyncModal() {
   const m = $('#syncModal');
@@ -7274,7 +7355,7 @@ function boot() {
   renderTapes();
   renderTable();
   updateUniverseMeta();
-  if (SNAP) setDataStatus(true, SNAP.t, STOCKS.length);
+  if (SNAP) setDataStatus(true, SNAP.t, STOCKS.length, SNAP.source);
   const initTh = $('#hotTable thead th[data-key="mcap"]');
   if (initTh) {
     initTh.classList.add('is-sorted');
