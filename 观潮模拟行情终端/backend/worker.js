@@ -18,6 +18,24 @@ const LEGACY_ITER = 30000; // 旧用户默认值,登录成功后自动升级
 const LOGIN_MAX_FAILS = 5; // 窗口内最多失败次数
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const REGISTER_MAX = 5; // 同一 IP 在窗口内最多注册次数
+
+// 邮箱维度不做硬锁:硬锁意味着「知道对方邮箱 = 每 15 分钟错 5 次就能永久锁死他人登录」。
+// 改为递增延迟——攻击者锁不死人,但串行爆破被拖慢(并发爆破的残余风险见 README)。
+const EMAIL_BACKOFF_AFTER = 3; // 前 3 次失败不惩罚,容忍正常手滑
+const EMAIL_BACKOFF_BASE_MS = 200;
+// 上限不宜太大:延迟越长,攻击者用 1 个请求换到的 Worker 占用时间越长(放大效应)。
+const EMAIL_BACKOFF_MAX_MS = 2000;
+
+// 云端状态的结构/规模上限(服务端为准,前端 sanitizeCloudState 只是体验优化)
+const CODE_RE = /^[A-Za-z0-9][A-Za-z0-9.\-]{0,11}$/;
+const ALERT_DIRS = new Set(['above', 'below', 'pct_up', 'pct_down']);
+const MAX_ALERTS = 200;
+const MAX_FAV_GROUPS = 20;
+const MAX_GROUP_CODES = 500;
+// cron 单轮最多查多少个代码:每 40 个 = 1 次子请求,800 → 20 次,
+// 给免费版 50 次上限留出余量(快照抓取一次就要 30 次)。
+const MAX_ALERT_CODES = 800;
 
 const enc = new TextEncoder();
 
@@ -180,6 +198,14 @@ async function handleSnapshot(env, part) {
 async function register(req, env) {
   const body = await readBody(req);
   if (!body) return json({ error: 'bad json' }, 400, env);
+  // 注册限流:与登录的 i: 键分开命名,避免互相影响。每次尝试都计数(含格式错误),
+  // 否则攻击者可以用垃圾请求绕过配额、只把有效注册打进来。
+  const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
+  const wait = await ipGate(env, 'r:' + ip);
+  if (wait > 0) {
+    return json({ error: `注册过于频繁,请 ${Math.ceil(wait / 60)} 分钟后再试` }, 429, env, { 'Retry-After': String(wait) });
+  }
+  await bumpLock(env, 'r:' + ip, REGISTER_MAX, LOGIN_LOCK_MS);
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
   if (!emailValid(email)) return json({ error: '邮箱格式不正确' }, 400, env);
@@ -195,29 +221,59 @@ async function register(req, env) {
   return json({ token, email }, 200, env);
 }
 
-// 登录限流:按「邮箱」和「来源 IP」两个维度计数,窗口内失败达到上限即锁定。
-async function loginGate(env, keys) {
+/* 限流键命名空间:
+     i:<ip>     登录来源(硬锁,唯一会返回 429 的维度)
+     e:<email>  登录目标(只计数 + 递增延迟,永不硬锁)
+     r:<ip>     注册来源(硬锁)
+   计数一律用单条 UPSERT 完成,不做"先读后写"。先读后写在并发下会让 N 个请求
+   读到同一个旧值、各自写回 +1,把 5 次上限实际压到 1~3 次。 */
+const SQL_BUMP_LOCK = `INSERT INTO login_attempts (key,fails,first_at,locked_until) VALUES (?,1,?,0)
+ON CONFLICT(key) DO UPDATE SET
+  fails = CASE WHEN excluded.first_at - first_at < ? THEN fails + 1 ELSE 1 END,
+  first_at = CASE WHEN excluded.first_at - first_at < ? THEN first_at ELSE excluded.first_at END,
+  locked_until = CASE
+    WHEN excluded.first_at - first_at >= ? THEN 0
+    WHEN fails + 1 >= ? THEN ?
+    ELSE locked_until END`;
+const SQL_BUMP_ONLY = `INSERT INTO login_attempts (key,fails,first_at,locked_until) VALUES (?,1,?,0)
+ON CONFLICT(key) DO UPDATE SET
+  fails = CASE WHEN excluded.first_at - first_at < ? THEN fails + 1 ELSE 1 END,
+  first_at = CASE WHEN excluded.first_at - first_at < ? THEN first_at ELSE excluded.first_at END,
+  locked_until = 0`;
+
+async function bumpLock(env, key, maxFails, lockMs) {
   const now = Date.now();
-  for (const k of keys) {
-    const r = await env.DB.prepare('SELECT fails,first_at,locked_until FROM login_attempts WHERE key=?').bind(k).first();
-    if (r && r.locked_until > now) return Math.ceil((r.locked_until - now) / 1000);
-  }
+  await env.DB.prepare(SQL_BUMP_LOCK)
+    .bind(key, now, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS, maxFails, now + lockMs).run();
+}
+async function bumpOnly(env, key) {
+  const now = Date.now();
+  await env.DB.prepare(SQL_BUMP_ONLY).bind(key, now, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS).run();
+}
+// 只查硬锁;邮箱键的 locked_until 一律为 0,因此不会被这里命中。
+async function ipGate(env, key) {
+  const now = Date.now();
+  const r = await env.DB.prepare('SELECT locked_until FROM login_attempts WHERE key=?').bind(key).first();
+  if (r && r.locked_until > now) return Math.ceil((r.locked_until - now) / 1000);
   return 0;
 }
-async function loginFail(env, keys) {
-  const now = Date.now();
-  for (const k of keys) {
-    const r = await env.DB.prepare('SELECT fails,first_at FROM login_attempts WHERE key=?').bind(k).first();
-    let fails = 1, first = now, lock = 0;
-    if (r && now - r.first_at < LOGIN_WINDOW_MS) { fails = r.fails + 1; first = r.first_at; }
-    if (fails >= LOGIN_MAX_FAILS) lock = now + LOGIN_LOCK_MS;
-    await env.DB.prepare(
-      'INSERT INTO login_attempts (key,fails,first_at,locked_until) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET fails=excluded.fails, first_at=excluded.first_at, locked_until=excluded.locked_until',
-    ).bind(k, fails, first, lock).run();
-  }
+// 邮箱维度:失败越多等越久,但永远放行(不返回 429)。
+async function emailBackoffMs(env, email) {
+  const r = await env.DB.prepare('SELECT fails,first_at FROM login_attempts WHERE key=?')
+    .bind('e:' + email).first();
+  if (!r) return 0;
+  if (Date.now() - r.first_at >= LOGIN_WINDOW_MS) return 0;
+  const fails = Number(r.fails) || 0;
+  if (fails < EMAIL_BACKOFF_AFTER) return 0;
+  return Math.min(EMAIL_BACKOFF_MAX_MS, EMAIL_BACKOFF_BASE_MS * 2 ** (fails - EMAIL_BACKOFF_AFTER));
 }
-async function loginClear(env, keys) {
-  for (const k of keys) await env.DB.prepare('DELETE FROM login_attempts WHERE key=?').bind(k).run();
+async function loginFail(env, email, ip) {
+  await bumpLock(env, 'i:' + ip, LOGIN_MAX_FAILS, LOGIN_LOCK_MS);
+  await bumpOnly(env, 'e:' + email);
+}
+// 只清邮箱键:清 IP 键会让攻击者用自己账号登录一次就重置失败计数。
+async function loginClear(env, email) {
+  await env.DB.prepare('DELETE FROM login_attempts WHERE key=?').bind('e:' + email).run();
 }
 
 async function login(req, env) {
@@ -227,21 +283,22 @@ async function login(req, env) {
   const password = String(body.password || '');
   if (!email || password.length > 72) return json({ error: '邮箱或密码错误' }, 401, env);
   const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
-  const keys = ['e:' + email, 'i:' + ip];
-  const wait = await loginGate(env, keys);
+  const wait = await ipGate(env, 'i:' + ip);
   if (wait > 0) {
     return json({ error: `尝试次数过多,请 ${Math.ceil(wait / 60)} 分钟后再试` }, 429, env, { 'Retry-After': String(wait) });
   }
+  const backoff = await emailBackoffMs(env, email);
+  if (backoff > 0) await sleep(backoff);
   const user = await env.DB.prepare('SELECT id,email,salt,pass_hash,iterations FROM users WHERE email=?')
     .bind(email).first();
   const iters = user ? (Number(user.iterations) || LEGACY_ITER) : PBKDF2_ITER;
   // 用户不存在时同样做一次哈希,避免响应时间暴露邮箱是否已注册
   const hash = await hashPassword(password, user ? user.salt : b64(new Uint8Array(16)), iters);
   if (!user || !timingSafeEqual(hash, user.pass_hash)) {
-    await loginFail(env, keys);
+    await loginFail(env, email, ip);
     return json({ error: '邮箱或密码错误' }, 401, env);
   }
-  await loginClear(env, keys);
+  await loginClear(env, email);
   if (iters < PBKDF2_ITER) {
     // 透明升级:密码正确时用新迭代次数重新哈希并保存
     try {
@@ -263,12 +320,39 @@ async function getState(req, env, user) {
   return json({ state, updatedAt: row.updated_at }, 200, env);
 }
 
+/* 云端状态来自前端,而前端是攻击者可控的——sanitizeCloudState 只是体验优化,服务端必须自己校验。
+   策略:非法条目**逐条丢弃**,不整体 400(一个脏字段不该让用户整个状态同步失败);
+   结构性错误(如 alerts 不是数组)按空处理。其余字段原样保留,避免影响账户/自选同步。 */
+function sanitizeState(s) {
+  const out = { ...s };
+  // 只在字段存在时归一化:若客户端压根没带 alerts,保持"不存在",
+  // 否则写成 [] 会让前端拉取时把本地提醒清空(凭空制造数据丢失)。
+  if ('alerts' in s) out.alerts = Array.isArray(s.alerts) ? s.alerts.reduce((acc, a) => {
+    if (acc.length >= MAX_ALERTS) return acc;
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return acc;
+    if (!ALERT_DIRS.has(a.dir)) return acc;
+    if (typeof a.code !== 'string' || !CODE_RE.test(a.code)) return acc;
+    const price = Number(a.price);
+    if (!Number.isFinite(price) || price <= 0) return acc;
+    if ((a.dir === 'pct_up' || a.dir === 'pct_down') && price > 100) return acc;
+    acc.push({ ...a, code: a.code, dir: a.dir, price });
+    return acc;
+  }, []) : [];
+  if ('favGroups' in s) out.favGroups = Array.isArray(s.favGroups) ? s.favGroups.slice(0, MAX_FAV_GROUPS).map((g) => ({
+    name: g && typeof g.name === 'string' ? g.name.slice(0, 24) : '',
+    codes: Array.isArray(g && g.codes)
+      ? g.codes.filter((c) => typeof c === 'string' && CODE_RE.test(c)).slice(0, MAX_GROUP_CODES)
+      : [],
+  })) : [];
+  return out;
+}
+
 async function putState(req, env, user) {
   const body = await readBody(req);
-  if (!body || !body.state || typeof body.state !== 'object') {
+  if (!body || !body.state || typeof body.state !== 'object' || Array.isArray(body.state)) {
     return json({ error: 'bad state' }, 400, env);
   }
-  const incoming = body.state;
+  const incoming = sanitizeState(body.state);
   // 防止旧设备把服务端已触发的提醒覆盖回未触发
   const oldRow = await env.DB.prepare('SELECT data FROM states WHERE user_id=?').bind(user.id).first();
   if (oldRow && Array.isArray(incoming.alerts)) {
@@ -294,7 +378,6 @@ async function putState(req, env, user) {
    四分支必须显式穷举 —— 曾经用 `dir === 'above' ? ... : price <= a.price` 二元写法,
    导致 pct_up/pct_down 落进 else 分支:高价股 price <= 阈值 恒 false(静默失效),
    低价股立即命中(与涨跌幅无关地误发邮件)。 */
-const ALERT_DIRS = new Set(['above', 'below', 'pct_up', 'pct_down']);
 /* 邮件 HTML 转义:拼进模板的动态片段一律先过这里(纵深防御,防止后续新增字段时重演注入) */
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -333,6 +416,12 @@ async function handleAlerts(env) {
   if (!allCodes.size) return { checked: 0, hit: 0, mailed: 0 };
   const quote = {};
   const codes = Array.from(allCodes);
+  // 总量闸:超出部分本轮不查。没有这道闸,一条塞了几千个代码的 state 就能让
+  // 子请求数冲破免费版 50 次上限、整个 cron 抛错,全站提醒停摆。
+  if (codes.length > MAX_ALERT_CODES) {
+    console.warn(`[cron] 提醒代码 ${codes.length} 个,超过单轮上限 ${MAX_ALERT_CODES},本轮跳过 ${codes.length - MAX_ALERT_CODES} 个`);
+    codes.length = MAX_ALERT_CODES;
+  }
   for (let i = 0; i < codes.length; i += 40) {
     const chunk = codes.slice(i, i + 40);
     const secids = chunk.map(secid).filter(Boolean);
@@ -425,7 +514,17 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(handleAlerts(env));
+    // waitUntil 里的 promise 若 reject 会被平台吞掉,这里必须自己兜住并留痕,
+    // 否则任何一次提醒检查失败在运维视角都是完全静默的。
+    ctx.waitUntil((async () => {
+      try {
+        const r = await handleAlerts(env);
+        console.log('[cron] alerts', JSON.stringify(r));
+        return r;
+      } catch (e) {
+        console.error('[cron] handleAlerts failed', e && e.stack || e);
+      }
+    })());
   },
 };
 
