@@ -7042,21 +7042,47 @@ function emPageUrl(pn) {
   });
   return 'https://push2.eastmoney.com/api/qt/clist/get?' + p.toString();
 }
-/* 兜底数据源:新浪财经全市场列表。
-   东方财富 /api/qt/clist/get 在部分网络下被端点级重置(同主机 ulist.np 与 push2his 正常),
-   实测 clist 在 push2/82.push2/7.push2/push2delay/push2his 五个主机上全部连接中断。
-   新浪该接口返回 Access-Control-Allow-Origin: *,可直接 fetch。
-   注意 num 必须 < 100:num=100 时响应正常但缺 CORS 头,浏览器端会报 Failed to fetch,
-   num=99 及以下正常。这里取 80 留余量,80 页 × 80 条可覆盖 6000 只以上。
+/* 兜底数据源:新浪财经全市场列表,走 JSONP(<script>)而不是 fetch。
+   东方财富 /api/qt/clist/get 在部分网络下被端点级重置(同主机 ulist.np 与 push2his 正常)。
+   新浪 fetch 版本实测约四成响应缺 Access-Control-Allow-Origin,浏览器直接 net::ERR_FAILED,
+   逐页 3 次重试也只能捞回 46/80 页;而 <script> 不受 CORS 约束,实测 num=100 单页 459ms 成功。
+   回调名用新浪的路径式语法(jsonp_v2.php/var%20NAME=/...),响应为 `var NAME=[...];`,
+   末尾页返回 `var NAME=null;` 视为到底。num=100 使请求数从 80 页降到 56 页。
    代价:不含行业字段,行业统一回落为「综合」。 */
-const SINA_PAGE_URL = (pn) => 'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData'
-  + `?page=${pn}&num=80&sort=symbol&asc=1&node=hs_a&symbol=&_s_r_a=page`;
-async function sinaPage(pn) {
-  const res = await fetch(SINA_PAGE_URL(pn), { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error('sina ' + res.status);
-  const arr = await res.json();
-  if (!Array.isArray(arr)) throw new Error('sina format');
-  return arr;
+const SINA_PAGE_URL = (pn, cbName, num = 100) =>
+  `https://vip.stock.finance.sina.com.cn/quotes_service/api/jsonp_v2.php/var%20${cbName}=/Market_Center.getHQNodeData`
+  + `?page=${pn}&num=${num}&sort=symbol&asc=1&node=hs_a&symbol=&_s_r_a=page`;
+function sinaPage(pn) {
+  return new Promise((resolve, reject) => {
+    /* 固定回调名:逐页串行加载,不存在并发;固定名可避免每次同步往 window 上堆 56 个新属性。
+       追加前先置 undefined 作为哨兵,上一页的残留值不会被误读。 */
+    const cbName = '__sina_cb';
+    const el = document.createElement('script');
+    let done = false;
+    const cleanup = () => {
+      clearTimeout(timer);
+      el.onload = el.onerror = null;
+      el.remove();
+      window[cbName] = undefined;
+    };
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true; cleanup(); reject(new Error('sina timeout'));
+    }, 10000);
+    el.onload = () => {
+      if (done) return;
+      const v = window[cbName];
+      if (v === undefined) { done = true; cleanup(); reject(new Error('sina no-callback')); return; }
+      done = true; cleanup(); resolve(Array.isArray(v) ? v : []);
+    };
+    el.onerror = () => {
+      if (done) return;
+      done = true; cleanup(); reject(new Error('sina network'));
+    };
+    el.src = SINA_PAGE_URL(pn, cbName);
+    window[cbName] = undefined;
+    document.head.appendChild(el);
+  });
 }
 function mapSinaRows(arr) {
   return arr.map((x) => ({
@@ -7201,44 +7227,39 @@ async function syncEastmoney(onProgress) {
   }
   if (emRows.length >= 100) return { rows: emRows, total: emRows.length, source: 'eastmoney' };
 
-  // 兜底:新浪全市场(无行业字段)。
-  // 新浪这个接口对浏览器请求不稳定:实测 30 页里约 40% 随机返回缺 CORS 头的响应
-  // (net::ERR_FAILED),且失败分布随机而非持续限流。因此按页重试、失败跳过、
-  // 最后再补一轮,允许个别页缺失,但要求最终覆盖率足够。
-  // 整段设 90 秒总预算:超时就用已拿到的页落地,避免用户干等 3 分钟且没有任何反馈。
-  const SINA_BUDGET_MS = 90000;
+  // 兜底:新浪全市场(无行业字段),JSONP 通道,不受 CORS 约束。
+  // 实测单页(num=100)约 0.5s,56 页约 30s;120 秒预算只为兜住网络抖动,不再做逐页 3 次重试。
+  const SINA_BUDGET_MS = 120000;
   const sinaDeadline = Date.now() + SINA_BUDGET_MS;
   const sinaTimedOut = () => Date.now() >= sinaDeadline;
+  const SINA_NUM = 100;
+  const MAX_PAGE = 64;
   const sinaPages = new Map();
-  const MAX_PAGE = 80;
   const fetchSinaInto = async (pn) => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const arr = await sinaPage(pn);
-        sinaPages.set(pn, arr);
-        return true;
-      } catch (e) {
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-      }
+    try {
+      const arr = await sinaPage(pn);
+      sinaPages.set(pn, arr);
+      return true;
+    } catch (e) {
+      return false;
     }
-    return false;
   };
+  let endPage = MAX_PAGE;
   for (let pn = 1; pn <= MAX_PAGE; pn++) {
     if (sinaTimedOut()) break;
-    const done = await fetchSinaInto(pn);
-    if (done && !sinaPages.get(pn).length) { sinaPages.delete(pn); break; } // 空页 = 到尾
-    if (onProgress) onProgress(sinaPages.size * 80, 5600, pn, 'sina');
-    await new Promise((r) => setTimeout(r, 250));
+    const ok = await fetchSinaInto(pn);
+    if (ok && !sinaPages.get(pn).length) { sinaPages.delete(pn); endPage = pn - 1; break; } // 空页 = 到尾
+    if (onProgress) onProgress(sinaPages.size * SINA_NUM, 5600, pn, 'sina');
   }
-  // 补一轮失败页(只在预算内进行)
-  for (let pn = 1; pn <= MAX_PAGE && !sinaTimedOut(); pn++) {
+  // 失败页补一轮(单次尝试,仍在预算内)
+  for (let pn = 1; pn <= endPage && !sinaTimedOut(); pn++) {
     if (!sinaPages.has(pn)) await fetchSinaInto(pn);
   }
   const sinaRaw = [];
   Array.from(sinaPages.keys()).sort((a, b) => a - b).forEach((pn) => sinaRaw.push(...sinaPages.get(pn)));
   const sinaRows = mapSinaRows(sinaRaw);
   if (sinaRows.length < 500) throw new Error('fallback-partial');
-  return { rows: sinaRows, total: sinaRows.length, source: 'sina', skipped: MAX_PAGE - sinaPages.size };
+  return { rows: sinaRows, total: sinaRows.length, source: 'sina', skipped: Math.max(0, endPage - sinaPages.size) };
 }
 function openSyncModal() {
   const m = $('#syncModal');
