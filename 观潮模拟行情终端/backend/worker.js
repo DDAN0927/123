@@ -295,6 +295,10 @@ async function putState(req, env, user) {
    导致 pct_up/pct_down 落进 else 分支:高价股 price <= 阈值 恒 false(静默失效),
    低价股立即命中(与涨跌幅无关地误发邮件)。 */
 const ALERT_DIRS = new Set(['above', 'below', 'pct_up', 'pct_down']);
+/* 邮件 HTML 转义:拼进模板的动态片段一律先过这里(纵深防御,防止后续新增字段时重演注入) */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 function alertHit(a, q) {
   const thr = Number(a.price);
   if (!Number.isFinite(thr)) return false;
@@ -380,7 +384,7 @@ async function handleAlerts(env) {
             subject: '观潮 · 价格提醒已触发',
             html: `<div style="font-family:system-ui;padding:20px">
               <h2 style="margin:0 0 12px">价格提醒</h2>
-              <p style="color:#555;line-height:1.7">${changed.join('<br>')}</p>
+              <p style="color:#555;line-height:1.7">${changed.map(esc).join('<br>')}</p>
               <p style="color:#999;font-size:12px;margin-top:20px">来自观潮 · 本邮件由你的自建 Worker 发送。</p>
             </div>`,
           }),
@@ -426,4 +430,4 @@ export default {
 };
 
 /* 供单元测试直接调用(纯函数,无副作用);Workers 允许多个具名导出。 */
-export { alertHit, alertLine };
+export { alertHit, alertLine, esc };
