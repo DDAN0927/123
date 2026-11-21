@@ -4708,6 +4708,9 @@ function median(arr) {
    pe 在单个 universe 内无写入,因此只需在 universe 整体替换时清空:
    applyImportedUniverse / resetUniverseTo / loadSnapshotIntoUniverse,与 boardCache 同址。 */
 const peerPECache = new Map();
+/* 口径如实:真实快照(新浪兜底)没有行业字段,sector 全为「综合」,此时 peerMedianPE
+   算出来的其实是全市场中位,不能再写"同行业"。分组名不是「综合」且有值时才叫同行业。 */
+const peerLabel = (s) => (s.group && s.group !== '综合') ? '同行业中枢' : '全市场中位';
 function peerMedianPE(s) {
   const key = s.group;
   if (peerPECache.has(key)) return peerPECache.get(key);
@@ -4759,7 +4762,7 @@ function renderFund(s) {
 
   const vp = valPctOf(s);
   $('#valText').textContent = s.pe
-    ? `市盈率 ${s.pe.toFixed(1)} 倍,约为同行业中枢(${peerMedianPE(s).toFixed(1)}×)的 ${(s.pe / peerMedianPE(s) * 100).toFixed(0)}%,处于近五年约 ${vp}% 分位。`
+    ? `市盈率 ${s.pe.toFixed(1)} 倍,约为${peerLabel(s)}(${peerMedianPE(s).toFixed(1)}×)的 ${(s.pe / peerMedianPE(s) * 100).toFixed(0)}%,处于近五年约 ${vp}% 分位。`
     : '数字资产不适用市盈率,此处以流通市值与链上活跃度替代估值分位,仅供参考。';
   $('#valMarker').style.left = vp + '%';
 
@@ -4887,7 +4890,7 @@ function computeDiag(s) {
     ? `MA20 位于 MA60 上方,中期结构向上,近 20 日 ${fmt.pct(ret20, 1)}。`
     : `MA20 低于 MA60,中期结构走弱,近 20 日 ${fmt.pct(ret20, 1)}。`;
   const valTxt = s.pe > 0
-    ? `市盈率 ${s.pe.toFixed(1)} 倍,约为行业中枢的 ${(s.pe / peerMedianPE(s) * 100).toFixed(0)}%,${vp > 70 ? '估值偏贵' : vp < 30 ? '估值处于低位' : '估值中性'}。`
+    ? `市盈率 ${s.pe.toFixed(1)} 倍,约为${peerLabel(s)}的 ${(s.pe / peerMedianPE(s) * 100).toFixed(0)}%,${vp > 70 ? '估值偏贵' : vp < 30 ? '估值处于低位' : '估值中性'}。`
     : '数字资产以流动性与资金费率替代估值锚。';
   const flowTxt = s.chgPct >= 0 ? '资金与价格同向,短线动能尚可。' : '价格回落但信号强度未明显恶化,更接近结构性调整。';
   const summary = `${trendTxt}${valTxt}${flowTxt}`;
