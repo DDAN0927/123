@@ -5089,7 +5089,8 @@ function openDrawer(code) {
   const chgEl = $('#drawerChg');
   chgEl.className = 'chg ' + (up ? 'up' : 'down');
   chgEl.textContent = `${fmt.pct(s.chgPct)} · ${up ? '+' : ''}${fmt.px(s.last - s.prevClose, 2)}`;
-  $('#drawerTime').textContent = s.live ? '实时 · 东方财富' : s.imported ? '导入 · 快照' : '实时 · 模拟';
+  /* BL-03:真实快照的来源跟随同步链路(东财 / 新浪 / Worker),不再写死东方财富 */
+  $('#drawerTime').textContent = s.live ? `实时 · ${SOURCE_LABEL[CURRENT_SOURCE] || '真实行情'}` : s.imported ? '导入 · 快照' : '实时 · 模拟';
   syncDrawerStar(s);
   const tags = [MKT_LABEL[s.market], s.sector, ...(s.concepts || []), ...(s.live ? ['实时快照'] : [])];
   $('#drawerTags').innerHTML = Array.from(new Set(tags)).map((t) => `<span>${escapeHTML(t)}</span>`).join('');
@@ -5268,11 +5269,14 @@ let ticked = 1286400;
 const isSimulatable = (s) => !!s && s.market !== 'CRYPTO' && !s.live && !s.imported;
 function liveTick() {
   const pool = STOCKS.filter(isSimulatable);
-  if (!pool.length) return;
   const visPool = $$('#hotBody tr[data-code]').map((tr) => BY_CODE[tr.dataset.code]).filter(isSimulatable);
   const picks = new Set();
-  while (picks.size < 3) {
+  /* 不能因为 pool 为空就 return:提醒轮询、账户与涨跌榜刷新都在本函数后半段。
+     空集时循环 0 次;候选不足 3 只时 guard 兜住上界,避免 while 死循环。 */
+  let guard = 0;
+  while (picks.size < 3 && guard++ < 20) {
     const src = picks.size < 2 && visPool.length ? visPool : pool;
+    if (!src.length) break;
     picks.add(src[Math.floor(Math.random() * src.length)]);
   }
   picks.forEach((s) => {
@@ -5647,9 +5651,10 @@ function wireEvents() {
         } catch (e) {}
       }
       if (!rows) {
-        const res = await syncEastmoney((got, tot, pn) => {
+        const res = await syncEastmoney((got, tot, pn, phase) => {
           $('#syncBar').style.width = Math.min(100, (got / Math.max(tot, 1)) * 100).toFixed(1) + '%';
-          $('#syncStatus').textContent = `第 ${pn} 页 · 拉取中`;
+          /* 主源与兜底分开提示,让用户知道正在用备用数据源、以及已经拉到第几页 */
+          $('#syncStatus').textContent = `${phase === 'sina' ? '兜底数据源 · ' : ''}第 ${pn} 页 · 拉取中`;
           $('#syncCount').textContent = `${got.toLocaleString('en-US')} / ${(tot || got).toLocaleString('en-US')}`;
         });
         rows = res.rows;
@@ -7096,12 +7101,16 @@ function fmtSnapshotTime(t) {
     return new Date(t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch (e) { return ''; }
 }
-const SOURCE_LABEL = { eastmoney: '东方财富', sina: '新浪财经', worker: '自建 Worker 快照' };
+const SOURCE_LABEL = { eastmoney: '东方财富', sina: '新浪财经', worker: '自建 Worker 快照', imported: '导入 CSV' };
+/* 当前这批行情的真实来源。抽屉里的「实时 · xxx」读它,不再写死东方财富;
+   空串表示来源未知/内置,抽屉回退为「真实行情」。 */
+let CURRENT_SOURCE = '';
 function setDataStatus(live, t, count, source) {
+  CURRENT_SOURCE = live ? (SOURCE_LABEL[source] ? source : 'eastmoney') : '';
   const el = $('#dataStatus');
   if (!el) return;
   el.textContent = live
-    ? `数据源:${SOURCE_LABEL[source] || SOURCE_LABEL.eastmoney} · ${fmtSnapshotTime(t)} · ${Number(count).toLocaleString('en-US')} 只`
+    ? `数据源:${SOURCE_LABEL[CURRENT_SOURCE] || SOURCE_LABEL.eastmoney} · ${fmtSnapshotTime(t)} · ${Number(count).toLocaleString('en-US')} 只`
     : '数据源:内置模拟';
 }
 function resetUniverseTo(stocks, keepStatus) {
@@ -7182,7 +7191,7 @@ async function syncEastmoney(onProgress) {
       if (!d || !Array.isArray(d.diff) || !d.diff.length) break;
       total = d.total || total;
       raw.push(...d.diff);
-      if (onProgress) onProgress(raw.length, total, pn);
+      if (onProgress) onProgress(raw.length, total, pn, 'eastmoney');
       if (raw.length >= total) break;
       await new Promise((r) => setTimeout(r, 280));
     }
@@ -7196,6 +7205,10 @@ async function syncEastmoney(onProgress) {
   // 新浪这个接口对浏览器请求不稳定:实测 30 页里约 40% 随机返回缺 CORS 头的响应
   // (net::ERR_FAILED),且失败分布随机而非持续限流。因此按页重试、失败跳过、
   // 最后再补一轮,允许个别页缺失,但要求最终覆盖率足够。
+  // 整段设 90 秒总预算:超时就用已拿到的页落地,避免用户干等 3 分钟且没有任何反馈。
+  const SINA_BUDGET_MS = 90000;
+  const sinaDeadline = Date.now() + SINA_BUDGET_MS;
+  const sinaTimedOut = () => Date.now() >= sinaDeadline;
   const sinaPages = new Map();
   const MAX_PAGE = 80;
   const fetchSinaInto = async (pn) => {
@@ -7211,13 +7224,14 @@ async function syncEastmoney(onProgress) {
     return false;
   };
   for (let pn = 1; pn <= MAX_PAGE; pn++) {
+    if (sinaTimedOut()) break;
     const done = await fetchSinaInto(pn);
     if (done && !sinaPages.get(pn).length) { sinaPages.delete(pn); break; } // 空页 = 到尾
-    if (onProgress) onProgress(sinaPages.size * 80, 5600, pn);
+    if (onProgress) onProgress(sinaPages.size * 80, 5600, pn, 'sina');
     await new Promise((r) => setTimeout(r, 250));
   }
-  // 补一轮失败页
-  for (let pn = 1; pn <= MAX_PAGE; pn++) {
+  // 补一轮失败页(只在预算内进行)
+  for (let pn = 1; pn <= MAX_PAGE && !sinaTimedOut(); pn++) {
     if (!sinaPages.has(pn)) await fetchSinaInto(pn);
   }
   const sinaRaw = [];
