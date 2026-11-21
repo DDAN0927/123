@@ -290,6 +290,29 @@ async function putState(req, env, user) {
   return json({ ok: true, updatedAt: now }, 200, env);
 }
 
+/* 提醒方向判定:above/below 比较最新价,pct_up/pct_down 比较当日涨跌幅(%)。
+   四分支必须显式穷举 —— 曾经用 `dir === 'above' ? ... : price <= a.price` 二元写法,
+   导致 pct_up/pct_down 落进 else 分支:高价股 price <= 阈值 恒 false(静默失效),
+   低价股立即命中(与涨跌幅无关地误发邮件)。 */
+const ALERT_DIRS = new Set(['above', 'below', 'pct_up', 'pct_down']);
+function alertHit(a, q) {
+  const thr = Number(a.price);
+  if (!Number.isFinite(thr)) return false;
+  if (a.dir === 'above') return q.price >= thr;
+  if (a.dir === 'below') return q.price <= thr;
+  if (!Number.isFinite(q.chgPct)) return false;
+  if (a.dir === 'pct_up') return q.chgPct >= thr;
+  if (a.dir === 'pct_down') return q.chgPct <= -thr;
+  return false;
+}
+function alertLine(a, q) {
+  const thr = Number(a.price);
+  if (a.dir === 'pct_up') return `${a.code} 涨幅 ${q.chgPct.toFixed(2)}% ≥ ${thr}%`;
+  if (a.dir === 'pct_down') return `${a.code} 跌幅 ${(-q.chgPct).toFixed(2)}% ≥ ${thr}%`;
+  if (a.dir === 'above') return `${a.code} 突破 ${thr}(现价 ${q.price})`;
+  return `${a.code} 跌破 ${thr}(现价 ${q.price})`;
+}
+
 async function handleAlerts(env) {
   const { results } = await env.DB.prepare(
     'SELECT s.user_id,s.data,u.email FROM states s JOIN users u ON u.id=s.user_id LIMIT 1000',
@@ -321,8 +344,10 @@ async function handleAlerts(env) {
       if (Array.isArray(diff)) {
         diff.forEach((d) => {
           const code = String(d.f12);
-          quote[code] = Number(d.f2);
-          quote[code.padStart(6, '0')] = Number(d.f2);
+          /* f3 是当日涨跌幅(%),百分比提醒要用;f2 是最新价。两个字段一起存。 */
+          const q = { price: Number(d.f2), chgPct: Number(d.f3) };
+          quote[code] = q;
+          quote[code.padStart(6, '0')] = q;
         });
       }
     } catch (e) {}
@@ -333,12 +358,11 @@ async function handleAlerts(env) {
     if (!item.active.length) continue;
     const changed = [];
     item.active.forEach((a) => {
-      const price = quote[String(a.code)];
-      if (!(price > 0)) return;
-      const hit = a.dir === 'above' ? price >= a.price : price <= a.price;
-      if (!hit) return;
+      const q = quote[String(a.code)];
+      if (!q || !(q.price > 0)) return;
+      if (!alertHit(a, q)) return;
       a.hit = Date.now();
-      changed.push(`${a.code} ${a.dir === 'above' ? '突破' : '跌破'} ${a.price}(现价 ${price})`);
+      changed.push(alertLine(a, q));
       hitCount++;
     });
     if (!changed.length) continue;
@@ -400,3 +424,6 @@ export default {
     ctx.waitUntil(handleAlerts(env));
   },
 };
+
+/* 供单元测试直接调用(纯函数,无副作用);Workers 允许多个具名导出。 */
+export { alertHit, alertLine };
