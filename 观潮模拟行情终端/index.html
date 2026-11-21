@@ -5263,9 +5263,13 @@ function tickClock() {
 
 /* ============ live simulation ============ */
 let ticked = 1286400;
+/* 只有内置模拟标的可以漂移。真实快照(s.live)与导入数据(s.imported)是静态快照,
+   随机改动它们的 last 会让界面在标注「实时·东方财富」的同时显示随机数。 */
+const isSimulatable = (s) => !!s && s.market !== 'CRYPTO' && !s.live && !s.imported;
 function liveTick() {
-  const pool = STOCKS.filter((s) => s.market !== 'CRYPTO');
-  const visPool = $$('#hotBody tr[data-code]').map((tr) => BY_CODE[tr.dataset.code]).filter(Boolean);
+  const pool = STOCKS.filter(isSimulatable);
+  if (!pool.length) return;
+  const visPool = $$('#hotBody tr[data-code]').map((tr) => BY_CODE[tr.dataset.code]).filter(isSimulatable);
   const picks = new Set();
   while (picks.size < 3) {
     const src = picks.size < 2 && visPool.length ? visPool : pool;
@@ -5336,7 +5340,7 @@ function liveTick() {
   }
   // hero mirror
   const h = BY_CODE['300750'];
-  if (h) {
+  if (h && isSimulatable(h)) {
     h.last = h.last * (1 + gauss(Math.random) * 0.0009);
     h.chgPct = ((h.last - h.prevClose) / h.prevClose) * 100;
     const intra = intradayOf(h);
