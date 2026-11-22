@@ -7,6 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeEnv, call } from './_d1.mjs';
+import worker from '../../backend/worker.js';
 
 const PW = 'correct-horse';
 
@@ -203,4 +204,17 @@ test('SEC-20:并发 20 次错误密码登录,超出配额的请求返回 429', a
 
   assert.ok(limited >= 15, `20 并发里至少 15 个应被闸门拦下,实际 ${limited}`);
   assert.ok(reached <= 5, `最多 5 次真正走到密码校验,实际 ${reached}`);
+});
+
+test('SEC-20b:非 JSON Content-Type 的登录/注册返回 415(阻断跨站简单请求)', async () => {
+  const env = makeEnv();
+  const mk = (path) => new Request('https://worker.test' + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain', 'CF-Connecting-IP': '10.9.9.1' },
+    body: JSON.stringify({ email: 'a@b.com', password: 'password123' }),
+  });
+  const r1 = await worker.fetch(mk('/api/register'), env, {});
+  const r2 = await worker.fetch(mk('/api/login'), env, {});
+  assert.equal(r1.status, 415);
+  assert.equal(r2.status, 415);
 });

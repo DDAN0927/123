@@ -5065,7 +5065,10 @@ function renderSignals() {
   const sm = $('#sigMeta');
   if (sm) {
     const markets = Array.from(new Set(picks.map((p) => MKT_LABEL[p.market])));
-    sm.textContent = `共 ${picks.length} 条建议 · 按模型评分排序 · 覆盖 ${markets.join(' / ')}`;
+    /* 评分里「资金/基本面」对未加载真实 K 线的标的是估算字段,资金与基本面两项会退化成
+       同一组常数,分数区间实际只有 30~70。所以这里明确写「演示评分」,不宣称模型结论。 */
+    sm.textContent = `共 ${picks.length} 条建议 · 演示评分 · 覆盖 ${markets.join(' / ')}`;
+    sm.title = '评分基于模拟走势与估算字段，仅用于展示排序方式，不构成投资建议';
   }
   $('#sigList').innerHTML = picks.map((s, i) => {
     const up = s.chgPct >= 0;

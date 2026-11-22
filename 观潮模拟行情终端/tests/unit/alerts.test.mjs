@@ -229,3 +229,27 @@ test('邮件正文只允许 <br> 标签,动态片段不得产生裸标签', asyn
   const withoutBr = body.replace(/<br>/g, '');
   assert.ok(!/[<>]/.test(withoutBr), `正文不得含裸标签,实际:${body}`);
 });
+
+/* ---------------- 发信预算:超出部分整户顺延,不得「标了 hit 却发不出信」 ---------------- */
+
+test('SEC-21:单轮发信不超过 20 封,其余用户整户顺延(不写 hit)', async () => {
+  const N = 25;
+  const rows = Array.from({ length: N }, (_, i) => ({
+    user_id: 'u' + i,
+    email: `u${i}@test.dev`,
+    data: JSON.stringify({ alerts: [{ id: 'a' + i, code: String(600000 + i), dir: 'above', price: 1 }] }),
+  }));
+  const { env, calls } = makeEnv(rows);
+  const quotes = {};
+  for (let i = 0; i < N; i++) quotes[String(600000 + i)] = { price: 2, chg: 1 };
+  const mails = [];
+  stubNet(quotes, mails);
+
+  const r = await runCron(env);
+
+  assert.equal(r.checked, N);
+  assert.equal(r.mailed, 20, `单轮最多发 20 封,实际 ${r.mailed}`);
+  assert.equal(r.deferred, N - 20, `其余应顺延,实际 ${r.deferred}`);
+  assert.equal(mails.length, 20, '实际发出的邮件数应与 mailed 一致');
+  assert.equal(calls.updates.length, 20, '只有真正处理的用户才落库,顺延的用户不得写 hit');
+});

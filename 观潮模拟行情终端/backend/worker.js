@@ -36,6 +36,9 @@ const MAX_GROUP_CODES = 500;
 // cron 单轮最多查多少个代码:每 40 个 = 1 次子请求,800 → 20 次,
 // 给免费版 50 次上限留出余量(快照抓取一次就要 30 次)。
 const MAX_ALERT_CODES = 800;
+// 单轮最多发多少封邮件:每封 = 1 次子请求,与行情查询共享免费版 50 次上限。
+// 超出的用户整户顺延到下一轮(不写 hit),避免"标了 hit 却发不出去"的静默丢失。
+const MAX_MAILS_PER_ROUND = 20;
 
 const enc = new TextEncoder();
 
@@ -59,6 +62,14 @@ function cors(env) {
   const allowed = env && env.ALLOWED_ORIGIN;
   if (allowed && allowed !== '*') h['Access-Control-Allow-Origin'] = allowed;
   return h;
+}
+/* 只接受 application/json:跨站页面可以用 text/plain 发起「简单请求」绕过预检,
+   拿受害者的 IP 去打登录/注册,把按 IP 的限流维度换成无数个出口。
+   强制 JSON 会让这类请求必须先过预检,而预检会被 ALLOWED_ORIGIN 挡住。 */
+function jsonOnly(req, env) {
+  const ct = (req.headers.get('Content-Type') || '').toLowerCase();
+  if (ct.startsWith('application/json')) return null;
+  return json({ error: 'Content-Type 必须为 application/json' }, 415, env);
 }
 function json(data, status = 200, env = {}, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -483,23 +494,28 @@ async function handleAlerts(env) {
     } catch (e) {}
     await sleep(120);
   }
-  let hitCount = 0, mailed = 0;
+  let hitCount = 0, mailed = 0, mailAttempts = 0, mailDeferred = 0;
+  const mailOn = !!(env.RESEND_API_KEY && env.ALERT_FROM);
   for (const item of parsed) {
     if (!item.active.length) continue;
-    const changed = [];
+    const hits = [];
     item.active.forEach((a) => {
       const q = quote[String(a.code)];
       if (!q || !(q.price > 0)) return;
       if (!alertHit(a, q)) return;
-      a.hit = Date.now();
-      changed.push(alertLine(a, q));
-      hitCount++;
+      hits.push({ alert: a, line: alertLine(a, q) });
     });
-    if (!changed.length) continue;
+    if (!hits.length) continue;
+    /* 发信预算:每命中 1 个用户 = 1 次子请求,而免费版单轮上限只有 50 次。
+       超预算时整用户顺延(不写 hit、不落库),下一轮会重新判定,
+       否则「标了 hit 却发不出信」等于静默吞掉这条提醒。 */
+    if (mailOn && mailAttempts >= MAX_MAILS_PER_ROUND) { mailDeferred++; continue; }
     const now = Date.now();
+    hits.forEach((h) => { h.alert.hit = now; hitCount++; });
     await env.DB.prepare('UPDATE states SET data=?,updated_at=? WHERE user_id=?')
       .bind(JSON.stringify(item.state), now, item.row.user_id).run();
-    if (env.RESEND_API_KEY && env.ALERT_FROM) {
+    if (mailOn) {
+      mailAttempts++;
       try {
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -510,7 +526,7 @@ async function handleAlerts(env) {
             subject: '观潮 · 价格提醒已触发',
             html: `<div style="font-family:system-ui;padding:20px">
               <h2 style="margin:0 0 12px">价格提醒</h2>
-              <p style="color:#555;line-height:1.7">${changed.map(esc).join('<br>')}</p>
+              <p style="color:#555;line-height:1.7">${hits.map((h) => esc(h.line)).join('<br>')}</p>
               <p style="color:#999;font-size:12px;margin-top:20px">来自观潮 · 本邮件由你的自建 Worker 发送。</p>
             </div>`,
           }),
@@ -519,7 +535,10 @@ async function handleAlerts(env) {
       } catch (e) {}
     }
   }
-  return { checked: results.length, hit: hitCount, mailed };
+  if (mailDeferred) {
+    console.warn(`[cron] 本轮发信达上限 ${MAX_MAILS_PER_ROUND},${mailDeferred} 个用户顺延到下一轮`);
+  }
+  return { checked: results.length, hit: hitCount, mailed, deferred: mailDeferred };
 }
 
 export default {
@@ -529,8 +548,8 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
     try {
       if (path === '/api/health') return json({ ok: true, now: Date.now() }, 200, env);
-      if (path === '/api/register' && req.method === 'POST') return register(req, env);
-      if (path === '/api/login' && req.method === 'POST') return login(req, env);
+      if (path === '/api/register' && req.method === 'POST') return jsonOnly(req, env) || register(req, env);
+      if (path === '/api/login' && req.method === 'POST') return jsonOnly(req, env) || login(req, env);
       if (path === '/api/snapshot' && req.method === 'GET') return handleSnapshot(env, Number(url.searchParams.get('part')) || 1);
 
       if (path === '/api/state' || path === '/api/me' || path === '/api/logout') {
@@ -542,7 +561,9 @@ export default {
           return json({ ok: true }, 200, env);
         }
         if (path === '/api/state' && req.method === 'GET') return getState(req, env, user);
-        if (path === '/api/state' && (req.method === 'PUT' || req.method === 'POST')) return putState(req, env, user);
+        if (path === '/api/state' && (req.method === 'PUT' || req.method === 'POST')) {
+          return jsonOnly(req, env) || putState(req, env, user);
+        }
       }
       return json({ error: 'not found' }, 404, env);
     } catch (e) {
