@@ -2,6 +2,32 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 1.8.0(2026-11-22,摘除云同步模块)
+
+取消公网部署后,把前端里整套云同步一并摘掉。`index.html` 7,617 → 7,175 行(-442),390,155 → 369,793 字节(-20.4KB)。
+
+### 删除范围
+- **JS 传输层**:`CLOUD_KEY`、`cloud` 状态对象、`safeCloudBase` / `CLOUD_HOST_ALLOW`、`loadCloud` / `saveCloud` / `getCloudBase`、`cloudRequest`、`buildCloudState`、`applyCloudState`、`cloudPush` / `cloudPull` / `scheduleCloudPush`、`cloudAuth`、`renderCloudUI` / `renderCloudTarget` / `setCloudStatus`、`CLOUD_STATE_MAX`。共约 240 行,含 13 处 `scheduleCloudPush()` 调用点。
+- **HTML**:`<template id="legacyCloudTpl">`(42 行遗留死模板,即此前安全审计误报的"16 个重复 ID"来源)、设置弹窗内的云同步整段(28 行)、导航 `账户登录` 链接与 `#userBtn` 账户按钮。
+- **CSS**:`.cloud-label/-input/-grid/-account/-auto/-field/-row/-user/-check/-status`、`.icon-btn.is-cloud`、`.nav-links a.nav-login`、`#userBtn` 断点。
+- **数据源分支**:`syncEastmoney` 里的 Worker 快照首选分支、`#syncStart` 里的云端分片拉取分支、`SOURCE_LABEL.worker`。
+- **备份导入/导出**:导出不再写 `cloud` 字段;导入不再读取并校验 `d.cloud.base`(原 FE-07 防护随功能下线一并移除)。
+- **死代码**:`reconcileFavGroups()` 仅被 `applyCloudState` 调用,一并删除。
+
+### 保留与重命名
+- 设置弹窗保留(`#settingsModal`),含「本机偏好」「备份与重置」两段;`.cloud-scrim/-modal/-head/-body/-sec/-actions/-about` → `.settings-*`,`#cloudModal/#cloudScrim/#cloudClose/#cloudVersion/#cloudBtn` → `#settings*`,`openCloudModal/closeCloudModal` → `openSettings/closeSettings`。
+- `sanitizeCloudState` → `sanitizeState`:备份导入仍在用,不是云专属。
+- 导航云朵图标换成齿轮,`aria-label` 改为「设置」。
+- 版本号 1.7.1 → 1.8.0;`#settingsVersion`、`#aboutVersion`、`#aboutBuild`、`#footVersion` 改为读 `APP_VERSION` / `BUILD_DATE`(原先页脚与关于块硬编码 `v1.7.0`、`BUILD 2026-11-19`,已过期)。
+
+### 验证
+- 四段 `<script>` 逐个 `node --check` 全部通过。
+- Playwright 1440×1000:`legacyCloudTpl` 0 个、含 `cloud` 的 id/class 各 0 个、`#userBtn` 与 `[data-opencloud]` 各 0 个、活动文档重复 ID 0 个。
+- 设置弹窗:560×581 正常打开,标题「设置」,两段小节、8 个按钮,`Esc` 可关,遮罩与 `inert` 同步正确。
+- 内联自检 **38/38 通过**;页面 0 console error、0 pageerror。
+- 交互冒烟:开抽屉 / 收藏 / 加提醒 / 开模拟账户 / 导出 均无新报错。
+- 角标回归:抽屉与 hero 在模拟标的上显示「模拟数据」56×23;基本面/估值角标保持 `hidden` 且 0×0;hero `.cc-foot` 图例「价格 MA20 MA60」完整。
+
 ## 未发布 · 取消公网部署(2026-11-22,commit 577cef2)
 
 决定不做公网部署,移除部署相关文件:

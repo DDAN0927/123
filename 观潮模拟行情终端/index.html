@@ -587,17 +587,6 @@ table.hot td:nth-child(2){min-width:230px}
 @media (max-width:390px){.brand span{display:none}}
 @media (max-width:760px){.acct-chip{display:none!important}}
 
-/* ---------- cloud sync ---------- */
-.cloud-label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--faint);margin:12px 0 5px}
-.cloud-input{width:100%;height:36px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:12px;padding:0 10px;outline:none}
-.cloud-input:focus{border-color:var(--accent)}
-.cloud-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
-.cloud-account{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2)}
-.cloud-auto{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--mute);margin-top:12px}
-.cloud-auto input{accent-color:var(--accent)}
-.icon-btn.is-cloud{color:var(--accent);border-color:var(--accent)}
-@media (max-width:480px){.cloud-grid{grid-template-columns:1fr}}
-
 /* ---------- screener presets ---------- */
 .smart-row{display:flex;gap:6px;flex-basis:100%}
 .smart-row input{
@@ -1284,16 +1273,16 @@ table.hot td:nth-child(2){min-width:230px}
 .preset-row button.is-on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 .term-btn{height:34px;border:1px solid var(--line);background:var(--bg-2);padding:0 12px;font-size:12px;color:var(--ink-2)}
 .term-btn:hover{border-color:var(--line-2);color:var(--ink)}
-.cmp-scrim,.sync-scrim,.cloud-scrim{position:fixed;inset:0;z-index:250;background:rgba(3,5,7,.6);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);opacity:0;pointer-events:none;transition:opacity .3s}
-.cmp-scrim.is-on,.sync-scrim.is-on,.cloud-scrim.is-on{opacity:1;pointer-events:auto}
-.cmp-modal,.sync-modal,.cloud-modal{position:fixed;left:50%;top:50%;z-index:260;width:min(780px,94vw);max-height:90vh;transform:translate(-50%,-46%) scale(.98);background:var(--bg-2);border:1px solid var(--line-2);box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;display:flex;flex-direction:column;transition:opacity .3s var(--ease),transform .35s var(--ease)}
+.cmp-scrim,.sync-scrim,.settings-scrim{position:fixed;inset:0;z-index:250;background:rgba(3,5,7,.6);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);opacity:0;pointer-events:none;transition:opacity .3s}
+.cmp-scrim.is-on,.sync-scrim.is-on,.settings-scrim.is-on{opacity:1;pointer-events:auto}
+.cmp-modal,.sync-modal,.settings-modal{position:fixed;left:50%;top:50%;z-index:260;width:min(780px,94vw);max-height:90vh;transform:translate(-50%,-46%) scale(.98);background:var(--bg-2);border:1px solid var(--line-2);box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;display:flex;flex-direction:column;transition:opacity .3s var(--ease),transform .35s var(--ease)}
 .sync-modal{width:min(540px,92vw)}
-.cloud-modal{width:min(560px,94vw)}
-.cmp-modal.is-on,.sync-modal.is-on,.cloud-modal.is-on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
-.cmp-head,.sync-head,.cloud-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:18px 22px 12px;border-bottom:1px solid var(--line);flex:none}
-.cmp-head h3,.sync-head h3,.cloud-head h3{font-size:18px;letter-spacing:-.01em}
-.cmp-head p,.sync-head p,.cloud-head p{font-family:var(--mono);font-size:9.5px;color:var(--mute);margin-top:4px}
-.cmp-body,.sync-body,.cloud-body{padding:14px 22px 20px;overflow-y:auto}
+.settings-modal{width:min(560px,94vw)}
+.cmp-modal.is-on,.sync-modal.is-on,.settings-modal.is-on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.cmp-head,.sync-head,.settings-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:18px 22px 12px;border-bottom:1px solid var(--line);flex:none}
+.cmp-head h3,.sync-head h3,.settings-head h3{font-size:18px;letter-spacing:-.01em}
+.cmp-head p,.sync-head p,.settings-head p{font-family:var(--mono);font-size:9.5px;color:var(--mute);margin-top:4px}
+.cmp-body,.sync-body,.settings-body{padding:14px 22px 20px;overflow-y:auto}
 .sync-desc{font-size:12.5px;line-height:1.8;color:var(--ink-2)}
 .sync-progress{height:4px;background:var(--line);margin:18px 0 8px;overflow:hidden}
 .sync-progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
@@ -1327,23 +1316,14 @@ table.hot td:nth-child(2){min-width:230px}
 .cmp-table td{font-family:var(--mono);font-size:11px;padding:7px 6px;border-bottom:1px solid var(--line);text-align:right}
 .cmp-table td:first-child{font-family:var(--sans);font-size:12px}
 .cmp-empty{padding:30px 0;text-align:center;color:var(--mute);font-size:12px;line-height:1.7}
-.cloud-sec{margin-top:20px}
-.cloud-sec>h4{font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.cloud-sec>h4::before{content:"";width:3px;height:3px;background:var(--accent);transform:rotate(45deg)}
-.cloud-field{display:flex;flex-direction:column;gap:5px;margin-top:8px;font-size:11px;color:var(--mute)}
-.cloud-field input,.cloud-row input{height:34px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:12px;padding:0 9px;outline:none;min-width:0}
-.cloud-field input:focus,.cloud-row input:focus{border-color:var(--accent)}
-.cloud-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
-.cloud-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.cloud-actions button,.cloud-sec .set-btn{height:32px;padding:0 11px;border:1px solid var(--line-2);font-size:11px;color:var(--ink-2)}
-.cloud-actions button:hover{border-color:var(--accent);color:var(--accent)}
-.cloud-actions button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
-.cloud-actions button.is-on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-.cloud-user{font-size:11.5px;color:var(--ink-2);padding:6px 0}
-.cloud-user b{font-family:var(--mono);font-size:11px}
-.cloud-check{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--mute);margin-top:6px}
-.cloud-status{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:10px;letter-spacing:.03em;min-height:14px}
-.cloud-about{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-family:var(--mono);font-size:9.5px;color:var(--faint);line-height:1.8}
+.settings-sec{margin-top:20px}
+.settings-sec>h4{font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.settings-sec>h4::before{content:"";width:3px;height:3px;background:var(--accent);transform:rotate(45deg)}
+.settings-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.settings-actions button,.settings-sec .set-btn{height:32px;padding:0 11px;border:1px solid var(--line-2);font-size:11px;color:var(--ink-2)}
+.settings-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.settings-actions button.is-on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.settings-about{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-family:var(--mono);font-size:9.5px;color:var(--faint);line-height:1.8}
 .set-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink-2)}
 .set-select{height:32px;border:1px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:11.5px;padding:0 8px;outline:none}
 .set-select:focus{border-color:var(--accent)}
@@ -1355,13 +1335,8 @@ table.hot td:nth-child(2){min-width:230px}
 [data-theme="dark"] .set-note.warn{color:#fbbf24}
 .version-badge{font-family:var(--mono);font-size:9px;border:1px solid var(--line);padding:2px 6px;color:var(--mute);letter-spacing:.06em}
 .icon-btn.is-on{color:var(--accent);border-color:var(--accent)}
-.icon-btn.is-cloud{color:var(--accent);border-color:var(--accent)}
-.nav-links a.nav-login{display:none}
-.nav-links.is-open a.nav-login{display:block}
 .mkt-status{white-space:nowrap;flex:none}
 @media (max-width:1100px){.mkt-status{display:none}}
-@media (max-width:1140px){#userBtn{display:none}}
-@media (max-width:760px){#userBtn{display:none}}
 .sector-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);margin-top:16px}
 .sector-stat{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 10px}
 .sector-stat span{display:block;font-size:9.5px;color:var(--mute)}
@@ -1386,8 +1361,8 @@ table.hot td:nth-child(2){min-width:230px}
   .movers{grid-template-columns:1fr}
   .ind-grid{grid-template-columns:1fr 1fr}
   .sector-stats{grid-template-columns:1fr 1fr}
-  .cmp-modal,.cloud-modal,.sync-modal{width:96vw}
-  .cmp-head,.sync-head,.cloud-head,.cmp-body,.sync-body,.cloud-body{padding-left:14px;padding-right:14px}
+  .cmp-modal,.settings-modal,.sync-modal{width:96vw}
+  .cmp-head,.sync-head,.settings-head,.cmp-body,.sync-body,.settings-body{padding-left:14px;padding-right:14px}
   #cmpChart{height:200px}
 }
 </style>
@@ -1411,16 +1386,12 @@ table.hot td:nth-child(2){min-width:230px}
       <a href="#advisory" data-nav>每日智策</a>
       <a href="#intel" data-nav>情报</a>
       <a href="#" class="nav-pf" data-openpf>模拟账户</a>
-      <a href="#" class="nav-login" data-opencloud>账户登录</a>
     </nav>
     <div class="nav-right">
       <div class="mkt-status"><i class="dot-live"></i><span class="txt">沪深交易中</span></div>
       <span class="nav-time" id="navClock">--:--:--</span>
-      <button class="icon-btn" id="userBtn" aria-label="账户登录" title="登录 / 注册">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
-      </button>
-      <button class="icon-btn" id="cloudBtn" aria-label="云同步与设置" title="云同步与设置">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 17.2 8.6 3.7 3.7 0 0 1 17.5 18z"/></svg>
+      <button class="icon-btn" id="settingsBtn" aria-label="设置" title="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.1 14.6a1.5 1.5 0 0 0 .3 1.7l.1.1a1.9 1.9 0 1 1-2.7 2.7l-.1-.1a1.5 1.5 0 0 0-1.7-.3 1.5 1.5 0 0 0-.9 1.4v.2a1.9 1.9 0 1 1-3.8 0v-.1a1.5 1.5 0 0 0-1-1.4 1.5 1.5 0 0 0-1.7.3l-.1.1a1.9 1.9 0 1 1-2.7-2.7l.1-.1a1.5 1.5 0 0 0 .3-1.7 1.5 1.5 0 0 0-1.4-.9H3a1.9 1.9 0 1 1 0-3.8h.1a1.5 1.5 0 0 0 1.4-1 1.5 1.5 0 0 0-.3-1.7l-.1-.1a1.9 1.9 0 1 1 2.7-2.7l.1.1a1.5 1.5 0 0 0 1.7.3h.1a1.5 1.5 0 0 0 .9-1.4V3a1.9 1.9 0 1 1 3.8 0v.1a1.5 1.5 0 0 0 .9 1.4 1.5 1.5 0 0 0 1.7-.3l.1-.1a1.9 1.9 0 1 1 2.7 2.7l-.1.1a1.5 1.5 0 0 0-.3 1.7v.1a1.5 1.5 0 0 0 1.4.9h.2a1.9 1.9 0 1 1 0 3.8h-.1a1.5 1.5 0 0 0-1.4.9z"/></svg>
       </button>
       <button class="icon-btn" id="alertsBtn" aria-label="价格提醒" title="价格提醒">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10.3 21a2 2 0 0 0 3.4 0"/></svg>
@@ -1827,7 +1798,7 @@ table.hot td:nth-child(2){min-width:230px}
     </div>
     <div class="foot-base">
       <span class="l">© 2026 Aether Capital Research. 演示站点,行情为模拟数据。投资有风险,入市需谨慎。</span>
-      <span>v1.7.0 · 沪 · 港 · 纽约 · 新加坡</span>
+      <span id="footVersion">v1.8.0 · 沪 · 港 · 纽约 · 新加坡</span>
     </div>
   </div>
 </footer>
@@ -2069,49 +2040,6 @@ table.hot td:nth-child(2){min-width:230px}
   </div>
 </aside>
 
-<!-- ============ CLOUD SYNC (legacy, kept inert) ============ -->
-<template id="legacyCloudTpl">
-<div class="sync-scrim" id="cloudScrim"></div>
-<div class="sync-modal" id="cloudModal" role="dialog" aria-modal="true" aria-labelledby="cloudTitle" aria-hidden="true">
-  <div class="sync-head">
-    <div>
-      <h3 id="cloudTitle">云同步 · 跨设备</h3>
-      <p>CLOUD SYNC · CLOUDFLARE WORKER</p>
-    </div>
-    <button class="icon-btn" id="cloudClose" aria-label="关闭云同步">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18"/></svg>
-    </button>
-  </div>
-  <div class="sync-body">
-    <label class="cloud-label" for="cloudBase">工作地址 · WORKER API</label>
-    <input class="cloud-input" id="cloudBase" placeholder="https://guanchao-api.yourname.workers.dev" autocomplete="off">
-    <div id="cloudAuth">
-      <div class="cloud-grid">
-        <input class="cloud-input" id="cloudEmail" type="email" placeholder="邮箱" autocomplete="email">
-        <input class="cloud-input" id="cloudPass" type="password" placeholder="密码(≥8 位)" autocomplete="current-password">
-      </div>
-      <div class="sync-actions">
-        <button class="btn-sync primary" id="cloudLogin">登录</button>
-        <button class="btn-sync" id="cloudRegister">注册并上传本机</button>
-      </div>
-    </div>
-    <div id="cloudUser" hidden>
-      <div class="cloud-account">
-        <span id="cloudEmailShow">—</span>
-        <button class="pf-reset" id="cloudLogout">退出登录</button>
-      </div>
-      <div class="sync-actions">
-        <button class="btn-sync primary" id="cloudPush">上传本机</button>
-        <button class="btn-sync" id="cloudPull">拉取云端</button>
-      </div>
-      <label class="cloud-auto"><input type="checkbox" id="cloudAuto" checked> 自动同步(自选 / 对比 / 提醒 / 模拟账户)</label>
-    </div>
-    <p class="sync-hint" id="cloudStatus">未连接。先部署 backend/worker.js,再填 Worker 地址注册。</p>
-    <p class="sync-hint">同步内容只包含自选代码、对比代码、价格提醒和模拟账户,不含密码。服务端邮件提醒需在 Worker 配置 RESEND_API_KEY 与 ALERT_FROM。</p>
-  </div>
-</div>
-</template>
-
 <!-- ============ COMPARE ============ -->
 <div class="cmp-scrim" id="cmpScrim"></div>
 <div class="cmp-modal" id="cmpModal" role="dialog" aria-modal="true" aria-labelledby="cmpTitle" aria-hidden="true">
@@ -2216,49 +2144,20 @@ table.hot td:nth-child(2){min-width:230px}
   </div>
 </aside>
 
-<!-- ============ CLOUD + SETTINGS ============ -->
-<div class="cloud-scrim" id="cloudScrim"></div>
-<div class="cloud-modal" id="cloudModal" role="dialog" aria-modal="true" aria-labelledby="cloudTitle" aria-hidden="true">
-  <div class="cloud-head">
+<!-- ============ SETTINGS ============ -->
+<div class="settings-scrim" id="settingsScrim"></div>
+<div class="settings-modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
+  <div class="settings-head">
     <div>
-      <h3 id="cloudTitle">云同步与设置</h3>
-      <p>CLOUD SYNC · LOCAL PREFERENCES · <span class="version-badge" id="cloudVersion">v1.7.0</span></p>
+      <h3 id="settingsTitle">设置</h3>
+      <p>LOCAL PREFERENCES · <span class="version-badge" id="settingsVersion">v1.8.0</span></p>
     </div>
-    <button class="icon-btn" id="cloudClose" aria-label="关闭设置">
+    <button class="icon-btn" id="settingsClose" aria-label="关闭设置">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
   </div>
-  <div class="cloud-body">
-    <section class="cloud-sec">
-      <h4>云同步 · Cloudflare Worker</h4>
-      <label class="cloud-field">Worker 根地址
-        <input id="cloudBase" placeholder="https://guanchao-api.xxx.workers.dev" autocomplete="off" spellcheck="false">
-      </label>
-      <p class="set-note" id="cloudTarget">未填写同步地址 · 数据只保存在本机</p>
-      <div id="cloudAuth">
-        <div class="cloud-row">
-          <input id="cloudEmail" type="email" placeholder="邮箱" autocomplete="username">
-          <input id="cloudPass" type="password" placeholder="密码(至少 8 位)" autocomplete="current-password">
-        </div>
-        <div class="cloud-actions">
-          <button id="cloudRegister" type="button" class="primary">注册并上传</button>
-          <button id="cloudLogin" type="button">登录并同步</button>
-        </div>
-      </div>
-      <div id="cloudUser" hidden>
-        <div class="cloud-user">已连接 <b id="cloudEmailShow">—</b></div>
-        <label class="cloud-check"><input id="cloudAuto" type="checkbox" checked> 变更后自动上传</label>
-        <div class="cloud-actions">
-          <button id="cloudPush" type="button">上传本机</button>
-          <button id="cloudPull" type="button">拉取云端</button>
-          <button id="cloudLogout" type="button">退出登录</button>
-        </div>
-      </div>
-      <div class="cloud-status" id="cloudStatus">未连接 · 可选,自建 Worker 后跨设备同步</div>
-      <p class="set-note">后端代码在 backend/ 目录。未连接时所有数据只保存在本机浏览器。</p>
-    </section>
-
-    <section class="cloud-sec">
+  <div class="settings-body">
+    <section class="settings-sec">
       <h4>本机偏好</h4>
       <div class="set-row"><span>行情刷新</span>
         <select class="set-select" id="setRefresh">
@@ -2277,7 +2176,7 @@ table.hot td:nth-child(2){min-width:230px}
         </select>
       </div>
       <div class="set-row"><span>主题</span>
-        <div class="cloud-actions" style="margin:0">
+        <div class="settings-actions" style="margin:0">
           <button id="setLight" type="button">浅色</button>
           <button id="setDark" type="button">深色</button>
         </div>
@@ -2287,21 +2186,21 @@ table.hot td:nth-child(2){min-width:230px}
       </div>
     </section>
 
-    <section class="cloud-sec">
+    <section class="settings-sec">
       <h4>备份与重置</h4>
-      <div class="cloud-actions">
+      <div class="settings-actions">
         <button id="setExport" type="button">导出全部数据</button>
         <button id="setImport" type="button">导入备份</button>
         <button class="set-btn" id="setSelfTest" type="button">运行自检</button>
         <button class="set-btn danger" id="setReset" type="button">清除本地数据</button>
       </div>
       <input type="file" id="setImportFile" accept=".json,application/json" hidden>
-      <p class="set-note">备份包含自选与分组、模拟账户、成交、提醒、对比列表、云地址与偏好,不包含登录令牌。</p>
+      <p class="set-note">备份包含自选与分组、模拟账户、成交、提醒、对比列表与本机偏好。全部数据只保存在本机浏览器,不上传任何服务器。</p>
     </section>
 
-    <div class="cloud-about">
-      <span class="version-badge">v1.7.0</span> · BUILD 2026-11-19 · AETHER TERMINAL<br>
-      数据源:内置模拟 / 东方财富公开接口 / 新浪财经(兜底) / 自建 Worker 快照<br>
+    <div class="settings-about">
+      <span class="version-badge" id="aboutVersion">v1.8.0</span> · BUILD <span id="aboutBuild">2026-11-22</span> · AETHER TERMINAL<br>
+      数据源:内置模拟 / 东方财富公开接口 / 新浪财经(兜底)<br>
       演示用途,不构成投资建议。
     </div>
   </div>
@@ -2355,7 +2254,7 @@ table.hot td:nth-child(2){min-width:230px}
 /* =====================================================================
    APP CONFIG · 单一配置源
    ===================================================================== */
-const APP_VERSION = '1.7.1';
+const APP_VERSION = '1.8.0';
 const BUILD_DATE = '2026-11-22';
 const CONFIG = {
   version: APP_VERSION,
@@ -2401,7 +2300,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
-/* 统一 HTML 转义:所有来自用户输入、CSV、JSONP、云端状态的字符串,进入 innerHTML 前必须经过它 */
+/* 统一 HTML 转义:所有来自用户输入、CSV、JSONP、备份文件的字符串,进入 innerHTML 前必须经过它 */
 const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
 const escapeHTML = (v) => String(v == null ? '' : v).replace(/[&<>"'`]/g, (c) => HTML_ESC[c]);
 /* 最近 n 根 K 线的最低/最高价:单次遍历,不展开数组 */
@@ -3651,7 +3550,7 @@ function openSectorDrawer(kind, key) {
   const list = getBoards(tab);
   const b = list.find((x) => (kind === 'market' ? x.key === key : x.name === key));
   if (!b) return;
-  if ($('#cloudModal').classList.contains('is-on')) closeCloudModal();
+  if ($('#settingsModal').classList.contains('is-on')) closeSettings();
   if ($('#alertDrawer').classList.contains('is-on')) closeAlerts();
   if ($('#cmpModal').classList.contains('is-on')) closeCompare();
   if ($('#drawer').classList.contains('is-on')) closeDrawer();
@@ -3675,7 +3574,7 @@ function closeSectorDrawer() {
   d.setAttribute('aria-hidden', 'true');
   d.inert = true;
   $('#sectorScrim').classList.remove('is-on');
-  if (!$('#drawer').classList.contains('is-on') && !$('#portfolio').classList.contains('is-on') && !$('#alertDrawer').classList.contains('is-on') && !$('#cloudModal').classList.contains('is-on')) {
+  if (!$('#drawer').classList.contains('is-on') && !$('#portfolio').classList.contains('is-on') && !$('#alertDrawer').classList.contains('is-on') && !$('#settingsModal').classList.contains('is-on')) {
     document.body.style.overflow = '';
   }
 }
@@ -4062,16 +3961,6 @@ function toggleFav(code) {
   }
   saveFavs();
   return s.isFav;
-}
-/* 云端只给出扁平自选列表时:保留本地分组结构,删去云端没有的代码,新增代码放进「默认」 */
-function reconcileFavGroups(codes) {
-  const want = new Set(codes);
-  favGroups.forEach((g) => { g.codes = g.codes.filter((c) => want.has(c)); });
-  ensureDefaultGroup();
-  const have = favCodeSet('all');
-  const def = findFavGroup(FAV_DEFAULT);
-  codes.forEach((c) => { if (!have.has(c)) { def.codes.push(c); have.add(c); } });
-  syncFavFlags();
 }
 function saveFavs() {
   try {
@@ -4502,7 +4391,6 @@ function checkAlerts() {
   if (changed) {
     saveAlerts();
     renderAlerts();
-    scheduleCloudPush();
   }
 }
 async function pollAlertQuotes() {
@@ -4579,7 +4467,6 @@ function addCompareCode(code, silent) {
   if (cmpCodes.length >= CMP_MAX) { toast(`最多同时对比 ${CMP_MAX} 只`, 'err'); return false; }
   cmpCodes.push(code);
   saveCompare();
-  scheduleCloudPush();
   if (!silent) toast(`已加入对比:${s.name}`);
   return true;
 }
@@ -5166,7 +5053,7 @@ function openDrawer(code) {
   const chgEl = $('#drawerChg');
   chgEl.className = 'chg ' + (up ? 'up' : 'down');
   chgEl.textContent = `${fmt.pct(s.chgPct)} · ${up ? '+' : ''}${fmt.px(s.last - s.prevClose, 2)}`;
-  /* BL-03:真实快照的来源跟随同步链路(东财 / 新浪 / Worker),不再写死东方财富 */
+  /* BL-03:真实快照的来源跟随同步链路(东财 / 新浪),不再写死东方财富 */
   $('#drawerTime').textContent = s.live ? `实时 · ${SOURCE_LABEL[CURRENT_SOURCE] || '真实行情'}` : s.imported ? '导入 · 快照' : '模拟 · 非真实';
   syncDrawerStar(s);
   const tags = [MKT_LABEL[s.market], s.sector, ...(s.concepts || []), ...(s.live ? ['实时快照'] : [])];
@@ -5460,7 +5347,7 @@ function setTheme(mode) {
     });
     if ($('#gaugeVal').textContent !== '0' && $('#gaugeVal').textContent !== '') drawGauge(64);
     if ($('#cmpModal').classList.contains('is-on')) renderCompare();
-    if ($('#cloudModal').classList.contains('is-on')) renderSettingsUI();
+    if ($('#settingsModal').classList.contains('is-on')) renderSettingsUI();
   });
 }
 
@@ -5526,7 +5413,7 @@ function palChoose() {
 /* ============ focus trap ============ */
 /* 打开的对话框按层级从上到下排列,Tab 焦点只在最上层那个里循环 */
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-const DIALOG_ORDER = ['palette', 'syncModal', 'cloudModal', 'cmpModal', 'alertDrawer', 'sectorDrawer', 'portfolio', 'drawer'];
+const DIALOG_ORDER = ['palette', 'syncModal', 'settingsModal', 'cmpModal', 'alertDrawer', 'sectorDrawer', 'portfolio', 'drawer'];
 function topDialog() {
   for (const id of DIALOG_ORDER) {
     const el = document.getElementById(id);
@@ -5597,7 +5484,7 @@ function wireEvents() {
     if (e.key === 'Escape') {
       if (palette.classList.contains('is-on')) palClose();
       if ($('#syncModal').classList.contains('is-on')) closeSyncModal();
-      if ($('#cloudModal').classList.contains('is-on')) closeCloudModal();
+      if ($('#settingsModal').classList.contains('is-on')) closeSettings();
       if ($('#alertDrawer').classList.contains('is-on')) closeAlerts();
       if ($('#sectorDrawer').classList.contains('is-on')) closeSectorDrawer();
       if ($('#cmpModal').classList.contains('is-on')) closeCompare();
@@ -5707,42 +5594,17 @@ function wireEvents() {
     $('#syncStatus').textContent = '连接行情源…';
     $('#syncCount').textContent = '';
     try {
-      let rows = null;
-      let source = 'worker';
+      let source = 'eastmoney';
       let skipped = 0;
-      if (getCloudBase()) {
-        try {
-          $('#syncStatus').textContent = '尝试云端快照…';
-          const collected = new Map();
-          let total = 0;
-          for (let part = 1; part <= 2; part++) {
-            const r = await fetch(getCloudBase() + '/api/snapshot?part=' + part);
-            if (!r.ok) break;
-            const j = await r.json();
-            if (!Array.isArray(j.rows)) break;
-            total = j.total || total;
-            j.rows.forEach((x) => collected.set(x.code, x));
-            if (total && collected.size >= total) break;
-          }
-          if (collected.size > 100 && (!total || collected.size >= total * 0.95)) {
-            rows = Array.from(collected.values());
-            $('#syncBar').style.width = '85%';
-            $('#syncStatus').textContent = '已获取云端快照';
-            $('#syncCount').textContent = `${rows.length.toLocaleString('en-US')} 只`;
-          }
-        } catch (e) {}
-      }
-      if (!rows) {
-        const res = await syncEastmoney((got, tot, pn, phase) => {
-          $('#syncBar').style.width = Math.min(100, (got / Math.max(tot, 1)) * 100).toFixed(1) + '%';
-          /* 主源与兜底分开提示,让用户知道正在用备用数据源、以及已经拉到第几页 */
-          $('#syncStatus').textContent = `${phase === 'sina' ? '兜底数据源 · ' : ''}第 ${pn} 页 · 拉取中`;
-          $('#syncCount').textContent = `${got.toLocaleString('en-US')} / ${(tot || got).toLocaleString('en-US')}`;
-        });
-        rows = res.rows;
-        source = res.source;
-        skipped = res.skipped || 0;
-      }
+      const res = await syncEastmoney((got, tot, pn, phase) => {
+        $('#syncBar').style.width = Math.min(100, (got / Math.max(tot, 1)) * 100).toFixed(1) + '%';
+        /* 主源与兜底分开提示,让用户知道正在用备用数据源、以及已经拉到第几页 */
+        $('#syncStatus').textContent = `${phase === 'sina' ? '兜底数据源 · ' : ''}第 ${pn} 页 · 拉取中`;
+        $('#syncCount').textContent = `${got.toLocaleString('en-US')} / ${(tot || got).toLocaleString('en-US')}`;
+      });
+      const rows = res.rows;
+      source = res.source;
+      skipped = res.skipped || 0;
       const stocks = liveStocksFromRows(rows);
       saveSnapshot(rows, source);
       resetUniverseTo(stocks, true);
@@ -5809,7 +5671,6 @@ function wireEvents() {
     alerts.push({ id: Date.now() + Math.floor(Math.random() * 1000), code: s.code, dir, price, hit: 0 });
     saveAlerts();
     renderAlerts();
-    scheduleCloudPush();
     $('#alertCode').value = '';
     $('#alertPrice').value = '';
     toast(`已添加提醒:${s.name} ${alertCondText({ dir, price })}`);
@@ -5820,7 +5681,6 @@ function wireEvents() {
     alerts = alerts.filter((a) => String(a.id) !== d.dataset.del);
     saveAlerts();
     renderAlerts();
-    scheduleCloudPush();
   });
   $('#notifyBtn').addEventListener('click', async () => {
     if (!('Notification' in window)) { toast('当前浏览器不支持系统通知', 'err'); return; }
@@ -5866,7 +5726,6 @@ function wireEvents() {
     if (findFavGroup(name)) { toast('已有同名分组', 'err'); return; }
     if (!createFavGroup(name)) { toast(`最多 ${FAV_GROUP_MAX} 个分组`, 'err'); return; }
     saveFavs();
-    scheduleCloudPush();
     if (inp) inp.value = '';
     state.favGroup = name;
     state.page = 1;
@@ -5886,7 +5745,6 @@ function wireEvents() {
       const name = state.favGroup;
       if (deleteFavGroup(name)) {
         saveFavs();
-        scheduleCloudPush();
         toast(`已删除分组:${name}`);
       }
       state.favGroup = 'all';
@@ -5914,51 +5772,16 @@ function wireEvents() {
     const name = b.dataset.dgroup;
     setStockFavGroup(s.code, name, !groupsOfCode(s.code).includes(name));
     saveFavs();
-    scheduleCloudPush();
     syncDrawerStar(s);
     renderDrawerGroups(s);
     renderTable();
     if ($('#portfolio').classList.contains('is-on')) renderPortfolio();
   });
 
-  // cloud sync + settings
-  $('#cloudBtn').addEventListener('click', openCloudModal);
-  $('#userBtn').addEventListener('click', () => {
-    openCloudModal();
-    if (!cloud.token) setTimeout(() => $('#cloudEmail').focus(), 260);
-  });
-  $$('[data-opencloud]').forEach((a) => a.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    $('.nav-links')?.classList.remove('is-open');
-    openCloudModal();
-    if (!cloud.token) setTimeout(() => $('#cloudEmail').focus(), 260);
-  }));
-  $('#cloudClose').addEventListener('click', closeCloudModal);
-  $('#cloudScrim').addEventListener('click', closeCloudModal);
-  $('#cloudRegister').addEventListener('click', () => cloudAuth('register'));
-  $('#cloudLogin').addEventListener('click', () => cloudAuth('login'));
-  $('#cloudPush').addEventListener('click', () => { cloudPush().catch((e) => { setCloudStatus('失败:' + e.message); toast('上传失败:' + e.message, 'err'); }); });
-  $('#cloudPull').addEventListener('click', () => { cloudPull().catch((e) => { setCloudStatus('失败:' + e.message); toast('拉取失败:' + e.message, 'err'); }); });
-  $('#cloudLogout').addEventListener('click', async () => {
-    try { await cloudRequest('/api/logout', { method: 'POST' }); } catch (e) {}
-    cloud.token = '';
-    cloud.email = '';
-    saveCloud();
-    renderCloudUI();
-    setCloudStatus('已退出登录 · 本机数据保留');
-    toast('已退出云同步');
-  });
-  $('#cloudAuto').addEventListener('change', (e) => { cloud.auto = e.target.checked; saveCloud(); });
-  $('#cloudBase').addEventListener('change', (e) => {
-    const raw = String(e.target.value || '');
-    const safe = safeCloudBase(raw);
-    if (safe !== raw.trim().replace(/\/+$/, '')) e.target.value = safe;
-    cloud.base = safe;
-    cloudBaseDropped = false;
-    saveCloud();
-    renderCloudTarget();
-  });
-  $('#cloudBase').addEventListener('input', renderCloudTarget);
+  // settings
+  $('#settingsBtn').addEventListener('click', openSettings);
+  $('#settingsClose').addEventListener('click', closeSettings);
+  $('#settingsScrim').addEventListener('click', closeSettings);
   $('#setRefresh').addEventListener('change', (e) => {
     const ms = Number(e.target.value);
     appSettings.refreshMs = isFinite(ms) ? ms : CONFIG.refreshMs;
@@ -6030,7 +5853,6 @@ function wireEvents() {
     if (!d) return;
     cmpCodes = cmpCodes.filter((c) => c !== d.dataset.cmpDel);
     saveCompare();
-    scheduleCloudPush();
     renderCompare();
   });
   $('#cmpRanges').addEventListener('click', (e) => {
@@ -6139,7 +5961,6 @@ function wireEvents() {
       toggleFav(s.code);
       renderTable();
       if (state.openCode === s.code) { syncDrawerStar(s); renderDrawerGroups(s); }
-      scheduleCloudPush();
       return;
     }
     const tr = e.target.closest('tr[data-code]');
@@ -6177,7 +5998,6 @@ function wireEvents() {
     const s = BY_CODE[state.openCode];
     if (!s) return;
     toggleFav(s.code);
-    scheduleCloudPush();
     syncDrawerStar(s);
     renderDrawerGroups(s);
     renderTable();
@@ -6247,7 +6067,6 @@ function wireEvents() {
     toast(res.msg);
     updateAcctChip();
     renderTradePane(s, false);
-    scheduleCloudPush();
   });
   $('#btnSell').addEventListener('click', () => {
     const s = BY_CODE[state.openCode];
@@ -6257,7 +6076,6 @@ function wireEvents() {
     toast(res.msg);
     updateAcctChip();
     renderTradePane(s, false);
-    scheduleCloudPush();
   });
 
   // portfolio drawer
@@ -6295,7 +6113,6 @@ function wireEvents() {
     updateAcctChip();
     renderPortfolio();
     if (state.openCode) renderTradePane(BY_CODE[state.openCode], false);
-    scheduleCloudPush();
     toast('模拟账户已重置');
   });
   $$('.dh-tabs button').forEach((b) => {
@@ -6573,8 +6390,14 @@ function renderSettingsUI() {
   if (r) r.value = String(appSettings.refreshMs);
   const p = $('#setPageSize');
   if (p) p.value = String(state.pageSize);
-  const v = $('#cloudVersion');
+  const v = $('#settingsVersion');
   if (v) v.textContent = 'v' + APP_VERSION;
+  const av = $('#aboutVersion');
+  if (av) av.textContent = 'v' + APP_VERSION;
+  const ab = $('#aboutBuild');
+  if (ab) ab.textContent = BUILD_DATE;
+  const fv = $('#footVersion');
+  if (fv) fv.textContent = `v${APP_VERSION} · 沪 · 港 · 纽约 · 新加坡`;
   const mode = document.documentElement.getAttribute('data-theme');
   const light = $('#setLight'), dark = $('#setDark');
   if (light) light.classList.toggle('is-on', mode !== 'dark');
@@ -6604,19 +6427,17 @@ function exportAllData() {
     account: readLSValue(CONFIG.keys.account),
     alerts: readLSValue(CONFIG.keys.alerts),
     compare: readLSValue(CONFIG.keys.compare),
-    cloud: { base: cloud.base, email: cloud.email, auto: cloud.auto },
   });
   toast('已导出全部本机数据');
 }
-/* 备份文件同样是外部输入:与云端状态走同一套清洗,再写入本机存储 */
+/* 备份文件同样是外部输入:先走结构清洗,再写入本机存储 */
 function importAllData(text) {
   let d;
   try { d = JSON.parse(text); } catch (e) { toast('备份文件格式不正确', 'err'); return; }
   if (!d || typeof d !== 'object' || Array.isArray(d)) { toast('备份文件格式不正确', 'err'); return; }
-  const safe = sanitizeCloudState({
+  const safe = sanitizeState({
     favorites: d.favs, favGroups: d.favGroups, compare: d.compare, alerts: d.alerts, account: d.account,
   });
-  let baseDropped = false;
   try {
     if (Array.isArray(d.favs)) localStorage.setItem(CONFIG.keys.favs, JSON.stringify(safe.favorites));
     if (safe.favGroups && safe.favGroups.length) localStorage.setItem(CONFIG.keys.favGroups, JSON.stringify(safe.favGroups));
@@ -6626,14 +6447,7 @@ function importAllData(text) {
     if (safe.compare) localStorage.setItem(CONFIG.keys.compare, JSON.stringify(safe.compare));
     if (d.settings && typeof d.settings === 'object') localStorage.setItem(CONFIG.keys.settings, JSON.stringify(d.settings));
     if (d.theme === 'dark' || d.theme === 'light') localStorage.setItem(CONFIG.keys.theme, d.theme);
-    if (d.cloud && typeof d.cloud === 'object' && d.cloud.base !== undefined) {
-      /* FE-07:备份里的 base 是外部输入,过不了白名单就丢弃(不写非法地址,也不写空串之外的残留) */
-      const rawBase = String(d.cloud.base || '');
-      const safeBase = safeCloudBase(rawBase);
-      if (rawBase && !safeBase) baseDropped = true;
-      localStorage.setItem(CLOUD_KEY, JSON.stringify({ base: safeBase, email: String(d.cloud.email || ''), auto: d.cloud.auto !== false, token: '' }));
-    }
-    toast(baseDropped ? '备份已导入,但其中的同步地址不安全,已丢弃 · 正在刷新…' : '备份已导入,正在刷新…', baseDropped ? 'err' : undefined);
+    toast('备份已导入,正在刷新…');
     setTimeout(() => location.reload(), 700);
   } catch (e) {
     toast('导入失败:存储空间可能不足', 'err');
@@ -6657,7 +6471,7 @@ function runSelfTests() {
   t('代码唯一', () => new Set(STOCKS.map((s) => s.code)).size === STOCKS.length);
   t('核心字段完整', () => STOCKS.every((s) => s.code && s.name && isFinite(s.last) && isFinite(s.mcap)));
   t('微价格式化', () => fmt.px(0.00003) === '0.000030');
-  t('关键 DOM 节点存在', () => ['cloudModal', 'drawer', 'portfolio', 'alertDrawer', 'sectorDrawer', 'cmpModal', 'syncModal', 'palette', 'hotBody', 'favGroupRow', 'drawerGroups'].every((id) => document.getElementById(id)));
+  t('关键 DOM 节点存在', () => ['settingsModal', 'drawer', 'portfolio', 'alertDrawer', 'sectorDrawer', 'cmpModal', 'syncModal', 'palette', 'hotBody', 'favGroupRow', 'drawerGroups'].every((id) => document.getElementById(id)));
   t('无重复活动 ID', () => { const ids = Array.from(document.querySelectorAll('[id]')).map((el) => el.id); return new Set(ids).size === ids.length; });
   t('板块聚合完整', () => getBoards('industry').reduce((a, b) => a + b.count, 0) === STOCKS.length);
   t('分页大小有效', () => CONFIG.pageSizes.includes(state.pageSize) && state.pageSize > 0);
@@ -6704,26 +6518,26 @@ function runSelfTests() {
     ]);
     return st.length === 1 && !/[<>]/.test(st[0].name + st[0].sector);
   });
-  t('云端状态:非对象一律拒绝', () => sanitizeCloudState(null) === null && sanitizeCloudState([]) === null && sanitizeCloudState('x') === null);
-  t('云端状态:非法代码被剔除', () => {
-    const s = sanitizeCloudState({ favorites: ['600519', '<script>', 'NVDA', 5] });
+  t('备份状态:非对象一律拒绝', () => sanitizeState(null) === null && sanitizeState([]) === null && sanitizeState('x') === null);
+  t('备份状态:非法代码被剔除', () => {
+    const s = sanitizeState({ favorites: ['600519', '<script>', 'NVDA', 5] });
     return s.favorites.length === 2 && s.favorites[0] === '600519' && s.favorites[1] === 'NVDA';
   });
-  t('云端状态:提醒需方向合法且价格为正', () => {
-    const s = sanitizeCloudState({ alerts: [
+  t('备份状态:提醒需方向合法且价格为正', () => {
+    const s = sanitizeState({ alerts: [
       { code: '600519', dir: 'above', price: 1800, id: 1 },
       { code: '600519', dir: 'sideways', price: 1800 },
       { code: '600519', dir: 'below', price: -1 },
     ] });
     return s.alerts.length === 1 && s.alerts[0].dir === 'above';
   });
-  t('云端状态:字符串字段剔除标签字符', () => {
-    const s = sanitizeCloudState({ account: { cash: 1000, positions: {}, trades: [{ code: 'NVDA', side: 'buy', note: '<img onerror=1>' }] } });
+  t('备份状态:字符串字段剔除标签字符', () => {
+    const s = sanitizeState({ account: { cash: 1000, positions: {}, trades: [{ code: 'NVDA', side: 'buy', note: '<img onerror=1>' }] } });
     return s.account.trades.length === 1 && !/[<>]/.test(JSON.stringify(s.account.trades));
   });
-  t('云端状态:负现金与非法持仓被拒', () => {
-    const bad = sanitizeCloudState({ account: { cash: -5, positions: {} } });
-    const pos = sanitizeCloudState({ account: { cash: 1, positions: { 'bad<key>': { qty: 1, cost: 1 }, NVDA: { qty: 100, cost: 170 }, X1: { qty: -1, cost: 1 } } } });
+  t('备份状态:负现金与非法持仓被拒', () => {
+    const bad = sanitizeState({ account: { cash: -5, positions: {} } });
+    const pos = sanitizeState({ account: { cash: 1, positions: { 'bad<key>': { qty: 1, cost: 1 }, NVDA: { qty: 100, cost: 170 }, X1: { qty: -1, cost: 1 } } } });
     return bad.account === null && Object.keys(pos.account.positions).join() === 'NVDA';
   });
 
@@ -6851,15 +6665,15 @@ function runSelfTests() {
   });
 
   /* ---- 本轮新增 ---- */
-  t('云端状态:百分比提醒合法且不超过 100%', () => {
-    const s = sanitizeCloudState({ alerts: [
+  t('备份状态:百分比提醒合法且不超过 100%', () => {
+    const s = sanitizeState({ alerts: [
       { code: '600519', dir: 'pct_up', price: 5 },
       { code: '600519', dir: 'pct_down', price: 150 },
     ] });
     return check(s.alerts.length === 1 && s.alerts[0].dir === 'pct_up', `保留了 ${s.alerts.length} 条`);
   });
-  t('云端状态:分组名与代码被清洗', () => {
-    const s = sanitizeCloudState({ favGroups: [
+  t('备份状态:分组名与代码被清洗', () => {
+    const s = sanitizeState({ favGroups: [
       { name: '<b>长线</b>', codes: ['600519', '<x>', 7] },
       { name: 'b长线/b', codes: ['NVDA'] }, // 清洗后与上一条重名,应被丢弃
       { name: '', codes: ['AAPL'] },
@@ -6872,164 +6686,31 @@ function runSelfTests() {
   return results;
 }
 
-/* ============ cloud sync ============ */
-const CLOUD_KEY = 'guanchao-cloud-v1';
-let cloud = { base: '', token: '', email: '', auto: true };
-let cloudPushTimer = null;
-let cloudBaseDropped = false;
-
-/* FE-07:cloud.base 会被用来 POST 邮箱与密码,必须当不可信输入处理。
-   只接受 https、无 userinfo、无路径/查询,且主机与当前页同源或在允许列表内。
-   备份文件与本机旧配置都走这一关,避免恶意备份把凭据送到攻击者服务器。 */
-const CLOUD_HOST_ALLOW = [/\.workers\.dev$/i, /^localhost$/i, /^127\.0\.0\.1$/];
-function safeCloudBase(raw) {
-  const s = String(raw == null ? '' : raw).trim();
-  if (!s) return '';
-  let u;
-  try { u = new URL(s); } catch (e) { return ''; }
-  if (u.protocol !== 'https:') return '';
-  if (u.username || u.password) return '';
-  if (u.search || u.hash) return '';
-  if (u.pathname && u.pathname !== '/') return '';
-  const host = u.hostname.toLowerCase();
-  const sameHost = !!location.hostname && host === location.hostname.toLowerCase();
-  if (!sameHost && !CLOUD_HOST_ALLOW.some((re) => re.test(host))) return '';
-  return u.origin;
-}
-function renderCloudTarget() {
-  const el = $('#cloudTarget');
-  if (!el) return;
-  const raw = ($('#cloudBase') && $('#cloudBase').value) || cloud.base || '';
-  if (!String(raw).trim()) {
-    el.className = 'set-note';
-    el.textContent = cloudBaseDropped
-      ? '已丢弃本机保存的不安全地址 · 请重新填写自己的 Worker 地址'
-      : '未填写同步地址 · 数据只保存在本机';
-    return;
-  }
-  const safe = safeCloudBase(raw);
-  if (!safe) {
-    el.className = 'set-note warn';
-    el.textContent = '⚠ 该地址不会被使用:只允许 https,且必须与当前站点同源或为 *.workers.dev';
-    return;
-  }
-  el.className = 'set-note';
-  el.textContent = `登录 / 注册将把邮箱与密码发送到 ${new URL(safe).host} · 请确认这是你自己的 Worker`;
-}
-
-function loadCloud() {
-  try {
-    const c = JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null');
-    if (c && typeof c === 'object') {
-      const rawBase = String(c.base || '');
-      const base = safeCloudBase(rawBase);
-      cloudBaseDropped = !!rawBase && !base;
-      cloud = {
-        base,
-        /* 地址不可信时连同 token 一起作废:否则旧 token 仍会被发到被替换的地址 */
-        token: cloudBaseDropped ? '' : String(c.token || ''),
-        email: String(c.email || ''),
-        auto: c.auto !== false,
-      };
-      if (cloudBaseDropped) saveCloud();
-    }
-  } catch (e) {}
-}
-function saveCloud() {
-  try { localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud)); } catch (e) {}
-}
-function getCloudBase() { return String(cloud.base || '').trim().replace(/\/+$/, ''); }
-function setCloudStatus(msg) {
-  const el = $('#cloudStatus');
-  if (el) el.textContent = msg;
-}
-function renderCloudUI() {
-  const logged = !!cloud.token;
-  const base = $('#cloudBase');
-  if (base) base.value = cloud.base || '';
-  const auth = $('#cloudAuth'), user = $('#cloudUser');
-  if (auth) auth.hidden = logged;
-  if (user) user.hidden = !logged;
-  const em = $('#cloudEmailShow');
-  if (em) em.textContent = cloud.email || '—';
-  const auto = $('#cloudAuto');
-  if (auto) auto.checked = cloud.auto !== false;
-  const btn = $('#cloudBtn');
-  if (btn) btn.classList.toggle('is-cloud', logged);
-  const ub = $('#userBtn');
-  if (ub) {
-    ub.classList.toggle('is-on', logged);
-    ub.title = logged ? `账户:${cloud.email || '已登录'}` : '登录 / 注册';
-    ub.setAttribute('aria-label', logged ? `账户:${cloud.email || '已登录'}` : '登录 / 注册');
-  }
-  renderCloudTarget();
-}
-function openCloudModal() {
+function openSettings() {
   if ($('#syncModal').classList.contains('is-on')) closeSyncModal();
   if ($('#cmpModal').classList.contains('is-on')) closeCompare();
   if ($('#alertDrawer').classList.contains('is-on')) closeAlerts();
   if ($('#drawer').classList.contains('is-on')) closeDrawer();
   if ($('#portfolio').classList.contains('is-on')) closePortfolio();
-  renderCloudUI();
   renderSettingsUI();
-  const m = $('#cloudModal');
+  const m = $('#settingsModal');
   m.inert = false;
   m.classList.add('is-on');
   m.setAttribute('aria-hidden', 'false');
-  $('#cloudScrim').classList.add('is-on');
+  $('#settingsScrim').classList.add('is-on');
   document.body.style.overflow = 'hidden';
 }
-function closeCloudModal() {
-  const m = $('#cloudModal');
+function closeSettings() {
+  const m = $('#settingsModal');
   m.classList.remove('is-on');
   m.setAttribute('aria-hidden', 'true');
   m.inert = true;
-  $('#cloudScrim').classList.remove('is-on');
+  $('#settingsScrim').classList.remove('is-on');
   if (!$('#drawer').classList.contains('is-on') && !$('#portfolio').classList.contains('is-on')) {
     document.body.style.overflow = '';
   }
 }
-async function cloudRequest(path, opts = {}) {
-  const base = getCloudBase();
-  if (!base) throw new Error('请先填写 Worker 地址');
-  const headers = { 'Content-Type': 'application/json' };
-  if (cloud.token) headers.Authorization = 'Bearer ' + cloud.token;
-  const res = await fetch(base + path, { ...opts, headers });
-  let data = null;
-  try { data = await res.json(); } catch (e) {}
-  if (!res.ok) {
-    if (res.status === 401) {
-      cloud.token = '';
-      saveCloud();
-      renderCloudUI();
-    }
-    throw new Error((data && data.error) || ('HTTP ' + res.status));
-  }
-  return data || {};
-}
-function buildCloudState() {
-  return {
-    v: 1,
-    /* 写侧上限必须与读侧对齐,否则第 N+1 条写出去就被砍,下次拉取用截断集合覆盖本地:
-       favorites 对齐 sanitizeCloudState 的 500、favGroups 对齐 normalizeFavGroups 的每组 500、
-       alerts 对齐 sanitizeCloudState 的 200(同时收窄外部输入进入渲染层的规模)。
-       注意 favorites 是扁平兼容层、不是真相:分组才是唯一数据源(拉取时走 favGroups 分支),
-       超过 500 的部分只存在于 favGroups 里,这里截断不会丢分组数据。 */
-    favorites: Array.from(favCodeSet('all')).slice(0, 500),
-    favGroups: favGroups.slice(0, FAV_GROUP_MAX).map((g) => ({ name: g.name, codes: g.codes.slice(0, 500) })),
-    compare: cmpCodes.slice(0, 4),
-    /* 取末尾 200 条:alerts.push 追加在尾部、新提醒在最后,slice(0,200) 砍掉的会是最新的 */
-    alerts: alerts.slice(-200).map((a) => ({ ...a })),
-    account: {
-      cash: account.cash,
-      positions: account.positions,
-      trades: account.trades.slice(0, 80),
-      realized: account.realized || 0,
-    },
-    updatedAt: Date.now(),
-  };
-}
-/* 云端/备份状态属于外部输入:先做结构与类型校验,再允许进入本地状态与渲染层 */
+/* 备份文件属于外部输入:先做结构与类型校验,再允许进入本地状态与渲染层 */
 const CODE_RE = /^[A-Za-z0-9][A-Za-z0-9.\-]{0,11}$/;
 function cleanValue(v, depth) {
   if (typeof v === 'string') return v.replace(/[<>&"'`]/g, '').slice(0, 64);
@@ -7043,7 +6724,7 @@ function cleanValue(v, depth) {
   }
   return null;
 }
-function sanitizeCloudState(data) {
+function sanitizeState(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   const out = { favorites: [], favGroups: null, compare: null, alerts: null, account: null };
   if (Array.isArray(data.favorites)) {
@@ -7084,114 +6765,6 @@ function sanitizeCloudState(data) {
   }
   return out;
 }
-function applyCloudState(raw) {
-  const data = sanitizeCloudState(raw);
-  if (!data) return;
-  if (data.favGroups && data.favGroups.length) {
-    favGroups = data.favGroups;
-    ensureDefaultGroup();
-    syncFavFlags();
-  } else {
-    reconcileFavGroups(data.favorites);
-  }
-  saveFavs();
-  if (Array.isArray(data.compare)) {
-    cmpCodes = data.compare.filter((c) => BY_CODE[c]).slice(0, CMP_MAX);
-    saveCompare();
-    if ($('#cmpModal').classList.contains('is-on')) renderCompare();
-  }
-  if (Array.isArray(data.alerts)) {
-    alerts = data.alerts.filter((a) => a && a.code && ALERT_DIRS.includes(a.dir) && isFinite(a.price));
-    saveAlerts();
-    renderAlerts();
-  }
-  const acct = data.account;
-  if (acct && typeof acct.cash === 'number') {
-    account = {
-      cash: acct.cash,
-      positions: acct.positions && typeof acct.positions === 'object' ? acct.positions : {},
-      trades: Array.isArray(acct.trades) ? acct.trades.slice(0, 80) : [],
-      realized: Number(acct.realized) || 0,
-    };
-    saveAccount();
-    updateAcctChip();
-    if ($('#portfolio').classList.contains('is-on')) renderPortfolio();
-  }
-  renderTable();
-  if (state.openCode && BY_CODE[state.openCode]) {
-    const s = BY_CODE[state.openCode];
-    syncDrawerStar(s);
-    renderDrawerGroups(s);
-  }
-}
-/* 后端 putState 对 JSON.stringify(state).length > 400000 直接 413 并整体拒绝;
-   自动上传的 .catch(()=>{}) 会把它吞掉,用户只看到"没同步"却不知道原因。
-   这里留 50KB 余量提前拦截,本地数据不动,并明确告知。 */
-const CLOUD_STATE_MAX = 350000;
-async function cloudPush(silent) {
-  if (!cloud.token) return false;
-  const payload = buildCloudState();
-  const size = JSON.stringify(payload).length;
-  if (size > CLOUD_STATE_MAX) {
-    const kb = Math.round(size / 1024);
-    setCloudStatus(`数据过大 · ${kb}KB,本次未上传`);
-    toast(`云端同步数据过大(${kb}KB),本次未上传,本地数据不受影响`, 'err');
-    return false;
-  }
-  setCloudStatus('上传中…');
-  await cloudRequest('/api/state', { method: 'PUT', body: JSON.stringify({ state: payload }) });
-  setCloudStatus(`已上传 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
-  if (!silent) toast('已上传到云端');
-  return true;
-}
-async function cloudPull(silent) {
-  if (!cloud.token) return false;
-  setCloudStatus('拉取中…');
-  const res = await cloudRequest('/api/state');
-  if (!res.state) {
-    setCloudStatus('云端为空 · 建议先上传本机');
-    return false;
-  }
-  applyCloudState(res.state);
-  setCloudStatus(`已拉取 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
-  if (!silent) toast('已从云端恢复');
-  return true;
-}
-function scheduleCloudPush() {
-  if (!cloud.token || cloud.auto === false) return;
-  clearTimeout(cloudPushTimer);
-  cloudPushTimer = setTimeout(() => { cloudPush(true).catch(() => {}); }, 1200);
-}
-async function cloudAuth(mode) {
-  /* 地址必须过白名单:这里之后就会把邮箱与密码 POST 出去,不能信任输入框里的任意字符串 */
-  const base = safeCloudBase($('#cloudBase').value);
-  renderCloudTarget();
-  if (!base) {
-    setCloudStatus('地址不被接受:只允许 https,且必须与当前站点同源或为 *.workers.dev');
-    return;
-  }
-  const email = $('#cloudEmail').value.trim();
-  const password = $('#cloudPass').value;
-  if (!email || password.length < 8) { setCloudStatus('请输入邮箱和至少 8 位密码'); return; }
-  cloud.base = base;
-  saveCloud();
-  setCloudStatus(mode === 'login' ? '登录中…' : '注册中…');
-  try {
-    const data = await cloudRequest('/api/' + mode, { method: 'POST', body: JSON.stringify({ email, password }) });
-    cloud.token = data.token;
-    cloud.email = data.email || email;
-    saveCloud();
-    renderCloudUI();
-    const pulled = await cloudPull(true);
-    if (!pulled) await cloudPush(true);
-    setCloudStatus(`已连接 · ${cloud.email}`);
-    toast(mode === 'login' ? '已登录并同步' : '注册成功,本机数据已上传');
-  } catch (err) {
-    setCloudStatus('失败:' + err.message);
-    toast('云同步失败:' + err.message, 'err');
-  }
-}
-
 /* ============ Eastmoney JSONP live sync ============ */
 const SNAPSHOT_KEY = 'guanchao-eastmoney-v1';
 const EM_FS = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
@@ -7316,7 +6889,7 @@ function fmtSnapshotTime(t) {
     return new Date(t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch (e) { return ''; }
 }
-const SOURCE_LABEL = { eastmoney: '东方财富', sina: '新浪财经', worker: '自建 Worker 快照', imported: '导入 CSV' };
+const SOURCE_LABEL = { eastmoney: '东方财富', sina: '新浪财经', imported: '导入 CSV' };
 /* 当前这批行情的真实来源。抽屉里的「实时 · xxx」读它,不再写死东方财富;
    空串表示来源未知/内置,抽屉回退为「真实行情」。 */
 let CURRENT_SOURCE = '';
@@ -7381,22 +6954,9 @@ function loadSnapshotIntoUniverse() {
   peerPECache.clear();
   return snap;
 }
-/* 数据源优先级:自建 Worker 快照 → 东方财富 clist → 新浪 Market_Center。
+/* 数据源优先级:东方财富 clist → 新浪 Market_Center。
    返回 { rows, total, source },source 用于界面标签,避免把兜底数据标成东方财富。 */
 async function syncEastmoney(onProgress) {
-  const cloudBase = getCloudBase();
-  if (cloudBase) {
-    try {
-      const r1 = await fetch(cloudBase + '/api/snapshot?part=1').then((r) => r.json());
-      const r2 = await fetch(cloudBase + '/api/snapshot?part=2').then((r) => r.json());
-      const rows = [...(r1.rows || []), ...(r2.rows || [])];
-      if (rows.length > 100) {
-        if (onProgress) onProgress(rows.length, rows.length, 1);
-        return { rows, total: rows.length, source: 'worker' };
-      }
-    } catch (e) {}
-  }
-
   // 主源:东方财富分页 clist
   let emRows = [];
   try {
@@ -7556,7 +7116,6 @@ function boot() {
   window.addEventListener('offline', () => { try { toast('网络已断开,实时数据不可用', 'err'); } catch (e) {} });
   loadAccount();
   loadAlerts();
-  loadCloud();
   const SNAP = loadSnapshotIntoUniverse();
   loadFavs();
   loadCompare();
@@ -7570,7 +7129,7 @@ function boot() {
   $('#alertDrawer').inert = true;
   $('#sectorDrawer').inert = true;
   $('#cmpModal').inert = true;
-  $('#cloudModal').inert = true;
+  $('#settingsModal').inert = true;
   $('#palette').inert = true;
   $('#syncModal').inert = true;
   renderIndices();
@@ -7596,8 +7155,7 @@ function boot() {
   setInterval(tickClock, 1000);
   applyRefreshInterval();
   liveTick();
-  renderCloudUI();
-  if (cloud.token) setTimeout(() => { cloudPull(true).catch(() => {}); }, 1500);
+  renderSettingsUI();
   try {
     const saved = localStorage.getItem(CONFIG.keys.theme);
     setTheme(saved === 'dark' ? 'dark' : 'light');
