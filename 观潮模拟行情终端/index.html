@@ -3352,10 +3352,14 @@ function rangeData(stock, range) {
   return stock.series.slice(-n);
 }
 /* FE-03:1D 分时是本地合成的(genIntraday),真实/导入标的也不能和"实时"混着显示。
-   返回空串表示不需要角标;文案区分"真实标的的合成分时"与"整页都是模拟的内置标的"。 */
+   FE-03 补:非 1D 区间同样可能是合成走势——只有 loadRealKline() 成功过的标的
+   才有真实 K 线,其余(导入标的、K 线未加载/加载失败的 live、内置模拟)都必须标注。
+   返回空串表示不需要角标。 */
 function synthNote(stock, range) {
-  if (range !== '1D') return '';
-  return stock && (stock.live || stock.imported) ? '模拟分时 · 非真实成交' : '模拟数据';
+  if (!stock) return '模拟数据';
+  if (range === '1D') return (stock.live || stock.imported) ? '模拟分时 · 非真实成交' : '模拟数据';
+  if (stock._realKline) return '';
+  return (stock.live || stock.imported) ? '模拟走势 · 非真实 K 线' : '模拟数据';
 }
 function setSynthBadge(id, text) {
   const el = document.getElementById(id);
@@ -6734,6 +6738,27 @@ function runSelfTests() {
     state.smart = prev;
     renderSmartChips();
     return check(!hasImg, '标签被当作 HTML 插入');
+  });
+  /* ---- 上线前全检:合成数据角标口径与空态可见性 ---- */
+  t('角标:非 1D 且无真实 K 线时必须标注', () => {
+    const sim = { code: 'X1' };
+    const live = { code: '600519', live: true };
+    const liveReal = { code: '600519', live: true, _realKline: true };
+    check(synthNote(sim, '1M') !== '', '内置模拟 1M 未标注');
+    check(synthNote(live, '1M') !== '', '真实标的未加载 K 线时 1M 未标注');
+    check(synthNote(liveReal, '1M') === '', '已加载真实 K 线仍被标注');
+    check(synthNote(live, '1D') !== '', '1D 分时未标注');
+    check(synthNote(null, '1M') !== '', '空标的不应抛错');
+    return true;
+  });
+  t('角标:空态不得渲染可见胶囊', () => {
+    setSynthBadge('detailSynth', '');
+    const el = document.getElementById('detailSynth');
+    check(el.hidden === true, 'hidden 未置位');
+    check(getComputedStyle(el).display === 'none', 'CSS 未隐藏空角标');
+    const w = el.parentElement;
+    if (w && w.classList.contains('synth-line')) check(w.hidden === true, 'wrapper 未收起');
+    return true;
   });
   t('原型键防护: BY_CODE 不命中 constructor/__proto__', () => {
     check(!BY_CODE['constructor'], 'constructor 命中');

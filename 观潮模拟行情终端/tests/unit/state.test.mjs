@@ -165,7 +165,36 @@ test('SEC-03b:6000 个提醒代码 → 单轮最多 20 次 fetch,并记录 warn'
   assert.equal(fetchCount, 20, '800 个代码 / 每批 40 = 20 次');
   assert.equal(logs.warn.length, 1, '应有一条 warn');
   assert.match(logs.warn[0], /超过单轮上限 800/);
-  assert.match(logs.warn[0], /跳过 5200/);
+  assert.match(logs.warn[0], /轮转/);
+});
+
+test('SEC-22:代码超过单轮上限时按轮次轮转,第 801+ 个不会被永久饿死', async () => {
+  const env = makeEnv();
+  seedBigState(env, 1000); // 每批 40 → 每轮 20 次 fetch,单轮只覆盖 800 个
+
+  const logs = captureLogs();
+  const realFetch = globalThis.fetch;
+  const rounds = [];
+  globalThis.fetch = async (url) => {
+    const m = /secids=([^&]+)/.exec(String(url));
+    if (m) rounds.push(m[1].split(','));
+    return { ok: true, json: async () => ({ data: { diff: [] } }) };
+  };
+  try {
+    await runCron(env);
+    await runCron(env);
+  } finally {
+    globalThis.fetch = realFetch;
+    logs.restore();
+  }
+
+  const r1 = new Set(rounds.slice(0, 20).flat());
+  const r2 = new Set(rounds.slice(20).flat());
+  assert.equal(r1.size, 800, '第一轮应查 800 个');
+  assert.equal(r2.size, 800, '第二轮也应查 800 个');
+  assert.notDeepEqual([...r1].sort(), [...r2].sort(), '两轮不得查同一批代码');
+  const union = new Set([...r1, ...r2]);
+  assert.equal(union.size, 1000, `两轮应覆盖全部 1000 个代码,实际 ${union.size}`);
 });
 
 test('SEC-03b:上游 fetch 抛错时 cron 仍正常结束,不抛给平台', async () => {

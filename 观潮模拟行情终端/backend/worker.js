@@ -412,6 +412,30 @@ function alertLine(a, q) {
   return `${a.code} 跌破 ${thr}(现价 ${q.price})`;
 }
 
+const ALERT_CURSOR_KEY = 'alert_cursor';
+
+/* 单轮代码配额是全局共享的:所有用户的代码汇成一个集合后截断。
+   若固定截断前 800 个,第 801+ 个永远轮不到(插入序稳定),
+   5 个账号 × 200 条垃圾代码就能让全站真实提醒永久静默。
+   这里用 cache 表存游标做环形窗口,保证每个代码在 ceil(N/800) 轮内必被查到。
+   游标读写失败只影响起点,不影响本轮提醒本身。 */
+async function rotateAlertCodes(env, codes) {
+  const total = codes.length;
+  if (total <= MAX_ALERT_CODES) return codes;
+  let cursor = 0;
+  try {
+    const row = await env.DB.prepare('SELECT payload FROM cache WHERE key=?').bind(ALERT_CURSOR_KEY).first();
+    if (row) cursor = Number(row.payload) || 0;
+  } catch (e) { /* 读不到就从 0 开始 */ }
+  const offset = ((cursor % total) + total) % total;
+  try {
+    await env.DB.prepare(
+      'INSERT INTO cache (key,payload,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at',
+    ).bind(ALERT_CURSOR_KEY, String(offset + MAX_ALERT_CODES), Date.now()).run();
+  } catch (e) { /* 写失败只影响下一轮起点 */ }
+  return codes.slice(offset).concat(codes.slice(0, offset)).slice(0, MAX_ALERT_CODES);
+}
+
 async function handleAlerts(env) {
   const { results } = await env.DB.prepare(
     'SELECT s.user_id,s.data,u.email FROM states s JOIN users u ON u.id=s.user_id LIMIT 1000',
@@ -428,14 +452,15 @@ async function handleAlerts(env) {
   if (!allCodes.size) return { checked: 0, hit: 0, mailed: 0 };
   const quote = {};
   const codes = Array.from(allCodes);
-  // 总量闸:超出部分本轮不查。没有这道闸,一条塞了几千个代码的 state 就能让
+  // 总量闸 + 轮转:超出部分本轮不查。没有这道闸,一条塞了几千个代码的 state 就能让
   // 子请求数冲破免费版 50 次上限、整个 cron 抛错,全站提醒停摆。
+  // 但只截断不轮转会让尾部代码永远饿死,所以用环形窗口按轮次推进游标。
   if (codes.length > MAX_ALERT_CODES) {
-    console.warn(`[cron] 提醒代码 ${codes.length} 个,超过单轮上限 ${MAX_ALERT_CODES},本轮跳过 ${codes.length - MAX_ALERT_CODES} 个`);
-    codes.length = MAX_ALERT_CODES;
+    console.warn(`[cron] 提醒代码 ${codes.length} 个,超过单轮上限 ${MAX_ALERT_CODES},本轮轮转检查 ${MAX_ALERT_CODES} 个`);
   }
-  for (let i = 0; i < codes.length; i += 40) {
-    const chunk = codes.slice(i, i + 40);
+  const picked = await rotateAlertCodes(env, codes);
+  for (let i = 0; i < picked.length; i += 40) {
+    const chunk = picked.slice(i, i + 40);
     const secids = chunk.map(secid).filter(Boolean);
     if (!secids.length) continue;
     const url = 'https://push2.eastmoney.com/api/qt/ulist.np/get?secids=' + secids.join(',') +
