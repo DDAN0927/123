@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aether Capital — 全维智投终端</title>
-<meta name="description" content="Aether Capital 全维智投终端：覆盖沪深、港美、数字资产的实时行情、基本面数据库与每日 AI 策略建议。">
+<meta name="description" content="Aether Capital 全维智投终端：覆盖沪深、港美、数字资产的行情、基本面数据库与每日 AI 策略建议。">
 <style>
 /* ============ 1 · TOKENS ============ */
 :root{
@@ -248,6 +248,19 @@ h1,h2,h3,h4,p{margin:0}
 }
 .cc-foot .legend{display:flex;gap:16px}
 .cc-foot .legend i{display:inline-block;width:14px;height:1px;vertical-align:middle;margin-right:6px}
+/* 合成数据角标:与"实时"同屏时必须一眼可见,不放进 tooltip。FE-03 / FE-04 共用这一套 */
+.synth-badge{
+  display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
+  color:#92400e;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.5);
+  padding:2px 7px;border-radius:2px;white-space:nowrap;
+}
+[data-theme="dark"] .synth-badge{color:#fbbf24;background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.45)}
+.synth-line{display:flex;justify-content:flex-end;margin:2px 0 8px}
+.synth-line.left{justify-content:flex-start;margin:0 0 8px}
+/* 作者样式的 display 会压过 UA 的 [hidden]{display:none},必须显式补一条,
+   否则 el.hidden 只改语义、视觉上仍是一个空的琥珀色胶囊。wrapper 同理。 */
+.synth-badge[hidden]{display:none}
+.synth-line[hidden]{display:none}
 .signal-chip{
   position:absolute;left:-26px;bottom:64px;z-index:2;
   display:flex;align-items:center;gap:10px;padding:11px 16px;
@@ -1338,6 +1351,8 @@ table.hot td:nth-child(2){min-width:230px}
 .set-btn:hover{color:var(--accent);border-color:var(--accent)}
 .set-btn.danger:hover{color:var(--up);border-color:var(--up)}
 .set-note{font-size:10.5px;color:var(--faint);line-height:1.7;margin-top:8px}
+.set-note.warn{color:#b45309}
+[data-theme="dark"] .set-note.warn{color:#fbbf24}
 .version-badge{font-family:var(--mono);font-size:9px;border:1px solid var(--line);padding:2px 6px;color:var(--mute);letter-spacing:.06em}
 .icon-btn.is-on{color:var(--accent);border-color:var(--accent)}
 .icon-btn.is-cloud{color:var(--accent);border-color:var(--accent)}
@@ -1477,14 +1492,15 @@ table.hot td:nth-child(2){min-width:230px}
               <button data-range="1Y">1Y</button>
             </div>
           </div>
-          <div class="cc-canvas-wrap"><canvas id="heroChart" role="img" aria-label="宁德时代实时价格走势图"></canvas></div>
+          <div class="cc-canvas-wrap"><canvas id="heroChart" role="img" aria-label="宁德时代价格走势图"></canvas></div>
           <div class="cc-foot">
             <div class="legend">
               <span><i id="legendPrice" style="background:var(--up)"></i>价格</span>
               <span><i style="background:var(--accent)"></i>MA20</span>
               <span><i style="background:var(--mute)"></i>MA60</span>
             </div>
-            <span id="heroMeta">SZSE · 实时</span>
+            <span class="synth-badge" id="heroSynth" hidden></span>
+            <span id="heroMeta">SZSE · 分时</span>
           </div>
           <div class="signal-chip" aria-hidden="true">
             <span class="sig"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 16 5-6 4 4 7-9"/></svg></span>
@@ -1496,7 +1512,7 @@ table.hot td:nth-child(2){min-width:230px}
     </div>
 
     <!-- ticker tape -->
-    <div class="tape" aria-label="实时行情滚动条">
+    <div class="tape" aria-label="行情滚动条">
       <div class="tape-tag">live</div>
       <div class="tape-track" id="tapeTop"></div>
       <div class="tape-track rev" id="tapeBottom"></div>
@@ -1511,10 +1527,10 @@ table.hot td:nth-child(2){min-width:230px}
           <span class="eyebrow">market panorama</span>
           <h2 id="ovTitle">六个市场,<br>一屏之内。</h2>
         </div>
-        <p>从 A 股到数字资产,同一套口径、同一个时间轴。点击任意板块进入对应终端,跨市场比较不再需要切换七个网站。</p>
+        <p>从 A 股到数字资产,同一套口径、同一个时间轴。点击任意板块进入对应终端,跨市场比较不再需要切换七个网站。指数卡为静态示例,非实时行情。</p>
       </div>
       <div class="idx-grid" id="idxGrid"></div>
-      <div class="breadth" id="breadth" aria-label="市场宽度:上涨家数占比 64.8%"></div>
+      <div class="breadth" id="breadth" aria-label="市场宽度:上涨家数占比"></div>
       <div class="movers">
         <div class="mover-col">
           <h3>涨幅榜 · TOP 5 <span>GAINERS</span></h3>
@@ -1649,13 +1665,13 @@ table.hot td:nth-child(2){min-width:230px}
         <b>DATABASE</b>
         <span class="data-status" id="dataStatus">数据源:内置模拟</span>
         <span>L1 / L2 行情 <em id="dbCount" style="font-style:normal;color:var(--ink-2)">—</em></span>
-        <span>财报 8 年 · 3,120 家</span>
-        <span>股东与持仓 16 季</span>
-        <span>龙虎榜 3 年</span>
-        <span>北向资金逐笔</span>
-        <span>期权链 · 隐含波动率</span>
-        <span>链上地址 120 万</span>
-        <span>p99 延迟 38ms</span>
+        <span>财务趋势 4 年 · 估算</span>
+        <span>股东与持仓 · 演示</span>
+        <span>龙虎榜 · 演示</span>
+        <span>北向资金 · 演示</span>
+        <span>期权链 · 演示</span>
+        <span>链上地址 · 演示</span>
+        <span>p99 延迟 · 演示</span>
         <button class="data-import primary" id="syncBtn" type="button">同步真实 A 股</button>
         <button class="data-import" id="importBtn" type="button" title="支持列:代码 / 名称 / 最新价 / 涨跌幅 / 市盈率 / 市净率 / 总市值 / 所属行业">导入 CSV 快照</button>
         <button class="data-import" id="exportFavBtn" type="button">导出自选</button>
@@ -1706,7 +1722,7 @@ table.hot td:nth-child(2){min-width:230px}
         <div class="rv rv-d2">
           <div class="sig-list" id="sigList"></div>
           <div class="sig-cta">
-            <span id="sigMeta">共 3 条建议 · 覆盖 A 股与美股 · 更新于今日 07:30</span>
+            <span id="sigMeta">共 0 条建议</span>
             <a href="#terminal" class="link-arrow">
               在终端中验证
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
@@ -1725,7 +1741,7 @@ table.hot td:nth-child(2){min-width:230px}
           <span class="eyebrow">intelligence desk</span>
           <h2 id="intelTitle">收盘之后,<br>信息仍在流动。</h2>
         </div>
-        <p>每日 7,000 条公告、研报与交易异动进入同一信息流,由编辑与模型共同标注方向。这里只保留真正可能改变定价的五条。</p>
+        <p>演示信息流:以下 5 条为示例内容,用于展示排版与方向标注方式,并非实时抓取的真实资讯。</p>
       </div>
       <div class="intel rv rv-d1">
         <article class="intel-row">
@@ -1760,7 +1776,7 @@ table.hot td:nth-child(2){min-width:230px}
         </article>
       </div>
       <div class="sig-cta">
-        <span>共 5 条 · 来自 1,284 条原始信息 · 更新于 21:46</span>
+        <span>共 5 条 · 演示内容,非实时抓取</span>
         <a href="#terminal" class="link-arrow">
           在终端中验证
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
@@ -1841,7 +1857,7 @@ table.hot td:nth-child(2){min-width:230px}
         </button>
       </div>
     </div>
-    <div class="dh-price"><b id="drawerPrice">—</b><span class="chg up" id="drawerChg">—</span><span class="mono" style="font-size:10px;color:var(--faint)" id="drawerTime">实时</span></div>
+    <div class="dh-price"><b id="drawerPrice">—</b><span class="chg up" id="drawerChg">—</span><span class="mono" style="font-size:10px;color:var(--faint)" id="drawerTime">—</span></div>
     <div class="dh-tags" id="drawerTags"></div>
     <div class="dh-groups" id="drawerGroups" role="group" aria-label="自选分组"></div>
     <div class="dh-tabs" role="tablist">
@@ -1868,6 +1884,7 @@ table.hot td:nth-child(2){min-width:230px}
           <button data-ind="vol" class="is-on" title="成交量">VOL</button>
         </div>
       </div>
+      <div class="synth-line"><span class="synth-badge" id="detailSynth" hidden></span></div>
       <canvas id="detailChart" role="img" aria-label="标的K线图"></canvas>
       <div class="dh-ohlc" id="dhOhlc"></div>
       <div class="dh-stat-grid" id="dhStats"></div>
@@ -1927,6 +1944,7 @@ table.hot td:nth-child(2){min-width:230px}
       </div>
       <div class="dh-block">
         <h4>财务趋势 · 近四年</h4>
+        <div class="synth-line left"><span class="synth-badge" id="finSynth" hidden></span></div>
         <div class="fin-chart" id="finChart"></div>
         <div class="fin-legend">
           <span><i style="background:color-mix(in srgb,var(--accent) 42%,var(--line))"></i>营业收入</span>
@@ -1935,6 +1953,7 @@ table.hot td:nth-child(2){min-width:230px}
       </div>
       <div class="dh-block">
         <h4>估值分位 · 近五年</h4>
+        <div class="synth-line left"><span class="synth-badge" id="valSynth" hidden></span></div>
         <p id="valText">—</p>
         <div class="val-track"><i id="valMarker" style="left:50%"></i></div>
         <div class="val-scale"><span>低估</span><span>中位</span><span>高估</span></div>
@@ -2215,6 +2234,7 @@ table.hot td:nth-child(2){min-width:230px}
       <label class="cloud-field">Worker 根地址
         <input id="cloudBase" placeholder="https://guanchao-api.xxx.workers.dev" autocomplete="off" spellcheck="false">
       </label>
+      <p class="set-note" id="cloudTarget">未填写同步地址 · 数据只保存在本机</p>
       <div id="cloudAuth">
         <div class="cloud-row">
           <input id="cloudEmail" type="email" placeholder="邮箱" autocomplete="username">
@@ -2335,8 +2355,8 @@ table.hot td:nth-child(2){min-width:230px}
 /* =====================================================================
    APP CONFIG · 单一配置源
    ===================================================================== */
-const APP_VERSION = '1.7.0';
-const BUILD_DATE = '2026-11-19';
+const APP_VERSION = '1.7.1';
+const BUILD_DATE = '2026-11-22';
 const CONFIG = {
   version: APP_VERSION,
   build: BUILD_DATE,
@@ -2587,12 +2607,12 @@ const GROUP_MAP = {
 };
 
 const INDICES = [
-  { name: '上证指数', code: '000001.SS', val: 3421.6, chg: 0.62, extra: '成交 1.12 万亿', vol: 0.16, mkt: 'CN' },
-  { name: '恒生指数', code: 'HSI', val: 21384.2, chg: -0.34, extra: '南向 +42.6 亿', vol: 0.2, mkt: 'HK' },
-  { name: '纳斯达克', code: 'IXIC', val: 21842.6, chg: 1.18, extra: '科技七巨头 +1.4%', vol: 0.24, mkt: 'US' },
-  { name: '标普 500', code: 'SPX', val: 6284.1, chg: 0.78, extra: 'VIX 14.2', vol: 0.17, mkt: 'US' },
-  { name: '伦敦金', code: 'XAU', val: 4528.4, chg: 1.42, extra: '年内 +38.6%', vol: 0.19, mkt: 'all' },
-  { name: '比特币', code: 'BTC', val: 96420, chg: -1.86, extra: '24h 波动 3.2%', vol: 0.62, mkt: 'CRYPTO' },
+  { name: '上证指数', code: '000001.SS', val: 3421.6, chg: 0.62, extra: '沪深两市', vol: 0.16, mkt: 'CN' },
+  { name: '恒生指数', code: 'HSI', val: 21384.2, chg: -0.34, extra: '港股', vol: 0.2, mkt: 'HK' },
+  { name: '纳斯达克', code: 'IXIC', val: 21842.6, chg: 1.18, extra: '美股科技', vol: 0.24, mkt: 'US' },
+  { name: '标普 500', code: 'SPX', val: 6284.1, chg: 0.78, extra: '美股大盘', vol: 0.17, mkt: 'US' },
+  { name: '伦敦金', code: 'XAU', val: 4528.4, chg: 1.42, extra: '贵金属', vol: 0.19, mkt: 'all' },
+  { name: '比特币', code: 'BTC', val: 96420, chg: -1.86, extra: '数字资产', vol: 0.62, mkt: 'CRYPTO' },
 ];
 
 /* ---------- synthetic market data ---------- */
@@ -3331,6 +3351,23 @@ function rangeData(stock, range) {
   ensureSeries(stock);
   return stock.series.slice(-n);
 }
+/* FE-03:1D 分时是本地合成的(genIntraday),真实/导入标的也不能和"实时"混着显示。
+   返回空串表示不需要角标;文案区分"真实标的的合成分时"与"整页都是模拟的内置标的"。 */
+function synthNote(stock, range) {
+  if (range !== '1D') return '';
+  return stock && (stock.live || stock.imported) ? '模拟分时 · 非真实成交' : '模拟数据';
+}
+function setSynthBadge(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.hidden = !text;
+  // wrapper 是常驻元素,角标隐藏后它的 margin 仍会留下 8-10px 空隙,需一起收起。
+  // 必须限定 class:hero 的父元素是 .cc-foot(含价格/MA20/MA60 图例),
+  // 无条件隐藏 parentElement 会把图例一起藏掉,比原缺陷更严重。
+  const w = el.parentElement;
+  if (w && w.classList.contains('synth-line')) w.hidden = !text;
+}
 function ensureSeries(s) {
   if (s.series) return s.series;
   s.series = genSeries({ ...s, price: s.last });
@@ -3398,7 +3435,7 @@ function renderIndices() {
         <span class="idx-val num">${fmt.px(idx.val, idx.val > 10000 ? 0 : 1)}</span>
         <canvas class="idx-spark" aria-hidden="true"></canvas>
       </div>
-      <div class="idx-foot"><span>${idx.extra}</span><span><b>实时</b></span></div>
+      <div class="idx-foot"><span>${idx.extra}</span><span><b>静态示例</b></span></div>
     </article>`;
   }).join('');
   requestAnimationFrame(() => {
@@ -4741,6 +4778,11 @@ function finSeries(s) {
   return out;
 }
 function renderFund(s) {
+  /* FE-04:真实/导入标的只带回价格与 PE/PB,营收利润柱与估值分位是由 mcap/pe 反推合成的,
+     与真实行情同屏时必须显式标"估算值",与 FE-03 共用同一套角标样式。 */
+  const est = !!(s.live || s.imported);
+  setSynthBadge('finSynth', est ? '估算值 · 非真实财报' : '');
+  setSynthBadge('valSynth', est ? '估算值 · 非真实估值分位' : '');
   $('#bizText').textContent = s.desc;
   $('#bizMeta').innerHTML = [
     ['成立', s.founded || '—'],
@@ -4994,10 +5036,24 @@ function renderTradePane(s, resetQty = true) {
 }
 
 /* ============ advisory signals ============ */
+/* FE-05:智策不再写死 3 只代码。对全市场 5,000+ 只逐个跑 computeDiag 太贵,
+   先按市值取候选池,再用与详情页同一套 computeDiag 评分排序取前 5 —— 换数据源后结果自然不同。 */
+const SIGNAL_POOL = 120;
+const SIGNAL_LIMIT = 5;
+function pickSignalStocks(limit = SIGNAL_LIMIT) {
+  const pool = STOCKS.filter((s) => s.pe > 0 && s.mcap > 0)
+    .sort((a, b) => b.mcap - a.mcap)
+    .slice(0, SIGNAL_POOL);
+  return pool
+    .map((s) => ({ s, score: computeDiag(s).score }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.s);
+}
 function renderSignals() {
-  const picks = ['NVDA', '300750', '601899'].map((c) => BY_CODE[c]).filter(Boolean);
+  const picks = pickSignalStocks();
   if (!picks.length) {
-    $('#sigList').innerHTML = `<div class="pf-empty" style="padding:40px 0"><b>当前快照未包含智策标的</b>导入的行情数据中缺少 NVDA / 300750 / 601899,刷新页面可恢复内置全市场</div>`;
+    $('#sigList').innerHTML = `<div class="pf-empty" style="padding:40px 0"><b>当前快照没有可评分的标的</b>需要同时具备市值与市盈率字段;刷新页面可恢复内置全市场</div>`;
     const sm0 = $('#sigMeta');
     if (sm0) sm0.textContent = '暂无可用建议';
     return;
@@ -5005,7 +5061,7 @@ function renderSignals() {
   const sm = $('#sigMeta');
   if (sm) {
     const markets = Array.from(new Set(picks.map((p) => MKT_LABEL[p.market])));
-    sm.textContent = `共 ${picks.length} 条建议 · 覆盖 ${markets.join(' / ')} · 更新于今日 07:30`;
+    sm.textContent = `共 ${picks.length} 条建议 · 按模型评分排序 · 覆盖 ${markets.join(' / ')}`;
   }
   $('#sigList').innerHTML = picks.map((s, i) => {
     const up = s.chgPct >= 0;
@@ -5104,7 +5160,7 @@ function openDrawer(code) {
   chgEl.className = 'chg ' + (up ? 'up' : 'down');
   chgEl.textContent = `${fmt.pct(s.chgPct)} · ${up ? '+' : ''}${fmt.px(s.last - s.prevClose, 2)}`;
   /* BL-03:真实快照的来源跟随同步链路(东财 / 新浪 / Worker),不再写死东方财富 */
-  $('#drawerTime').textContent = s.live ? `实时 · ${SOURCE_LABEL[CURRENT_SOURCE] || '真实行情'}` : s.imported ? '导入 · 快照' : '实时 · 模拟';
+  $('#drawerTime').textContent = s.live ? `实时 · ${SOURCE_LABEL[CURRENT_SOURCE] || '真实行情'}` : s.imported ? '导入 · 快照' : '模拟 · 非真实';
   syncDrawerStar(s);
   const tags = [MKT_LABEL[s.market], s.sector, ...(s.concepts || []), ...(s.live ? ['实时快照'] : [])];
   $('#drawerTags').innerHTML = Array.from(new Set(tags)).map((t) => `<span>${escapeHTML(t)}</span>`).join('');
@@ -5155,6 +5211,7 @@ function openDrawer(code) {
   detailChart.opts.onHover = (i) => updateOhlc(s, i);
   detailChart.setData(rangeData(s, drawerRange));
   updateOhlc(s, -1);
+  setSynthBadge('detailSynth', synthNote(s, drawerRange));
 
   // open UI
   $('#drawer').classList.add('is-on');
@@ -5182,6 +5239,7 @@ function openDrawer(code) {
       if (detailChart) {
         detailChart.setData(rangeData(s, drawerRange));
         updateOhlc(s, -1);
+        setSynthBadge('detailSynth', synthNote(s, drawerRange));
       }
     });
   }
@@ -5240,6 +5298,9 @@ function heroStatsUpdate() {
   chg.className = 'chg ' + (up ? 'up' : 'down');
   const lg = $('#legendPrice');
   if (lg) lg.style.background = up ? 'var(--up)' : 'var(--down)';
+  const meta = $('#heroMeta');
+  if (meta) meta.textContent = `SZSE · ${heroRange.cur === '1D' ? '分时' : heroRange.cur}`;
+  setSynthBadge('heroSynth', synthNote(heroStock, heroRange.cur));
 }
 function initHero() {
   heroChart = new PriceChart($('#heroChart'), {
@@ -5264,7 +5325,7 @@ function initHero() {
     $$('#heroRange button').forEach((x) => x.classList.toggle('is-on', x === b));
     heroRange.cur = b.dataset.range;
     heroChart.setData(heroRangeData());
-    $('#heroMeta').textContent = `SZSE · ${b.dataset.range === '1D' ? '实时' : b.dataset.range}`;
+    heroStatsUpdate();
   });
 }
 
@@ -5881,7 +5942,16 @@ function wireEvents() {
     toast('已退出云同步');
   });
   $('#cloudAuto').addEventListener('change', (e) => { cloud.auto = e.target.checked; saveCloud(); });
-  $('#cloudBase').addEventListener('change', (e) => { cloud.base = e.target.value.trim().replace(/\/+$/, ''); saveCloud(); });
+  $('#cloudBase').addEventListener('change', (e) => {
+    const raw = String(e.target.value || '');
+    const safe = safeCloudBase(raw);
+    if (safe !== raw.trim().replace(/\/+$/, '')) e.target.value = safe;
+    cloud.base = safe;
+    cloudBaseDropped = false;
+    saveCloud();
+    renderCloudTarget();
+  });
+  $('#cloudBase').addEventListener('input', renderCloudTarget);
   $('#setRefresh').addEventListener('change', (e) => {
     const ms = Number(e.target.value);
     appSettings.refreshMs = isFinite(ms) ? ms : CONFIG.refreshMs;
@@ -6244,6 +6314,7 @@ function wireEvents() {
     if (s && detailChart) {
       detailChart.setData(rangeData(s, drawerRange));
       updateOhlc(s, -1);
+      setSynthBadge('detailSynth', synthNote(s, drawerRange));
     }
   });
   $('#indToggle').addEventListener('click', (e) => {
@@ -6538,6 +6609,7 @@ function importAllData(text) {
   const safe = sanitizeCloudState({
     favorites: d.favs, favGroups: d.favGroups, compare: d.compare, alerts: d.alerts, account: d.account,
   });
+  let baseDropped = false;
   try {
     if (Array.isArray(d.favs)) localStorage.setItem(CONFIG.keys.favs, JSON.stringify(safe.favorites));
     if (safe.favGroups && safe.favGroups.length) localStorage.setItem(CONFIG.keys.favGroups, JSON.stringify(safe.favGroups));
@@ -6548,9 +6620,13 @@ function importAllData(text) {
     if (d.settings && typeof d.settings === 'object') localStorage.setItem(CONFIG.keys.settings, JSON.stringify(d.settings));
     if (d.theme === 'dark' || d.theme === 'light') localStorage.setItem(CONFIG.keys.theme, d.theme);
     if (d.cloud && typeof d.cloud === 'object' && d.cloud.base !== undefined) {
-      localStorage.setItem(CLOUD_KEY, JSON.stringify({ base: String(d.cloud.base || ''), email: String(d.cloud.email || ''), auto: d.cloud.auto !== false, token: '' }));
+      /* FE-07:备份里的 base 是外部输入,过不了白名单就丢弃(不写非法地址,也不写空串之外的残留) */
+      const rawBase = String(d.cloud.base || '');
+      const safeBase = safeCloudBase(rawBase);
+      if (rawBase && !safeBase) baseDropped = true;
+      localStorage.setItem(CLOUD_KEY, JSON.stringify({ base: safeBase, email: String(d.cloud.email || ''), auto: d.cloud.auto !== false, token: '' }));
     }
-    toast('备份已导入,正在刷新…');
+    toast(baseDropped ? '备份已导入,但其中的同步地址不安全,已丢弃 · 正在刷新…' : '备份已导入,正在刷新…', baseDropped ? 'err' : undefined);
     setTimeout(() => location.reload(), 700);
   } catch (e) {
     toast('导入失败:存储空间可能不足', 'err');
@@ -6772,17 +6848,62 @@ function runSelfTests() {
 const CLOUD_KEY = 'guanchao-cloud-v1';
 let cloud = { base: '', token: '', email: '', auto: true };
 let cloudPushTimer = null;
+let cloudBaseDropped = false;
+
+/* FE-07:cloud.base 会被用来 POST 邮箱与密码,必须当不可信输入处理。
+   只接受 https、无 userinfo、无路径/查询,且主机与当前页同源或在允许列表内。
+   备份文件与本机旧配置都走这一关,避免恶意备份把凭据送到攻击者服务器。 */
+const CLOUD_HOST_ALLOW = [/\.workers\.dev$/i, /^localhost$/i, /^127\.0\.0\.1$/];
+function safeCloudBase(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  let u;
+  try { u = new URL(s); } catch (e) { return ''; }
+  if (u.protocol !== 'https:') return '';
+  if (u.username || u.password) return '';
+  if (u.search || u.hash) return '';
+  if (u.pathname && u.pathname !== '/') return '';
+  const host = u.hostname.toLowerCase();
+  const sameHost = !!location.hostname && host === location.hostname.toLowerCase();
+  if (!sameHost && !CLOUD_HOST_ALLOW.some((re) => re.test(host))) return '';
+  return u.origin;
+}
+function renderCloudTarget() {
+  const el = $('#cloudTarget');
+  if (!el) return;
+  const raw = ($('#cloudBase') && $('#cloudBase').value) || cloud.base || '';
+  if (!String(raw).trim()) {
+    el.className = 'set-note';
+    el.textContent = cloudBaseDropped
+      ? '已丢弃本机保存的不安全地址 · 请重新填写自己的 Worker 地址'
+      : '未填写同步地址 · 数据只保存在本机';
+    return;
+  }
+  const safe = safeCloudBase(raw);
+  if (!safe) {
+    el.className = 'set-note warn';
+    el.textContent = '⚠ 该地址不会被使用:只允许 https,且必须与当前站点同源或为 *.workers.dev';
+    return;
+  }
+  el.className = 'set-note';
+  el.textContent = `登录 / 注册将把邮箱与密码发送到 ${new URL(safe).host} · 请确认这是你自己的 Worker`;
+}
 
 function loadCloud() {
   try {
     const c = JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null');
     if (c && typeof c === 'object') {
+      const rawBase = String(c.base || '');
+      const base = safeCloudBase(rawBase);
+      cloudBaseDropped = !!rawBase && !base;
       cloud = {
-        base: String(c.base || ''),
-        token: String(c.token || ''),
+        base,
+        /* 地址不可信时连同 token 一起作废:否则旧 token 仍会被发到被替换的地址 */
+        token: cloudBaseDropped ? '' : String(c.token || ''),
         email: String(c.email || ''),
         auto: c.auto !== false,
       };
+      if (cloudBaseDropped) saveCloud();
     }
   } catch (e) {}
 }
@@ -6813,6 +6934,7 @@ function renderCloudUI() {
     ub.title = logged ? `账户:${cloud.email || '已登录'}` : '登录 / 注册';
     ub.setAttribute('aria-label', logged ? `账户:${cloud.email || '已登录'}` : '登录 / 注册');
   }
+  renderCloudTarget();
 }
 function openCloudModal() {
   if ($('#syncModal').classList.contains('is-on')) closeSyncModal();
@@ -7013,8 +7135,13 @@ function scheduleCloudPush() {
   cloudPushTimer = setTimeout(() => { cloudPush(true).catch(() => {}); }, 1200);
 }
 async function cloudAuth(mode) {
-  const base = ($('#cloudBase').value || '').trim().replace(/\/+$/, '');
-  if (!base) { setCloudStatus('请先填写 Worker 地址'); return; }
+  /* 地址必须过白名单:这里之后就会把邮箱与密码 POST 出去,不能信任输入框里的任意字符串 */
+  const base = safeCloudBase($('#cloudBase').value);
+  renderCloudTarget();
+  if (!base) {
+    setCloudStatus('地址不被接受:只允许 https,且必须与当前站点同源或为 *.workers.dev');
+    return;
+  }
   const email = $('#cloudEmail').value.trim();
   const password = $('#cloudPass').value;
   if (!email || password.length < 8) { setCloudStatus('请输入邮箱和至少 8 位密码'); return; }

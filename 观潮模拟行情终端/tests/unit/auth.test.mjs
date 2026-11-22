@@ -167,3 +167,40 @@ test('SEC-05:注册键与登录键分开命名,互不影响', async () => {
   assert.equal(ipRow.fails, 1);
   assert.equal(regRow.fails, 1);
 });
+
+/* ---------------- 并发闸门:修复前 20/20 全穿 ---------------- */
+/* 这两条是「先写后判」的验收断言。旧实现先 SELECT 判锁、再 UPSERT 计数,
+   20 个并发请求会全部读到 locked_until=0 而放行;旧用例的并发数只有 2/3,
+   小于阈值 5,所以从没测到过闸门本身。 */
+
+test('SEC-05:并发 20 次注册只放行配额内的请求,其余 429', async () => {
+  const env = makeEnv();
+  const ip = '10.7.7.7';
+  const rs = await Promise.all(Array.from({ length: 20 }, (_, i) =>
+    reg(env, `burst${i}@x.com`, ip, 'password123')));
+
+  const ok = rs.filter((r) => r.status === 200).length;
+  const limited = rs.filter((r) => r.status === 429).length;
+
+  assert.ok(ok <= 5, `并发注册最多放行 5 个,实际 ${ok}`);
+  assert.ok(limited >= 15, `其余应全部 429,实际 ${limited}`);
+  assert.equal(
+    Number(env.DB.one('SELECT COUNT(*) AS n FROM users').n),
+    ok,
+    '放行数与真实建号数必须一致(不能出现「返回 429 但仍入库」)',
+  );
+});
+
+test('SEC-20:并发 20 次错误密码登录,超出配额的请求返回 429', async () => {
+  const env = makeEnv();
+  await reg(env, 'burst-login@x.com', '10.8.0.1');
+  const ip = '10.8.8.8';
+  const rs = await Promise.all(Array.from({ length: 20 }, (_, i) =>
+    log(env, 'burst-login@x.com', 'wrong-' + i, ip)));
+
+  const limited = rs.filter((r) => r.status === 429).length;
+  const reached = rs.filter((r) => r.status === 401).length;
+
+  assert.ok(limited >= 15, `20 并发里至少 15 个应被闸门拦下,实际 ${limited}`);
+  assert.ok(reached <= 5, `最多 5 次真正走到密码校验,实际 ${reached}`);
+});

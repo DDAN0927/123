@@ -32,7 +32,7 @@ wrangler d1 execute guanchao --remote --file=./schema.sql
 
 `wrangler.toml` 里:
 
-- `ALLOWED_ORIGIN`:填你页面的来源,例如 `https://your-site.pages.dev` 或本地调试用 `*`。
+- `ALLOWED_ORIGIN`:填你页面的**精确来源**,例如 `https://your-site.pages.dev`。不要填 `*`,也不要带尾斜杠——通配符会让任意站点代访客发起登录/注册,把按 IP 的限流整个绕开(代码会显式忽略 `*`,但别依赖这层兜底)。
 - `ALERT_FROM`:发件人地址,必须是 Resend 里验证过的域名邮箱。
 
 可选邮件:
@@ -59,6 +59,8 @@ wrangler deploy
 3. 输入邮箱和 8 位以上密码,点「注册」。
 4. 首次注册会把本机自选、对比、提醒、模拟账户上传;换设备登录会自动拉取。
 5. 需要覆盖时用「上传本机 / 拉取云端」;可勾选自动同步。
+
+> 地址限制:前端只接受 `https://` 且满足以下之一的地址——与页面同源、`*.workers.dev`、`localhost` / `127.0.0.1`。绑了自定义域名(如 `https://api.example.com`)时,请把该域名加入 `index.html` 的 `CLOUD_HOST_ALLOW` 白名单,否则会被拒绝(界面上会提示「该地址不会被使用」)。
 
 ## 接口
 

@@ -48,13 +48,16 @@ const SECURITY_HEADERS = {
 
 function cors(env) {
   // 未配置 ALLOWED_ORIGIN 时不返回 CORS 头,浏览器会拒绝跨域调用(默认拒绝)。
+  // 显式拒绝 '*':README 曾教用户本地调试填 '*',但通配符会让任意站点代受害者
+  // 发起登录/注册(每个受害者是一个独立出口 IP),把按 IP 的限流维度整个绕开。
   const h = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     Vary: 'Origin',
     ...SECURITY_HEADERS,
   };
-  if (env && env.ALLOWED_ORIGIN) h['Access-Control-Allow-Origin'] = env.ALLOWED_ORIGIN;
+  const allowed = env && env.ALLOWED_ORIGIN;
+  if (allowed && allowed !== '*') h['Access-Control-Allow-Origin'] = allowed;
   return h;
 }
 function json(data, status = 200, env = {}, extra = {}) {
@@ -201,11 +204,10 @@ async function register(req, env) {
   // 注册限流:与登录的 i: 键分开命名,避免互相影响。每次尝试都计数(含格式错误),
   // 否则攻击者可以用垃圾请求绕过配额、只把有效注册打进来。
   const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
-  const wait = await ipGate(env, 'r:' + ip);
+  const wait = await gateBump(env, 'r:' + ip, REGISTER_MAX, LOGIN_LOCK_MS);
   if (wait > 0) {
     return json({ error: `注册过于频繁,请 ${Math.ceil(wait / 60)} 分钟后再试` }, 429, env, { 'Retry-After': String(wait) });
   }
-  await bumpLock(env, 'r:' + ip, REGISTER_MAX, LOGIN_LOCK_MS);
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
   if (!emailValid(email)) return json({ error: '邮箱格式不正确' }, 400, env);
@@ -225,37 +227,45 @@ async function register(req, env) {
      i:<ip>     登录来源(硬锁,唯一会返回 429 的维度)
      e:<email>  登录目标(只计数 + 递增延迟,永不硬锁)
      r:<ip>     注册来源(硬锁)
-   计数一律用单条 UPSERT 完成,不做"先读后写"。先读后写在并发下会让 N 个请求
-   读到同一个旧值、各自写回 +1,把 5 次上限实际压到 1~3 次。 */
-const SQL_BUMP_LOCK = `INSERT INTO login_attempts (key,fails,first_at,locked_until) VALUES (?,1,?,0)
+   计数与判定合成一条 UPSERT:先自增拿新值,再判是否超限。仅把"读"和"写"两行
+   调换顺序不够——两者之间仍有 await 边界,并发请求会一起穿过。 */
+const SQL_GATE_BUMP = `INSERT INTO login_attempts (key,fails,first_at,locked_until) VALUES (?,1,?,0)
 ON CONFLICT(key) DO UPDATE SET
   fails = CASE WHEN excluded.first_at - first_at < ? THEN fails + 1 ELSE 1 END,
   first_at = CASE WHEN excluded.first_at - first_at < ? THEN first_at ELSE excluded.first_at END,
   locked_until = CASE
     WHEN excluded.first_at - first_at >= ? THEN 0
-    WHEN fails + 1 >= ? THEN ?
-    ELSE locked_until END`;
+    WHEN locked_until > ? THEN locked_until
+    WHEN fails + 1 > ? THEN ?
+    ELSE locked_until END
+RETURNING fails, locked_until`;
 const SQL_BUMP_ONLY = `INSERT INTO login_attempts (key,fails,first_at,locked_until) VALUES (?,1,?,0)
 ON CONFLICT(key) DO UPDATE SET
   fails = CASE WHEN excluded.first_at - first_at < ? THEN fails + 1 ELSE 1 END,
   first_at = CASE WHEN excluded.first_at - first_at < ? THEN first_at ELSE excluded.first_at END,
   locked_until = 0`;
 
-async function bumpLock(env, key, maxFails, lockMs) {
+/* 闸门必须「先写后判」:先原子自增、拿到新计数,再决定放行还是 429。
+   若先 SELECT 判锁、再 UPSERT 计数,并发请求会全部读到 locked_until=0 而放行,
+   有效配额 = 并发数 × 上限(实测 20 并发可全部穿过)。
+   阈值语义:第 maxFails 次仍放行(返回 401),第 maxFails+1 次起 429。 */
+async function gateBump(env, key, maxFails, lockMs) {
   const now = Date.now();
-  await env.DB.prepare(SQL_BUMP_LOCK)
-    .bind(key, now, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS, maxFails, now + lockMs).run();
+  const row = await env.DB.prepare(SQL_GATE_BUMP)
+    .bind(key, now, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS, now, maxFails, now + lockMs)
+    .first();
+  const until = row ? Number(row.locked_until) || 0 : 0;
+  return until > now ? Math.ceil((until - now) / 1000) : 0;
+}
+/* 登录成功时回退本次预占的配额。只减 1、不清零:
+   攻击者必须持有一个有效账号,才能每轮多换 1 次猜测机会,代价高于收益。 */
+async function gateRelease(env, key) {
+  await env.DB.prepare('UPDATE login_attempts SET fails = CASE WHEN fails > 0 THEN fails - 1 ELSE 0 END WHERE key=?')
+    .bind(key).run();
 }
 async function bumpOnly(env, key) {
   const now = Date.now();
   await env.DB.prepare(SQL_BUMP_ONLY).bind(key, now, LOGIN_WINDOW_MS, LOGIN_WINDOW_MS).run();
-}
-// 只查硬锁;邮箱键的 locked_until 一律为 0,因此不会被这里命中。
-async function ipGate(env, key) {
-  const now = Date.now();
-  const r = await env.DB.prepare('SELECT locked_until FROM login_attempts WHERE key=?').bind(key).first();
-  if (r && r.locked_until > now) return Math.ceil((r.locked_until - now) / 1000);
-  return 0;
 }
 // 邮箱维度:失败越多等越久,但永远放行(不返回 429)。
 async function emailBackoffMs(env, email) {
@@ -267,11 +277,11 @@ async function emailBackoffMs(env, email) {
   if (fails < EMAIL_BACKOFF_AFTER) return 0;
   return Math.min(EMAIL_BACKOFF_MAX_MS, EMAIL_BACKOFF_BASE_MS * 2 ** (fails - EMAIL_BACKOFF_AFTER));
 }
-async function loginFail(env, email, ip) {
-  await bumpLock(env, 'i:' + ip, LOGIN_MAX_FAILS, LOGIN_LOCK_MS);
+async function loginFail(env, email) {
   await bumpOnly(env, 'e:' + email);
 }
-// 只清邮箱键:清 IP 键会让攻击者用自己账号登录一次就重置失败计数。
+// 只清邮箱键。IP 键不能清零——清零等于让攻击者登录自己的账号就把失败计数归零;
+// 成功登录只在 gateRelease 里回退 1 次预占配额。
 async function loginClear(env, email) {
   await env.DB.prepare('DELETE FROM login_attempts WHERE key=?').bind('e:' + email).run();
 }
@@ -283,7 +293,7 @@ async function login(req, env) {
   const password = String(body.password || '');
   if (!email || password.length > 72) return json({ error: '邮箱或密码错误' }, 401, env);
   const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
-  const wait = await ipGate(env, 'i:' + ip);
+  const wait = await gateBump(env, 'i:' + ip, LOGIN_MAX_FAILS, LOGIN_LOCK_MS);
   if (wait > 0) {
     return json({ error: `尝试次数过多,请 ${Math.ceil(wait / 60)} 分钟后再试` }, 429, env, { 'Retry-After': String(wait) });
   }
@@ -295,9 +305,11 @@ async function login(req, env) {
   // 用户不存在时同样做一次哈希,避免响应时间暴露邮箱是否已注册
   const hash = await hashPassword(password, user ? user.salt : b64(new Uint8Array(16)), iters);
   if (!user || !timingSafeEqual(hash, user.pass_hash)) {
-    await loginFail(env, email, ip);
+    await loginFail(env, email);
     return json({ error: '邮箱或密码错误' }, 401, env);
   }
+  // 成功:回退本次预占的 IP 配额(不清零),再清邮箱维度。
+  await gateRelease(env, 'i:' + ip);
   await loginClear(env, email);
   if (iters < PBKDF2_ITER) {
     // 透明升级:密码正确时用新迭代次数重新哈希并保存

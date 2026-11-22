@@ -2,6 +2,37 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 1.7.1(2026-11-22,上线前全检的阻塞项修复)
+
+全检报告:`deliverables/gstack/pre-launch-check-guanchao-2026-11-22.md`(36 条,3 组阻塞 + 1 条条件阻断)。
+
+### fix(ui): 空角标常显 + wrapper 留白
+- 根因:`.synth-badge{display:inline-flex}` 是作者样式,压过 UA 的 `[hidden]{display:none}`,导致 `el.hidden` 只改语义、视觉上仍渲染一个 16×6 的空琥珀色胶囊。抽屉默认区间是 1M,所以**每次打开详情页必现**;hero 切非 1D、内置标的进基本面 tab 同样。
+- 方案:补 `.synth-badge[hidden]{display:none}` 与 `.synth-line[hidden]{display:none}`;`setSynthBadge()` 同步收起 wrapper,但**限定 `parentElement.classList.contains('synth-line')`**——hero 的父元素是 `.cc-foot`,无条件隐藏会把价格/MA20/MA60 图例一起藏掉。
+- 验证:Playwright 1440×1000 实测,hero 1M 角标 0×0、图例「价格 MA20 MA60」仍可见、`.cc-foot` 高 45px;抽屉 1M 角标与 wrapper 均 0×0;基本面两处间距回到 HEAD 的 12px / 10px;手动塞文案时角标 56×23 正常显示;0 页面错误。
+
+### fix(copy): 数据真实性标注补完
+- 指数卡 `实时` → `静态示例`,并去掉「成交 1.12 万亿」「南向 +42.6 亿」「VIX 14.2」「年内 +38.6%」等虚构数字,改为市场描述;区块说明补「指数卡为静态示例,非实时行情」。
+- hero `aria-label` 去掉「实时」;滚动条 aria-label、meta description 同步。
+- 抽屉时间标签:模拟标的由「实时 · 模拟」改为「模拟 · 非真实」。
+- DATABASE strip:未实现能力(股东持仓/龙虎榜/北向/期权链/链上地址/p99)统一标「演示」;「财报 8 年 · 3,120 家」改为「财务趋势 4 年 · 估算」。
+
+### fix(auth): 限流改「先写后判」,并发不再穿透
+- 根因:`ipGate()` 先 SELECT 判锁、再 UPSERT 计数,并发请求全部读到 `locked_until=0` 而放行。实测旧实现:20 并发注册 20/20 成功(真建 20 行)、20 并发错密码登录 20/20 返 401。
+- 方案:合并为单条 `INSERT … ON CONFLICT … RETURNING fails, locked_until`,先自增拿新值再判阈;阈值语义为「第 5 次仍放行、第 6 次起 429」。登录成功回退 1 次预占配额(不清零),避免正常用户被自己锁死。
+- 验证:20 并发注册 → 5×200 / 15×429,users 表 5 行;20 并发错密码 → 5×401 / 15×429。新增 2 条并发断言,单测 34/34、后端提醒 6/6 全绿。
+
+### fix(cors): 拒绝 `ALLOWED_ORIGIN='*'`
+- `cors()` 对 `*` 不再回显 ACAO(配错时默认拒绝);README 删掉「本地调试用 `*`」并说明理由。
+- 同步补充 README:前端只接受 `https` + 同源/`*.workers.dev`/localhost,自定义域名需加白名单。
+
+### 尚未完成(需账号或后续迭代)
+- `wrangler.toml` 的 `database_id` / `ALLOWED_ORIGIN` / `ALERT_FROM` 仍为占位符,需用真实 Cloudflare 资源填写。
+- 限流项为「条件阻断」:若公开开放注册,必须在开放前修完(本次已修);邮箱验证(P1-6)仍未做。
+- P1-1(非 1D 区间合成数据无角标)、P1-2(智策评分口径)、P1-12(cron 代码截断饥饿)等见报告。
+
+---
+
 ## 阶段三 · 第一轮(2026-11-21,阶段一审计后的 P0 修复)
 
 阶段一审计报告:`deliverables/gstack/code-audit-guanchao-2026-11-21.md`(37 条问题,3 条 P0)。
