@@ -30,3 +30,6 @@ desktop.ini
 
 # 评估过程产物（截图、探针脚本、本地依赖）
 deliverables/
+
+# 删除前的备份包（含旧后端代码，勿提交）
+_backup/

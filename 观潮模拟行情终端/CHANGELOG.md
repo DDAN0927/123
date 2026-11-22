@@ -2,6 +2,15 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 未发布 · 取消公网部署(2026-11-22,commit 577cef2)
+
+决定不做公网部署,移除部署相关文件:
+
+- 删除 `backend/`(`worker.js`、`wrangler.toml`、`schema.sql`、`migrate-002-auth.sql`、`README.md`、`test/`)与 `tests/`(`auth`/`state`/`alerts` 单测 + D1 替身),共 10 个文件。
+- 删除前核查:仓库无 git remote,从未 push;Cloudflare 未登录成功(`whoami` = not authenticated),未执行过任何 `deploy`。**代码未离开本机**。
+- 备份:`_backup/backend-tests-2026-11-22.tar.gz`;git 提交 `0c25cad` 内完整保留。恢复:`git checkout 0c25cad -- backend tests`。
+- `index.html` 未改动,云同步入口保留但无服务端可连。`CLOUD_HOST_ALLOW` 与 `safeCloudBase()` 仍在第 6884 行起。
+
 ## 1.7.1(2026-11-22,上线前全检的阻塞项修复)
 
 全检报告:`deliverables/gstack/pre-launch-check-guanchao-2026-11-22.md`(36 条,3 组阻塞 + 1 条条件阻断)。
