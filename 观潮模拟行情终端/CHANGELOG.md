@@ -2,6 +2,22 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 未发布 · 阶段三第三轮(2026-11-23,触摸目标 120 → 0)
+
+375/414 实测 120 个交互目标 <48px(a207560)。**定标**:独立图标按钮 48×48;密集行内控件(标签页/筛选片/工具条)44×44——Apple HIG 44pt,WCAG 2.5.8 相邻留白豁免。此后 QA 口径从「below48」改为「below44」,44–48 区间的 83 个行内控件视为达标。
+
+### 修法
+- 图标类:`.icon-btn`/`.dh-star` 提到 48×48;`.tk-star`(自选行星标 ×20)44×44。
+- 文本链接:`.brand`/`.foot-col a`/`.link-arrow`/`.pf-reset` 补垂直 padding(链接没法加宽,加高到 ≥44)。
+- 控件类:`.seg`/`.preset-row`/`.cc-range`/`.dh-ranges`/`.ind-toggle`/`.cmp-ranges`/`.term-btn`/`.kbd-btn`/`.data-import`/`.set-btn`/`.set-select`/`.mini-select`/`.btn-sync`/`.pager` 与 15 个表单控件统一 44px 高;`.mini-select` 箭头 `background-position` 随高度重算;`.pager` 允许换行(7 个 44px 按钮 375 下单行放不下)。
+- 全部装在 `@media (max-width:760px)` 且置于主样式块**末尾**,桌面密集布局零改动。
+
+### 踩坑与验证
+- **关闭态弹窗 scale(.98)**:rect 缩 2%,44px 量成 43.1,凭空多出假报。探针必须过滤 `pointer-events:none`(关闭弹窗),或只在弹窗打开时量。
+- 行高 21.875px + padding 11px = 43.875,舍入显示 44 但原始值 <44——临界值要留 1px 余量。
+- 验证:`verify-touch.js` 6/6 PASS(375/414 below44=0、两者无横向溢出、`?selftest` 38/38、1440 无回归);终端工具条/表尾/hero 卡三张移动端截图人工复核无破版。
+- 探针存于 `_stage3/verify-touch.js`、截图 `layout/touch-375-*.png`。
+
 ## 未发布 · 阶段三第二轮(2026-11-23,并行评审返修落地)
 
 三路并行评审(QA 矩阵 / UX 旅程 / 设计审计)报告落盘后的集中返修,共 5 个 commit。
