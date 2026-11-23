@@ -15,6 +15,7 @@
   --panel-2:#0D1218;
   --ink:#F2F5F8;
   --ink-2:#B9C2CE;
+  --ink-3:#3D4753;
   --mute:#7E8998;
   --faint:#828C99;
   --line:rgba(255,255,255,.07);
@@ -24,6 +25,14 @@
   --accent:#FFC46B;
   --accent-soft:rgba(255,196,107,.12);
   --glow:rgba(59,228,155,.09);
+  /* 主操作按钮:此前 8 处 var(--brand)、7 处 var(--brand-ink) 被引用但从未定义,
+     计算值无效 → background 回退成 transparent、color 继承正文色,
+     「添加提醒」「加入」「同步」三个主按钮全部渲染成纯文本(无底无框、不可辨认为按钮)。
+     用 --ink/--bg 派生而非写死色值,暗色为正白底黑字、亮色自动反转为黑底白字 */
+  --brand:var(--ink);
+  --brand-ink:var(--bg);
+  --shadow:0 12px 32px rgba(0,0,0,.55);
+  --shadow-lg:0 40px 90px rgba(0,0,0,.60);
   --sans:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   --serif:Georgia,"Iowan Old Style","Songti SC","SimSun",serif;
   --mono:"Cascadia Mono",Consolas,"SF Mono",ui-monospace,"Roboto Mono",monospace;
@@ -41,6 +50,7 @@
   --panel-2:#F8F8F4;
   --ink:#0C0F13;
   --ink-2:#3B434E;
+  --ink-3:#767F8C;
   --mute:#5A6472;
   --faint:#6B7583;
   --line:rgba(12,15,19,.09);
@@ -50,6 +60,10 @@
   --accent:#9A6312;
   --accent-soft:rgba(154,99,18,.08);
   --glow:rgba(154,99,18,.055);
+  /* --brand/--brand-ink 由 :root 继承 var(--ink)/var(--bg),亮色下自动反转为黑底白字。
+     阴影必须按主题给,亮色沿用暗色的 .55/.60 黑会在弹窗四周留下脏灰晕 */
+  --shadow:0 12px 32px rgba(12,15,19,.10);
+  --shadow-lg:0 40px 90px rgba(12,15,19,.14);
 }
 
 /* ============ 2 · RESET / BASE ============ */
