@@ -209,6 +209,31 @@ h1,h2,h3,h4,p{margin:0}
 }
 .hero-sub{margin-top:18px;max-width:46ch;color:var(--ink-2);font-size:15.5px;line-height:1.85}
 .hero-cta{display:flex;gap:14px;margin-top:38px;flex-wrap:wrap;align-items:center}
+/* R6 第 4 步:首屏快览条——桌面隐藏(hero 已有面板),≤760 横向可滑 */
+.quick-strip{
+  display:none;gap:8px;margin-top:18px;overflow-x:auto;
+  /* hero-copy 是 align-items:flex-start 的 flex 列,必须显式撑满,
+     否则条按内容宽增长、被 .hero overflow:hidden 裁掉且无法滑动 */
+  align-self:stretch;width:100%;
+  scrollbar-width:none;-ms-overflow-style:none;
+  scroll-snap-type:x proximity;padding:2px 0 6px;
+  -webkit-overflow-scrolling:touch;
+}
+.quick-strip::-webkit-scrollbar{display:none}
+.qs-chip{
+  flex:none;min-width:108px;min-height:44px;scroll-snap-align:start;
+  display:flex;flex-direction:column;gap:4px;justify-content:center;
+  padding:8px 12px;border:1px solid var(--line);background:var(--bg-2);
+  color:var(--ink);cursor:pointer;text-align:left;font-family:inherit;
+}
+.qs-chip .n{font-size:11px;color:var(--ink-2);white-space:nowrap}
+.qs-chip .n small{font-family:var(--mono);font-size:9px;color:var(--faint)}
+.qs-chip .r{display:flex;gap:8px;align-items:baseline}
+.qs-chip .px{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink)}
+.qs-chip .cg{font-family:var(--mono);font-size:10.5px}
+.qs-chip .cg.up{color:var(--up)}
+.qs-chip .cg.down{color:var(--down)}
+.qs-chip:active{border-color:var(--line-2)}
 .btn{
   position:relative;display:inline-flex;align-items:center;gap:12px;height:52px;padding:0 26px;
   font-size:14px;font-weight:600;letter-spacing:.01em;border:1px solid var(--line-2);
@@ -1438,6 +1463,7 @@ table.hot td:nth-child(2){min-width:230px}
    统一放在最后一个媒体块,源序覆盖前面所有同名规则。 */
 @media (max-width:760px){
   .icon-btn{width:48px;height:48px}
+  .quick-strip{display:flex}
   .dh-star{width:48px;height:48px}
   .tk-star{width:44px;height:44px}
   .tk-star svg{width:15px;height:15px}
@@ -1558,6 +1584,8 @@ table.hot td:nth-child(2){min-width:230px}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
           </a>
         </div>
+        <!-- R6 第 4 步:指数 + 自选快览条(≤760 显示),横向可滑,移动端看盘 2 屏缩 1 屏 -->
+        <div class="quick-strip" id="quickStrip" aria-label="指数与自选快览"></div>
         <div class="hero-stats">
           <div class="hstat"><b id="marketCount">--</b><span>覆盖标的 · 沪深 / 港股 / 美股 / 数字资产</span></div>
           <div class="hstat"><b id="tickCount">0</b><span>本次会话模拟 tick 次数</span></div>
@@ -4050,6 +4078,8 @@ function renderTable() {
   });
   /* N3:表格重渲染(tick/筛选/翻页)后恢复键盘光标 */
   if (typeof window.kbRestore === 'function') window.kbRestore();
+  /* R6 第 4 步:自选变化/筛选后同步快览条(renderTable 是 fav 变更的公共汇点) */
+  renderQuickStrip();
 }
 
 function clearBoardFilters() {
@@ -4472,6 +4502,38 @@ function renderPortfolio() {
       </div>`;
     }).join('')
     : `<div class="pf-empty"><b>暂无成交</b>从任意个股的「交易」标签开始</div>`;
+}
+
+/* ============ R6 第 4 步:首屏快览条(指数 + 自选) ============
+   ≤760 显示,横向可滑;自选 chip 点击回个股抽屉,指数 chip 切市场过滤。
+   价格更新走 qsTickUpdate 原地改写(data-qs-px/cg),不重建 DOM——
+   否则每次 tick innerHTML 会把横向滚动位置打回起点。 */
+const QS_FAV_MAX = 8;
+function qsChipsHTML() {
+  const idxHTML = INDICES.map((d) => `<button class="qs-chip" data-qs-idx="${escapeHTML(d.code)}" data-mkt="${escapeHTML(d.mkt)}" aria-label="查看 ${escapeHTML(d.name)} 对应市场">
+    <span class="n">${escapeHTML(d.name)}</span>
+    <span class="r"><span class="px" data-qs-px="${escapeHTML(d.code)}">${fmt.px(d.val, d.val >= 10000 ? 0 : 1)}</span><span class="cg ${d.chg >= 0 ? 'up' : 'down'}" data-qs-cg="${escapeHTML(d.code)}">${fmt.pct(d.chg)}</span></span>
+  </button>`).join('');
+  const favs = STOCKS.filter((s) => s.isFav)
+    .sort((a, b) => Math.abs(b.chgPct) - Math.abs(a.chgPct))
+    .slice(0, QS_FAV_MAX);
+  const favHTML = favs.map((s) => `<button class="qs-chip" data-qs="${escapeHTML(s.code)}" aria-label="查看 ${escapeHTML(s.name)} 行情详情">
+    <span class="n">${escapeHTML(s.name)}<small> · ${escapeHTML(s.code)}</small></span>
+    <span class="r"><span class="px" data-qs-px="${escapeHTML(s.code)}">${fmt.px(s.last, s.market === 'CRYPTO' ? 0 : 2)}</span><span class="cg ${s.chgPct >= 0 ? 'up' : 'down'}" data-qs-cg="${escapeHTML(s.code)}">${fmt.pct(s.chgPct)}</span></span>
+  </button>`).join('');
+  return idxHTML + favHTML + `<a class="qs-chip" href="#terminal" aria-label="去行情终端"><span class="n" style="color:var(--accent)">去行情终端 →</span></a>`;
+}
+function renderQuickStrip() {
+  const host = $('#quickStrip');
+  if (!host) return;
+  host.innerHTML = qsChipsHTML();
+}
+function qsTickUpdate(s) {
+  if (!s) return;
+  const px = document.querySelector(`[data-qs-px="${s.code}"]`);
+  const cg = document.querySelector(`[data-qs-cg="${s.code}"]`);
+  if (px) px.textContent = fmt.px(s.last, s.market === 'CRYPTO' ? 0 : 2);
+  if (cg) { cg.textContent = fmt.pct(s.chgPct); cg.className = `cg ${s.chgPct >= 0 ? 'up' : 'down'}`; }
 }
 
 /* ============ price alerts ============ */
@@ -5702,6 +5764,8 @@ function liveTick() {
       if (idx) { idx.val = s.last; idx.chg = s.chgPct; }
     }
   });
+  /* R6 第 4 步:快览条价格原地更新(滚动位置不受影响) */
+  picks.forEach(qsTickUpdate);
   // keep an open drawer in sync
   if (state.openCode) {
     const cur = BY_CODE[state.openCode];
@@ -6139,6 +6203,16 @@ function wireEvents() {
   $('#condList').addEventListener('click', (e) => {
     const c = e.target.closest('[data-condcancel]');
     if (c) condCancel(c.dataset.condcancel);
+  });
+  /* R6 第 4 步:快览条交互——自选 chip 回抽屉,指数 chip 切市场过滤 */
+  $('#quickStrip').addEventListener('click', (e) => {
+    const fav = e.target.closest('[data-qs]');
+    if (fav) { openDrawer(fav.dataset.qs); return; }
+    const idx = e.target.closest('[data-qs-idx]');
+    if (idx) {
+      applyMarketFilter(idx.dataset.mkt || 'all');
+      document.getElementById('terminal').scrollIntoView({ behavior: 'smooth' });
+    }
   });
   /* N1 今日待办入口与交互 */
   $('#todayBtn').addEventListener('click', openToday);
