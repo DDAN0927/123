@@ -621,7 +621,6 @@ table.hot td:nth-child(2){min-width:230px}
 .xray-note::before{content:"";width:4px;height:4px;margin-top:6px;background:var(--accent);transform:rotate(45deg);flex:none}
 .xray-note.ok::before{background:var(--down)}
 @media (max-width:390px){.brand span{display:none}}
-@media (max-width:760px){.acct-chip{display:none!important}}
 
 /* ---------- screener presets ---------- */
 .smart-row{display:flex;gap:6px;flex-basis:100%}
@@ -969,9 +968,9 @@ table.hot td:nth-child(2){min-width:230px}
 }
 @media (max-width:560px){
   .mkt-status{display:none}
-  /* 375 内容宽仅 320px:品牌 106 + 3 个 48px 图标 + 间隙 = 286,留 34px 余量。
-     设置与明暗主题移入移动菜单面板(.nav-m),见于 5190 起的补丁样式块 */
-  #settingsBtn,#themeToggle{display:none}
+  /* 375 内容宽仅 320px:品牌 106 + 搜索 44 + 资产 chip ~95 + 汉堡 48 + 间隙。
+     设置/主题/提醒三个入口移入移动菜单面板(.nav-m),见于 5190 起的补丁样式块 */
+  #settingsBtn,#themeToggle,#alertsBtn{display:none}
   .nav-right{gap:8px}
 }
 @media (max-width:760px){
@@ -1092,7 +1091,7 @@ table.hot td:nth-child(2){min-width:230px}
 .pf-reset:hover{color:var(--up)}
 @media (max-width:1140px){.acct-txt i{display:none}}
 @media (max-width:760px){.acct-chg{display:none}.acct-txt b{font-size:11px}.acct-chip{padding:0 9px;height:34px}}
-@media (max-width:560px){.acct-chip{display:none}.pf-sum{grid-template-columns:1fr 1fr}.pf-sum>div:first-child{grid-column:1/-1}}
+@media (max-width:560px){.pf-sum{grid-template-columns:1fr 1fr}.pf-sum>div:first-child{grid-column:1/-1}}
 
 /* ============ 16 · SECTOR BOARD ============ */
 .sb-shell{margin-top:clamp(36px,4vw,56px);border:1px solid var(--line);background:var(--panel)}
@@ -1257,7 +1256,6 @@ table.hot td:nth-child(2){min-width:230px}
 .data-import:hover{color:var(--accent);border-color:var(--accent)}
 .data-import.primary{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
 .data-status{color:var(--faint)}
-@media (max-width:760px){.acct-chip{display:none!important}}
 .stock-tabs{display:flex;gap:2px;overflow-x:auto;padding:8px 12px 0;border-bottom:1px solid var(--line);flex:none;scrollbar-width:none;background:var(--bg-2)}
 .stock-tabs::-webkit-scrollbar{display:none}
 .stock-tabs:empty{display:none}
@@ -1455,6 +1453,11 @@ table.hot td:nth-child(2){min-width:230px}
   .btn-sync{height:44px}
   #palInput,#smartQuery,#cmpInput,#sectorSearch,#alertCode,#alertPrice,#alertDir{height:44px}
   #smartApply,#smartClear,#cmpAdd,#sectorFilter,#alertAdd,#notifyBtn{height:44px;padding:0 14px}
+  /* 第 2 期 R6:移动端资产常显——压成「总资产」单行放导航右侧,
+     图标/标签/涨跌幅全藏,只留数字(设计审计 §17.7③ 方案 B) */
+  .acct-chip{display:inline-flex;align-items:center;height:44px;padding:0 10px;gap:0;flex:none}
+  .acct-chip .acct-ico,.acct-chip .acct-txt i,.acct-chip .acct-chg{display:none}
+  .acct-chip .acct-txt b{font-size:12.5px;font-weight:600;letter-spacing:0}
 }
 </style>
 </head>
@@ -1478,6 +1481,7 @@ table.hot td:nth-child(2){min-width:230px}
       <a href="#intel" data-nav>情报</a>
       <a href="#" class="nav-pf" data-openpf>模拟账户</a>
       <!-- 仅移动端面板可见:≤560 时头部让出空间,这两个入口移到这里 -->
+      <a href="#" class="nav-m" data-mact="alerts">价格提醒</a>
       <a href="#" class="nav-m" data-mact="settings">设置</a>
       <a href="#" class="nav-m" data-mact="theme">明暗主题</a>
     </nav>
@@ -6302,6 +6306,7 @@ function wireEvents() {
     $('#mobileMenu').setAttribute('aria-expanded', 'false');
     if (act === 'settings') openSettings();
     else if (act === 'theme') setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    else if (act === 'alerts') openAlerts();
   }));
 
   // magnetic buttons
@@ -7275,7 +7280,7 @@ function boot() {
   $('#settingsModal').inert = true;
   $('#palette').inert = true;
   $('#syncModal').inert = true;
-  /* —— R9 首屏解耦:boot 原本是一个 400–800ms 的同步长任务,
+  /* —— R9 首屏解耦(阶段二第 4 轮):boot 原本是一个 400–800ms 的同步长任务,
      FCP 晚于 DCL 就是被它挡住的。首帧前只保留便宜且首屏必需的接线,
      万级宇宙构建与折叠线下渲染全部挪进首帧后的 setTimeout —— 浏览器在两阶段
      之间获得绘制机会,首屏(标题/hero 文案/导航)不再白等行情表。 —— */
