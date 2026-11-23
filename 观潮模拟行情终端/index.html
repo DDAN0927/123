@@ -463,6 +463,8 @@ table.hot tbody tr{
 }
 table.hot tbody tr:hover{background:var(--panel-2)}
 table.hot tbody tr.is-open{background:var(--panel-2);box-shadow:inset 2px 0 0 var(--accent)}
+/* N3 键盘流:j/k 光标行,虚线描边与 hover/is-open 的实心条区分 */
+table.hot tbody tr.kb-cursor{background:var(--panel-2);outline:1px dashed var(--accent);outline-offset:-1px}
 table.hot td{padding:13px 14px;vertical-align:middle;font-size:13.5px;white-space:nowrap}
 table.hot td:nth-child(2){min-width:230px}
 .tk{display:flex;align-items:center;gap:12px}
@@ -1730,6 +1732,7 @@ table.hot td:nth-child(2){min-width:230px}
         <div class="tbl-foot">
           <span id="termMeta">—</span>
           <span class="mono" style="font-size:10px;color:var(--faint)">红涨绿跌 · A 股惯例</span>
+          <span class="mono" style="font-size:10px;color:var(--faint)">键盘流:<kbd>j</kbd>/<kbd>k</kbd> 切标的 · <kbd>Enter</kbd> 打开 · <kbd>1-4</kbd> 切页 · <kbd>/</kbd> 搜索</span>
           <label class="page-jump">跳至 <input id="pageJump" type="number" min="1" inputmode="numeric" aria-label="跳转页码"> 页</label>
           <div class="pager" id="pager"></div>
         </div>
@@ -4004,6 +4007,8 @@ function renderTable() {
   $$('#hotBody tr').forEach((tr) => {
     if (tr.dataset.code === state.openCode) tr.classList.add('is-open');
   });
+  /* N3:表格重渲染(tick/筛选/翻页)后恢复键盘光标 */
+  if (typeof window.kbRestore === 'function') window.kbRestore();
 }
 
 function clearBoardFilters() {
@@ -5692,25 +5697,97 @@ function wireEvents() {
   });
 
   // keyboard
+  /* N3 键盘优先看盘流:j/k 切标的、Enter 打开、1-4 切抽屉页、/ 聚焦搜索、Esc 逐层关闭。
+     输入框聚焦时不劫持;除行情抽屉外的弹层打开时不响应(j/k 会在背后乱跳) */
+  const kbTyping = () => {
+    const a = document.activeElement;
+    if (!a) return false;
+    const t = (a.tagName || '').toLowerCase();
+    return t === 'input' || t === 'textarea' || t === 'select' || a.isContentEditable;
+  };
+  const KB_CLOSE = {
+    palette: palClose, syncModal: closeSyncModal, settingsModal: closeSettings,
+    cmpModal: closeCompare, alertDrawer: closeAlerts, sectorDrawer: closeSectorDrawer,
+    portfolio: closePortfolio, drawer: closeDrawer,
+  };
+  let kbRow = -1;
+  let kbCode = null;
+  const kbRows = () => $$('#hotBody tr[data-code]');
+  function kbPaint(rows) {
+    rows.forEach((tr, i) => tr.classList.toggle('kb-cursor', i === kbRow));
+  }
+  function kbMove(delta) {
+    const rows = kbRows();
+    if (!rows.length) return null;
+    kbRow = kbRow < 0 || kbRow >= rows.length ? (delta > 0 ? 0 : rows.length - 1) : clamp(kbRow + delta, 0, rows.length - 1);
+    kbCode = rows[kbRow].dataset.code;
+    kbPaint(rows);
+    rows[kbRow].scrollIntoView({ block: 'nearest' });
+    return kbCode;
+  }
+  function kbClear() {
+    kbRow = -1; kbCode = null;
+    $$('#hotBody tr.kb-cursor').forEach((tr) => tr.classList.remove('kb-cursor'));
+  }
+  /* 行情 tick 每 1.2–3.8s 重渲染表格:按代码记忆恢复光标(不滚动,
+     否则每次 tick 都会把视口拽到光标行);筛选/翻页后行不在当前页则自然清除 */
+  function kbRestore() {
+    if (!kbCode) { kbRow = -1; return; }
+    const rows = kbRows();
+    kbRow = rows.findIndex((tr) => tr.dataset.code === kbCode);
+    if (kbRow < 0) { kbRow = -1; kbCode = null; return; }
+    kbPaint(rows);
+  }
+  window.kbClear = kbClear;   /* renderTable 在另一 script 块,经全局引用 */
+  window.kbRestore = kbRestore;
+  function kbOpen() {
+    const rows = kbRows();
+    if (kbRow < 0 || kbRow >= rows.length) return false;
+    openDrawer(rows[kbRow].dataset.code);
+    return true;
+  }
+  function kbTab(n) {
+    const b = $$('.dh-tabs button')[n - 1];
+    if (b) b.click();
+  }
+  const kbDrawerOn = () => document.getElementById('drawer').classList.contains('is-on');
+  const kbBlocked = () => ['palette', 'syncModal', 'settingsModal', 'cmpModal', 'alertDrawer', 'sectorDrawer', 'portfolio']
+    .some((id) => document.getElementById(id).classList.contains('is-on'));
   document.addEventListener('keydown', (e) => {
     const cmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
     if (cmdK) { e.preventDefault(); palette.classList.contains('is-on') ? palClose() : palOpen(); return; }
     if (e.key === 'Escape') {
-      if (palette.classList.contains('is-on')) palClose();
-      if ($('#syncModal').classList.contains('is-on')) closeSyncModal();
-      if ($('#settingsModal').classList.contains('is-on')) closeSettings();
-      if ($('#alertDrawer').classList.contains('is-on')) closeAlerts();
-      if ($('#sectorDrawer').classList.contains('is-on')) closeSectorDrawer();
-      if ($('#cmpModal').classList.contains('is-on')) closeCompare();
-      if ($('#portfolio').classList.contains('is-on')) closePortfolio();
-      if ($('#drawer').classList.contains('is-on')) closeDrawer();
+      /* N3:Esc 逐层关闭——一次只关最上层,连按层层退出,不再一次全关 */
+      for (const id of DIALOG_ORDER) {
+        const el = document.getElementById(id);
+        if (el && el.classList.contains('is-on')) { KB_CLOSE[id](); return; }
+      }
       $$('.nav-links').forEach((n) => n.classList.remove('is-open'));
+      return;
     }
     if (palette.classList.contains('is-on')) {
       if (e.key === 'ArrowDown') { e.preventDefault(); palMove(1); }
       if (e.key === 'ArrowUp') { e.preventDefault(); palMove(-1); }
       if (e.key === 'Enter') { e.preventDefault(); palChoose(); }
+      return;
     }
+    if (kbTyping()) return;
+    if (e.key === '/') { e.preventDefault(); palOpen(); return; }
+    if (kbBlocked()) return;
+    if (e.key === 'j' || e.key === 'J') {
+      e.preventDefault();
+      const c = kbMove(1);
+      if (kbDrawerOn() && c) openDrawer(c);
+      return;
+    }
+    if (e.key === 'k' || e.key === 'K') {
+      e.preventDefault();
+      const c = kbMove(-1);
+      if (kbDrawerOn() && c) openDrawer(c);
+      return;
+    }
+    if (e.key === 'Enter' && kbRow >= 0) { e.preventDefault(); kbOpen(); return; }
+    if (['1', '2', '3', '4'].includes(e.key) && kbDrawerOn()) { e.preventDefault(); kbTab(+e.key); return; }
     if (e.key === 'Tab') {
       const dlg = topDialog();
       if (dlg) trapFocus(dlg, e);
