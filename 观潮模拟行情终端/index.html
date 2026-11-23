@@ -928,8 +928,18 @@ table.hot td:nth-child(2){min-width:230px}
   .kbd-btn kbd{display:none}
   .kbd-btn{padding:0 9px}
 }
+/* 触摸目标:导航图标一律 48×48。原先 34×34 且不足视口宽,在 375/414 下
+   .nav-right 实测 228px 宽、right=435(超 60px),#mobileMenu 被裁掉一半 */
+@media (max-width:760px){
+  .nav .icon-btn{width:48px;height:48px;flex:none}
+  .nav-right{gap:10px}
+}
 @media (max-width:560px){
   .mkt-status{display:none}
+  /* 375 内容宽仅 320px:品牌 106 + 3 个 48px 图标 + 间隙 = 286,留 34px 余量。
+     设置与明暗主题移入移动菜单面板(.nav-m),见于 5190 起的补丁样式块 */
+  #settingsBtn,#themeToggle{display:none}
+  .nav-right{gap:8px}
 }
 @media (max-width:760px){
   body{font-size:14.5px}
@@ -1016,6 +1026,8 @@ table.hot td:nth-child(2){min-width:230px}
 .toast.err svg{color:var(--up)}
 .nav-links a.nav-pf{display:none}
 .nav-links.is-open a.nav-pf{display:block}
+.nav-links a.nav-m{display:none}
+.nav-links.is-open a.nav-m{display:block}
 @media (max-width:1320px){.nav-time{display:none}}
 .pf-sum{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:16px}
 .pf-sum>div{background:var(--bg-2);padding:13px 15px}
@@ -1391,6 +1403,9 @@ table.hot td:nth-child(2){min-width:230px}
       <a href="#advisory" data-nav>每日智策</a>
       <a href="#intel" data-nav>情报</a>
       <a href="#" class="nav-pf" data-openpf>模拟账户</a>
+      <!-- 仅移动端面板可见:≤560 时头部让出空间,这两个入口移到这里 -->
+      <a href="#" class="nav-m" data-mact="settings">设置</a>
+      <a href="#" class="nav-m" data-mact="theme">明暗主题</a>
     </nav>
     <div class="nav-right">
       <div class="mkt-status"><i class="dot-live"></i><span class="txt">沪深交易中</span></div>
@@ -6165,6 +6180,16 @@ function wireEvents() {
     $('#mobileMenu').setAttribute('aria-expanded', open ? 'true' : 'false');
   });
   $$('.nav-links a').forEach((a) => a.addEventListener('click', () => $('.nav-links').classList.remove('is-open')));
+
+  // 移动端菜单里的「设置」「明暗主题」(≤560 时头部图标让位给触摸尺寸)
+  $$('.nav-links a[data-mact]').forEach((a) => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const act = a.dataset.mact;
+    $('.nav-links').classList.remove('is-open');
+    $('#mobileMenu').setAttribute('aria-expanded', 'false');
+    if (act === 'settings') openSettings();
+    else if (act === 'theme') setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }));
 
   // magnetic buttons
   if (!reduceMotion && matchMedia('(hover:hover)').matches) {
