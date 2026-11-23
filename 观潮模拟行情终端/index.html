@@ -31,6 +31,7 @@
      用 --ink/--bg 派生而非写死色值,暗色为正白底黑字、亮色自动反转为黑底白字 */
   --brand:var(--ink);
   --brand-ink:var(--bg);
+  --on-accent:#100B02;
   --shadow:0 12px 32px rgba(0,0,0,.55);
   --shadow-lg:0 40px 90px rgba(0,0,0,.60);
   --sans:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
@@ -51,17 +52,21 @@
   --ink:#0C0F13;
   --ink-2:#3B434E;
   --ink-3:#767F8C;
-  --mute:#5A6472;
-  --faint:#6B7583;
+  /* 以下 5 个色值按 WCAG 2.1 AA(4.5:1)重新标定,仅调暗一档,
+     色相与「涨红跌绿」语义不变。改前实测:--up 4.48、--down 4.10、
+     --accent 4.37、--faint 4.39、--mute 5.4 */
+  --mute:#4E5765;
+  --faint:#5F6875;
   --line:rgba(12,15,19,.09);
   --line-2:rgba(12,15,19,.18);
-  --up:#CF2F3E;
-  --down:#04855B;
-  --accent:#9A6312;
-  --accent-soft:rgba(154,99,18,.08);
-  --glow:rgba(154,99,18,.055);
+  --up:#C52836;
+  --down:#047A53;
+  --accent:#875510;
+  --accent-soft:rgba(135,85,16,.08);
+  --glow:rgba(135,85,16,.055);
   /* --brand/--brand-ink 由 :root 继承 var(--ink)/var(--bg),亮色下自动反转为黑底白字。
      阴影必须按主题给,亮色沿用暗色的 .55/.60 黑会在弹窗四周留下脏灰晕 */
+  --on-accent:#F5F5F2;
   --shadow:0 12px 32px rgba(12,15,19,.10);
   --shadow-lg:0 40px 90px rgba(12,15,19,.14);
 }
@@ -321,7 +326,7 @@ h1,h2,h3,h4,p{margin:0}
 .tape-item .d{width:3px;height:3px;background:var(--faint);transform:rotate(45deg)}
 .tape-tag{
   position:absolute;left:0;top:0;bottom:0;z-index:3;display:flex;align-items:center;
-  padding:0 16px;background:var(--accent);color:#100B02;
+  padding:0 16px;background:var(--accent);color:var(--on-accent);
   font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;
 }
 @media (max-width:900px){.tape-tag{display:none}}
