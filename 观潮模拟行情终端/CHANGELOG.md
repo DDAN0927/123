@@ -2,6 +2,14 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 未发布 · 阶段五(2026-11-23,设计审计 Round 2 + Round 3,三轮迭代计划落地)
+
+三个 commit(fc89fd6 / fc339ed)。
+
+- **Round 2 动效与交互**(fc89fd6):时长 12 档收口 4 档并令牌化(--t-fast .12s / --t-state .2s / --t-panel .24s / --t-enter .56s),.rv 900→560ms;intel-row hover 由 padding 位移(每次 hover 整行 grid 重排)改为 background 提示;dot-live 脉冲由 box-shadow 无限动画(常驻每帧 repaint)改 ::after transform+opacity 环;prefers-reduced-motion 标准兜底(残余 158 项 → 0);新增 :focus-visible 全局描边、disabled 三态、:active 下压;移除 .btn 常驻 will-change;进度条/柱状容器补 contain。探针 `verify-r2motion.js` 15/15(含 reduced-motion 独立上下文断言)。
+- **Round 3 体系**(fc339ed):删除 1304–1420 的 91 行整段重复 CSS 规则(FRAMEWORK COMPONENTS 段重抄,后份悄悄丢失 hover transition);全文 「」→“”(44 处),全角逗号仅留搜索分词正则一处;.breadth-cells 马赛克改为**潮位图**(列=15 个一级行业 × 行=10 档时间回放,最新一行真实板块占比、历史行确定性合成,title/副标注如实披露「回放」)。探针 `verify-tide.js` 33/33(7 档宽度无溢出 + 最新行真实性)。
+- **未做**(报告 Round 3 的纯样式大重构,风险收益比不划算,挂起):间距 8px 网格对齐(13%→80% 需动 3761 条 spacing)、断点 13→4 收口、字号 40 档令牌化;移动端行式列表改卡片式属交互模型重构。如需继续,建议单独一轮 + 截图比对。
+
 ## 未发布 · 阶段四第 4 轮(2026-11-23,R7 补漏 + R6 第 4 步快览条,任务书全部收尾)
 
 两个 commit(7088d55 / b150900)。**至此 UX 报告全部条目(含可选项)销项。**探针 `verify-strip.js`(12/12)与全量回归(selftest 40/40)。
