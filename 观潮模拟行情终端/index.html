@@ -7275,29 +7275,15 @@ function boot() {
   $('#settingsModal').inert = true;
   $('#palette').inert = true;
   $('#syncModal').inert = true;
-  renderIndices();
-  renderBreadth();
-  renderMovers();
-  renderBoards();
-  renderRail();
-  renderTapes();
-  renderTable();
-  updateUniverseMeta();
-  if (SNAP) setDataStatus(true, SNAP.t, STOCKS.length, SNAP.source);
-  const initTh = $('#hotTable thead th[data-key="mcap"]');
-  if (initTh) {
-    initTh.classList.add('is-sorted');
-    const ini = initTh.querySelector('i');
-    if (ini) ini.textContent = '↓';
-  }
-  renderSignals();
-  initHero();
+  /* —— R9 首屏解耦:boot 原本是一个 400–800ms 的同步长任务,
+     FCP 晚于 DCL 就是被它挡住的。首帧前只保留便宜且首屏必需的接线,
+     万级宇宙构建与折叠线下渲染全部挪进首帧后的 setTimeout —— 浏览器在两阶段
+     之间获得绘制机会,首屏(标题/hero 文案/导航)不再白等行情表。 —— */
+  updateAcctChip();
   wireEvents();
   initReveal();
   tickClock();
   setInterval(tickClock, 1000);
-  applyRefreshInterval();
-  liveTick();
   renderSettingsUI();
   try {
     const saved = localStorage.getItem(CONFIG.keys.theme);
@@ -7310,7 +7296,34 @@ function boot() {
       if ($('#cmpModal').classList.contains('is-on')) renderCompare();
     }, 180);
   });
-  if (SELFTEST_ON) showSelfTestPanel(runSelfTests());
+  /* —— 首帧后:宇宙构建 + 数据渲染 —— */
+  setTimeout(() => {
+    const SNAP = loadSnapshotIntoUniverse();
+    if (SNAP && BY_CODE['300750']) {
+      heroStock = BY_CODE['300750'];
+      ensureSeries(heroStock);
+    }
+    renderIndices();
+    renderBreadth();
+    renderMovers();
+    renderBoards();
+    renderRail();
+    renderTapes();
+    renderTable();
+    updateUniverseMeta();
+    if (SNAP) setDataStatus(true, SNAP.t, STOCKS.length, SNAP.source);
+    const initTh = $('#hotTable thead th[data-key="mcap"]');
+    if (initTh) {
+      initTh.classList.add('is-sorted');
+      const ini = initTh.querySelector('i');
+      if (ini) ini.textContent = '↓';
+    }
+    renderSignals();
+    initHero();
+    applyRefreshInterval();
+    liveTick();
+    if (SELFTEST_ON) showSelfTestPanel(runSelfTests());
+  }, 0);
 }
 document.addEventListener('DOMContentLoaded', boot);
 </script>
