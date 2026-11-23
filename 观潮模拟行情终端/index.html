@@ -1541,7 +1541,7 @@ table.hot td:nth-child(2){min-width:230px}
     </div>
     <div class="wrap hero-inner">
       <div class="hero-copy">
-        <div class="hero-live"><i class="dot-live"></i>数据流在线 · 延迟 <b id="latency">24ms</b> · <span id="heroDate">2026</span></div>
+        <div class="hero-live">模拟行情 · 本地生成 · 非实时 · <span id="heroDate">2026</span></div>
         <h1 id="heroTitle">
           让每一次波动,<br>
           <span class="l2">都有据可依。</span>
@@ -1560,7 +1560,7 @@ table.hot td:nth-child(2){min-width:230px}
         </div>
         <div class="hero-stats">
           <div class="hstat"><b id="marketCount">--</b><span>覆盖标的 · 沪深 / 港股 / 美股 / 数字资产</span></div>
-          <div class="hstat"><b id="tickCount">0</b><span>今日已处理行情快照</span></div>
+          <div class="hstat"><b id="tickCount">0</b><span>本次会话模拟 tick 次数</span></div>
           <div class="hstat"><b data-count="68.4" data-suffix="%">68.4%</b><span>近 12 月信号方向准确率(演示)</span></div>
         </div>
       </div>
@@ -5650,7 +5650,8 @@ function tickMktStatus(now) {
 }
 
 /* ============ live simulation ============ */
-let ticked = 1286400;
+/* R7 补漏:计数器从 0 起、如实标注「本次会话」,不再虚构 128 万的初始值 */
+let ticked = 0;
 /* 只有内置模拟标的可以漂移。真实快照(s.live)与导入数据(s.imported)是静态快照,
    随机改动它们的 last 会让界面在标注「实时·东方财富」的同时显示随机数。 */
 const isSimulatable = (s) => !!s && s.market !== 'CRYPTO' && !s.live && !s.imported;
@@ -5744,11 +5745,9 @@ function liveTick() {
   }
   heroStatsUpdate();
 
-  ticked += Math.floor(1200 + Math.random() * 2600);
+  ticked += 1;
   const tc = $('#tickCount');
   if (tc) tc.textContent = ticked.toLocaleString('en-US');
-  const lat = $('#latency');
-  if (lat) lat.textContent = Math.round(16 + Math.random() * 18) + 'ms';
 }
 
 /* ============ theme ============ */
