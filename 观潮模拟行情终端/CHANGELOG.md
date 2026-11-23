@@ -2,6 +2,22 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 未发布 · 阶段四第 4 轮(2026-11-23,R7 补漏 + R6 第 4 步快览条,任务书全部收尾)
+
+两个 commit(7088d55 / b150900)。**至此 UX 报告全部条目(含可选项)销项。**探针 `verify-strip.js`(12/12)与全量回归(selftest 40/40)。
+
+### fix(trust): R7 补漏——hero 虚假宣称清零(7088d55)
+- 前轮 R7 只处理了 mkt-status / termMeta / 68.4%,hero 区两处漏网:①「数据流在线 · 延迟 24ms」(本地静态页无数据流,`#latency` 还在写 16–34ms 随机数)→ 改「模拟行情 · 本地生成 · 非实时」,去掉脉动 live 圆点;②「今日已处理行情快照 1,286,400+」(虚构初始值 + 每 tick 随机 +1200~3800)→ 从 0 起、每 tick +1,标签改「本次会话模拟 tick 次数」。
+- 教训:R7 修复后应全局 grep 随机数写入(`Math.random() * 18` 这类),别只看报告点名的三处。
+- verify-r7 探针顺手修了时间敏感断言:第一断言写死「当前为周一盘中」,16:42 后重跑必假报;改为按时段推算期望状态。
+
+### feat(strip): R6 第 4 步——首屏指数/自选快览条(b150900)
+- hero CTA 下方 `.quick-strip`:6 个指数 chip + 最多 8 个自选 chip(|涨跌| 降序)+ 去终端入口;≤760 显示(桌面 hero 已有面板),横向可滑 + scroll-snap,chip 44px 触控。
+- 自选 chip 点击回个股抽屉;指数 chip 按其 mkt 字段切市场过滤并滚到终端;renderTable 作为自选变更公共汇点同步条内容。
+- 价格更新走 `qsTickUpdate` 原地改写 `data-qs-px/cg`,**不重建 DOM**——innerHTML 重建会把横向滚动位置打回起点。
+- 两个坑:①hero-copy 是 `align-items:flex-start` 的 flex 列,条必须显式 `align-self:stretch;width:100%`,否则按内容宽增长、被 `.hero overflow:hidden` 裁掉且不可滑;②html 全局 `scroll-behavior:smooth`,`scrollLeft` 赋值是动画,探针读值前要等动画到位。
+- verify-strip 12/12;r6b 探针同步更新菜单项数(N1 加了第 4 个次级项)。
+
 ## 未发布 · 阶段四第 3 轮(2026-11-23,R6 收尾 + UX 第 4/5 期:R6 / N3 / N1 / N2)
 
 五个 commit(8a8dc09 / abc7bfa / 51014c1 / e6640e0),**至此 UX 报告 roadmap 全部销项**。探针 `verify-{r6b,n3,n1,n2}.js`,selftest 40/40。
