@@ -116,10 +116,13 @@ h1,h2,h3,h4,p{margin:0}
 .brand svg{width:22px;height:22px;color:var(--accent)}
 .brand b{font-weight:680;font-size:15.5px;letter-spacing:.16em}
 .brand span{font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;color:var(--mute);padding-top:2px}
-.nav-links{display:flex;gap:4px;margin-left:8px}
+/* flex:none + nowrap:导航项是不可压缩的定长内容。缺任一条,视口 1141–1469px 时
+   .nav-right 的固定宽子元素不让位,压缩全部落在导航项上,中文被逐字挤成竖排(高 40→63px)。
+   让位策略改由 .mkt-status 的断点承担,见 14 · RESPONSIVE */
+.nav-links{display:flex;gap:4px;margin-left:8px;flex:none}
 .nav-links a{
   padding:8px 14px;font-size:13.5px;color:var(--ink-2);position:relative;border-radius:2px;
-  transition:color .25s;
+  white-space:nowrap;transition:color .25s;
 }
 .nav-links a::after{
   content:"";position:absolute;left:14px;right:14px;bottom:4px;height:1px;
@@ -142,7 +145,7 @@ h1,h2,h3,h4,p{margin:0}
 .kbd-btn{
   display:inline-flex;align-items:center;gap:9px;height:34px;padding:0 11px;
   border:1px solid var(--line);color:var(--mute);font-size:12px;
-  transition:border-color .25s,color .25s;
+  white-space:nowrap;flex:none;transition:border-color .25s,color .25s;
 }
 .kbd-btn:hover{border-color:var(--line-2);color:var(--ink)}
 .kbd-btn kbd{
@@ -1336,7 +1339,9 @@ table.hot td:nth-child(2){min-width:230px}
 .version-badge{font-family:var(--mono);font-size:9px;border:1px solid var(--line);padding:2px 6px;color:var(--mute);letter-spacing:.06em}
 .icon-btn.is-on{color:var(--accent);border-color:var(--accent)}
 .mkt-status{white-space:nowrap;flex:none}
-@media (max-width:1100px){.mkt-status{display:none}}
+/* 1520 而非 1100:导航全量在 ≥1470px 才放得下(实测 1440/1366 缺口 6px/41px)。
+   .mkt-status 与首屏「数据流在线」语义重复,是唯一可无损让位的元素 */
+@media (max-width:1520px){.mkt-status{display:none}}
 .sector-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);margin-top:16px}
 .sector-stat{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 10px}
 .sector-stat span{display:block;font-size:9.5px;color:var(--mute)}
