@@ -251,6 +251,10 @@ h1,h2,h3,h4,p{margin:0}
 .cc-sym .t{display:flex;align-items:baseline;gap:10px}
 .cc-sym .t b{font-size:15px;font-weight:650;letter-spacing:.01em}
 .cc-sym .t span{font-family:var(--mono);font-size:11px;color:var(--mute)}
+/* hero 卡可点(UX R3):股票名/代码区即入口,点击或回车打开个股抽屉 */
+.cc-sym[role="button"]{cursor:pointer}
+.cc-sym[role="button"]:hover .t b{text-decoration:underline;text-underline-offset:3px}
+.cc-sym[role="button"]:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 .cc-price{display:flex;align-items:baseline;gap:10px;margin-top:6px}
 .cc-price b{font-family:var(--mono);font-weight:500;font-size:clamp(26px,2.4vw,34px);letter-spacing:-.02em;transition:color .3s}
 .cc-price .chg{font-family:var(--mono);font-size:12.5px;padding:2px 7px;border:1px solid currentColor;opacity:.9}
@@ -573,6 +577,9 @@ table.hot td:nth-child(2){min-width:230px}
 .alert-item .a-cond{font-family:var(--mono);font-size:11px;color:var(--ink-2);white-space:nowrap}
 .alert-item .a-del{color:var(--faint);font-size:14px;padding:2px 4px}
 .alert-item .a-del:hover{color:var(--up)}
+/* R5:提醒行可点回跳个股抽屉,给悬停反馈 */
+.alert-item[data-code]{cursor:pointer;transition:background-color .15s}
+.alert-item[data-code]:hover{background:var(--bg-2)}
 .alert-item.is-hit .a-cond{color:var(--accent)}
 .alert-empty{padding:22px 0;text-align:center;color:var(--mute);font-size:12px}
 .notify-btn{width:100%;height:34px;border:1px solid var(--line-2);font-size:11.5px;color:var(--ink-2);margin-top:12px}
@@ -1270,6 +1277,9 @@ table.hot td:nth-child(2){min-width:230px}
 .alert-item .a-cond{font-family:var(--mono);font-size:11px;color:var(--ink-2);white-space:nowrap}
 .alert-item .a-del{color:var(--faint);font-size:14px;padding:2px 4px}
 .alert-item .a-del:hover{color:var(--up)}
+/* R5:提醒行可点回跳个股抽屉,给悬停反馈 */
+.alert-item[data-code]{cursor:pointer;transition:background-color .15s}
+.alert-item[data-code]:hover{background:var(--bg-2)}
 .alert-item.is-hit .a-cond{color:var(--accent)}
 .alert-empty{padding:22px 0;text-align:center;color:var(--mute);font-size:12px}
 .notify-btn{width:100%;height:34px;border:1px solid var(--line-2);font-size:11.5px;color:var(--ink-2);margin-top:12px}
@@ -1499,7 +1509,7 @@ table.hot td:nth-child(2){min-width:230px}
       <div class="hero-panel rv in">
         <div class="chart-card">
           <div class="cc-head">
-            <div class="cc-sym">
+            <div class="cc-sym" id="heroSym" role="button" tabindex="0" aria-label="查看 宁德时代 行情详情">
               <div class="t"><b>宁德时代</b><span>300750 · SZSE</span></div>
               <div class="cc-price"><b id="heroPrice">--</b><span class="chg up" id="heroChg">--</span></div>
             </div>
@@ -4385,7 +4395,7 @@ function renderAlerts() {
     const now = !s ? '—'
       : isPctDir(a.dir) ? `今日 ${fmt.pct(s.chgPct)}`
       : `现价 ${fmt.px(s.last, s.market === 'CRYPTO' ? 0 : 2)}`;
-    return `<div class="alert-item ${hit ? 'is-hit' : ''}">
+    return `<div class="alert-item ${hit ? 'is-hit' : ''}" data-code="${escapeHTML(a.code)}" title="点击查看行情">
       <div class="a-name">${escapeHTML(s ? s.name : a.code)}<small>${escapeHTML(a.code)} · ${now}</small></div>
       <div class="a-cond">${alertCondText(a)}<br><span style="font-size:9px;color:var(--faint)">${hit ? '已触发 ' + when : '监控中'}</span></div>
       <button class="a-del" data-del="${escapeHTML(a.id)}" aria-label="删除提醒">×</button>
@@ -5276,6 +5286,12 @@ function initHero() {
     heroChart.setData(heroRangeData());
     heroStatsUpdate();
   });
+  /* R3:hero 图表卡的股票名/代码区可点,直达个股抽屉 */
+  const heroOpenDrawer = () => openDrawer(heroStock.code);
+  $('#heroSym').addEventListener('click', heroOpenDrawer);
+  $('#heroSym').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); heroOpenDrawer(); }
+  });
 }
 
 /* ============ clock ============ */
@@ -5731,6 +5747,13 @@ function wireEvents() {
     toast(`已添加提醒:${s.name} ${alertCondText({ dir, price })}`);
   });
   $('#alertList').addEventListener('click', (e) => {
+    /* R5 提醒回跳:点提醒行(非删除钮)关闭提醒面板并打开对应个股抽屉 */
+    const row = e.target.closest('.alert-item');
+    if (row && row.dataset.code && !e.target.closest('[data-del]')) {
+      closeAlerts();
+      openDrawer(row.dataset.code);
+      return;
+    }
     const d = e.target.closest('[data-del]');
     if (!d) return;
     alerts = alerts.filter((a) => String(a.id) !== d.dataset.del);
