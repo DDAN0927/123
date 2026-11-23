@@ -2365,7 +2365,10 @@ const fmt = {
   px(v, d = 2) {
     if (!isFinite(v)) return '—';
     if (v >= 10000) return v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    const dd = v > 0 && v < 0.01 ? 6 : v < 1 ? 4 : d;
+    /* 取绝对值分档:原写法 `v < 1` 对任何负数恒真,导致同为 20.6393 的涨跌
+       一边印 "20.64"、另一边印 "-20.6393";0.005/-0.005 也会差两个数量级 */
+    const a = Math.abs(v);
+    const dd = a > 0 && a < 0.01 ? 6 : a < 1 ? 4 : d;
     return v.toLocaleString('en-US', { minimumFractionDigits: dd, maximumFractionDigits: dd });
   },
   pct(v, d = 2) { return (v >= 0 ? '+' : '') + v.toFixed(d) + '%'; },
