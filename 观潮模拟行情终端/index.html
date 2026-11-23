@@ -388,13 +388,13 @@ h1,h2,h3,h4,p{margin:0}
 }
 .term-search{
   display:flex;align-items:center;gap:10px;flex:1 1 240px;max-width:420px;height:36px;
-  border:1px solid var(--line);padding:0 12px;background:var(--bg-2);
+  border:1px solid var(--line);padding:0 12px;background:var(--bg-2);min-width:0;
   transition:border-color .3s;
 }
 .term-search:focus-within{border-color:var(--accent)}
 .term-search svg{width:13px;height:13px;color:var(--faint);flex:none}
 .term-search input{
-  width:100%;background:none;border:0;outline:none;font-size:13px;color:var(--ink);
+  width:100%;min-width:0;background:none;border:0;outline:none;font-size:13px;color:var(--ink);
 }
 .term-search input::placeholder{color:var(--faint)}
 .term-search kbd{font-family:var(--mono);font-size:9.5px;color:var(--faint);border:1px solid var(--line);padding:1px 4px;flex:none}
@@ -1115,7 +1115,9 @@ table.hot td:nth-child(2){min-width:230px}
 .rail-all:hover{color:var(--ink)}
 .rail-all.is-on{color:var(--accent)}
 @media (max-width:1180px){
-  .term-layout{grid-template-columns:1fr;border:0}
+  /* minmax(0,1fr) 而非 1fr:grid 项默认 min-width:auto = min-content,
+     375px 下 .term 被撑到 383px、整页横向溢出 28px */
+  .term-layout{grid-template-columns:minmax(0,1fr);border:0}
   .term-layout .term{border:1px solid var(--line)}
   .term-rail{display:none}
 }
