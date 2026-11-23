@@ -2401,6 +2401,39 @@ const lerp = (a, b, t) => a + (b - a) * t;
 /* 统一 HTML 转义:所有来自用户输入、CSV、JSONP、备份文件的字符串,进入 innerHTML 前必须经过它 */
 const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
 const escapeHTML = (v) => String(v == null ? '' : v).replace(/[&<>"'`]/g, (c) => HTML_ESC[c]);
+
+/* —— R4 拼音首字母搜索:不引拼音库,用 zh 拼音序 localeCompare 对 22 个
+   边界字二分定位首字母(GB 边界法)。首字母串按标的懒计算并缓存,
+   Collator 实例复用,万级标的首次检索约几十毫秒 —— */
+const PY_COLL = new Intl.Collator('zh-CN-u-co-pinyin');
+const PY_BOUNDS = [
+  ['八', 'b'], ['嚓', 'c'], ['咑', 'd'], ['妸', 'e'], ['发', 'f'], ['旮', 'g'],
+  ['哈', 'h'], ['丌', 'j'], ['咔', 'k'], ['垃', 'l'], ['呣', 'm'], ['拿', 'n'],
+  ['噢', 'o'], ['啪', 'p'], ['七', 'q'], ['然', 'r'], ['洒', 's'], ['塌', 't'],
+  ['挖', 'w'], ['昔', 'x'], ['压', 'y'], ['匝', 'z'],
+];
+function pyInitial(c) {
+  if (/[a-z0-9]/i.test(c)) return c.toLowerCase();
+  if (c < '一' || c > '\u9fff') return '';
+  let prev = 'a';
+  for (const [bound, letter] of PY_BOUNDS) {
+    if (PY_COLL.compare(c, bound) < 0) return prev;
+    prev = letter;
+  }
+  return 'z';
+}
+function pyInitialsOf(s) {
+  if (!s._py) s._py = Array.from(s.name || '').map(pyInitial).join('');
+  return s._py;
+}
+/* 统一检索匹配:代码 / 名称子串 / 英文名 / 拼音首字母(如 mtgz → 茅台... ) */
+function stockMatch(s, q) {
+  if (!q) return true;
+  return s.code.toLowerCase().includes(q)
+    || s.name.toLowerCase().includes(q)
+    || (s.en || '').toLowerCase().includes(q)
+    || pyInitialsOf(s).includes(q);
+}
 /* 最近 n 根 K 线的最低/最高价:单次遍历,不展开数组 */
 function rangeOf(series, n) {
   let lo = Infinity, hi = -Infinity;
@@ -3692,7 +3725,7 @@ function renderSectorDrawer() {
   const q = ($('#sectorSearch').value || '').trim().toLowerCase();
   let members = b.members.slice().sort((a, x) => x.mcap - a.mcap);
   if (q) {
-    members = members.filter((s) => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || (s.en || '').toLowerCase().includes(q));
+    members = members.filter((s) => stockMatch(s, q));
   }
   const shown = members.slice(0, 200);
   $('#sectorList').innerHTML = shown.map((s, i) => {
@@ -3780,11 +3813,7 @@ function filteredStocks() {
   if (state.smart && state.smart.tests.length) list = list.filter((s) => state.smart.tests.every((fn) => fn(s)));
   if (state.q.trim()) {
     const q = state.q.trim().toLowerCase();
-    list = list.filter((s) =>
-      s.code.toLowerCase().includes(q) ||
-      s.name.toLowerCase().includes(q) ||
-      s.en.toLowerCase().includes(q)
-    );
+    list = list.filter((s) => stockMatch(s, q));
   }
   const key = state.sort;
   list.sort((a, b) => {
@@ -5493,7 +5522,7 @@ function palRender() {
   const TOP = 7;
   for (let i = 0; i < STOCKS.length; i++) {
     const s = STOCKS[i];
-    if (q && !(s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || (s.en || '').toLowerCase().includes(q))) continue;
+    if (q && !stockMatch(s, q)) continue;
     if (list.length === TOP && s.mcap <= list[TOP - 1].mcap) continue;
     let j = list.length < TOP ? list.length : TOP - 1;
     while (j > 0 && list[j - 1].mcap < s.mcap) { list[j] = list[j - 1]; j--; }
