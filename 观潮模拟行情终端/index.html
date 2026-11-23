@@ -972,7 +972,7 @@ table.hot td:nth-child(2){min-width:230px}
   .mkt-status{display:none}
   /* 375 内容宽仅 320px:品牌 106 + 搜索 44 + 资产 chip ~95 + 汉堡 48 + 间隙。
      设置/主题/提醒三个入口移入移动菜单面板(.nav-m),见于 5190 起的补丁样式块 */
-  #settingsBtn,#themeToggle,#alertsBtn{display:none}
+  #settingsBtn,#themeToggle,#alertsBtn,#todayBtn{display:none}
   .nav-right{gap:8px}
 }
 @media (max-width:760px){
@@ -1487,7 +1487,8 @@ table.hot td:nth-child(2){min-width:230px}
       <a href="#advisory" data-nav>每日智策</a>
       <a href="#intel" data-nav>情报</a>
       <a href="#" class="nav-pf" data-openpf>模拟账户</a>
-      <!-- 仅移动端面板可见:≤560 时头部让出空间,这两个入口移到这里 -->
+      <!-- 仅移动端面板可见:≤560 时头部让出空间,这些入口移到这里 -->
+      <a href="#" class="nav-m" data-mact="today">今日待办</a>
       <a href="#" class="nav-m" data-mact="alerts">价格提醒</a>
       <a href="#" class="nav-m" data-mact="settings">设置</a>
       <a href="#" class="nav-m" data-mact="theme">明暗主题</a>
@@ -1495,6 +1496,9 @@ table.hot td:nth-child(2){min-width:230px}
     <div class="nav-right">
       <div class="mkt-status" id="mktStatus"><i class="dot-live"></i><span class="txt">沪深交易中</span></div>
       <span class="nav-time" id="navClock">--:--:--</span>
+      <button class="icon-btn" id="todayBtn" aria-label="今日待办" title="今日待办:自选 · 提醒 · 异动">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 4h8a1 1 0 0 1 1 1v1H7V5a1 1 0 0 1 1-1z"/><path d="M7 6H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-2"/><path d="m9 13 2 2 4-4"/></svg>
+      </button>
       <button class="icon-btn" id="settingsBtn" aria-label="设置" title="设置">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.1 14.6a1.5 1.5 0 0 0 .3 1.7l.1.1a1.9 1.9 0 1 1-2.7 2.7l-.1-.1a1.5 1.5 0 0 0-1.7-.3 1.5 1.5 0 0 0-.9 1.4v.2a1.9 1.9 0 1 1-3.8 0v-.1a1.5 1.5 0 0 0-1-1.4 1.5 1.5 0 0 0-1.7.3l-.1.1a1.9 1.9 0 1 1-2.7-2.7l.1-.1a1.5 1.5 0 0 0 .3-1.7 1.5 1.5 0 0 0-1.4-.9H3a1.9 1.9 0 1 1 0-3.8h.1a1.5 1.5 0 0 0 1.4-1 1.5 1.5 0 0 0-.3-1.7l-.1-.1a1.9 1.9 0 1 1 2.7-2.7l.1.1a1.5 1.5 0 0 0 1.7.3h.1a1.5 1.5 0 0 0 .9-1.4V3a1.9 1.9 0 1 1 3.8 0v.1a1.5 1.5 0 0 0 .9 1.4 1.5 1.5 0 0 0 1.7-.3l.1-.1a1.9 1.9 0 1 1 2.7 2.7l-.1.1a1.5 1.5 0 0 0-.3 1.7v.1a1.5 1.5 0 0 0 1.4.9h.2a1.9 1.9 0 1 1 0 3.8h-.1a1.5 1.5 0 0 0-1.4.9z"/></svg>
       </button>
@@ -2248,6 +2252,23 @@ table.hot td:nth-child(2){min-width:230px}
     <button class="notify-btn" id="notifyBtn">开启系统通知(可选)</button>
     <p class="alert-hint">系统通知需要浏览器授权;未授权时改用页面内提示。页面关闭后提醒停止。</p>
   </div>
+</aside>
+
+<!-- ============ TODAY PANEL(N1 今日待办聚合) ============ -->
+<div class="drawer-scrim" id="todayScrim"></div>
+<aside class="drawer" id="todayPanel" style="width:min(430px,100vw)" role="dialog" aria-modal="true" aria-labelledby="todayTitle" aria-hidden="true">
+  <div class="drawer-head" style="padding-bottom:16px">
+    <div class="dh-top">
+      <div>
+        <h3 id="todayTitle" style="font-size:20px;letter-spacing:-.01em">今日待办</h3>
+        <p class="mono" id="todayMeta" style="font-size:9.5px;color:var(--mute);margin-top:4px;letter-spacing:.04em">—</p>
+      </div>
+      <button class="icon-btn" id="todayClose" aria-label="关闭今日待办">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="drawer-body" id="todayList"></div>
 </aside>
 
 <!-- ============ SETTINGS ============ -->
@@ -4522,6 +4543,79 @@ function closeAlerts() {
     document.body.style.overflow = '';
   }
 }
+
+/* ============ N1 今日待办:自选 + 提醒 + 异动聚合 ============
+   开盘动线「看自选 → 看触发 → 决定动不动」三个入口合成一个,
+   纯前端聚合(数据都在内存:favGroups/alerts/STOCKS),省 3 次导航 */
+const TODAY_MOVE_PCT = 3; /* 自选当日 |涨跌幅| ≥ 3% 记为异动 */
+function todoFavs() { return STOCKS.filter((s) => s.isFav); }
+function todoRow(s, midHTML) {
+  const up = s.chgPct >= 0;
+  return `<div class="alert-item" data-today="${escapeHTML(s.code)}" title="点击查看行情">
+    <div class="a-name">${escapeHTML(s.name)}<small>${escapeHTML(s.code)} · ${MKT_LABEL[s.market]}</small></div>
+    <div class="a-cond">${midHTML}</div>
+    <div class="a-cond" style="color:${up ? 'var(--up)' : 'var(--down)'}">${fmt.pct(s.chgPct)}<br><span style="font-size:9px;color:var(--faint)">现价 ${fmt.px(s.last, s.market === 'CRYPTO' ? 0 : 2)}</span></div>
+  </div>`;
+}
+function renderToday() {
+  const meta = $('#todayMeta');
+  const host = $('#todayList');
+  if (!host) return;
+  const favs = todoFavs().sort((a, b) => Math.abs(b.chgPct) - Math.abs(a.chgPct));
+  const hit = alerts.filter((a) => a.hit && BY_CODE[a.code]);
+  const watching = alerts.filter((a) => !a.hit);
+  const movers = favs.filter((s) => Math.abs(s.chgPct) >= TODAY_MOVE_PCT);
+  if (meta) meta.textContent = `${favs.length} 个自选 · ${watching.length} 条提醒监控中 · ${movers.length} 个异动`;
+  if (!favs.length && !alerts.length) {
+    host.innerHTML = `<div class="alert-empty">自选与提醒都还是空的。<br>在行情终端点行首星标加入自选,在「价格提醒」里加监控,这里就会聚合出今天的待办。</div>
+      <button class="notify-btn" id="todayGoTerm">去行情终端</button>`;
+    return;
+  }
+  let html = '';
+  html += `<div class="pf-sec"><h4>已触发的提醒 <span>${hit.length} 条</span></h4>`;
+  html += hit.length ? hit.map((a) => {
+    const s = BY_CODE[a.code];
+    const when = new Date(a.hit).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    return todoRow(s, `${alertCondText(a)}<br><span style="font-size:9px;color:var(--accent)">${when} 已触发</span>`);
+  }).join('') : `<div class="alert-empty">暂无触发。${watching.length ? '监控中的条件还没到价。' : '还没有提醒,可在「价格提醒」里添加。'}</div>`;
+  html += `</div><div class="pf-sec"><h4>自选异动 <span>|涨跌| ≥ ${TODAY_MOVE_PCT}%</span></h4>`;
+  html += movers.length ? movers.map((s) => todoRow(s, '盘中异动')).join('')
+    : `<div class="alert-empty">${favs.length ? '自选标的今日波动都在 ' + TODAY_MOVE_PCT + '% 以内。' : '加入自选后,异动会出现在这里。'}</div>`;
+  html += `</div><div class="pf-sec"><h4>自选快照 <span>${favs.length} 个</span></h4>`;
+  html += favs.length ? favs.map((s) => todoRow(s, '自选')).join('')
+    : `<div class="alert-empty">还没有自选标的。</div>`;
+  html += `</div><div style="display:flex;gap:8px;margin-top:16px">
+    <button class="notify-btn" id="todayGoFav" style="margin-top:0;flex:1">查看自选列表</button>
+    <button class="notify-btn" id="todayGoAlerts" style="margin-top:0;flex:1">管理提醒</button>
+  </div>`;
+  host.innerHTML = html;
+}
+function openToday() {
+  if ($('#syncModal').classList.contains('is-on')) closeSyncModal();
+  if ($('#settingsModal').classList.contains('is-on')) closeSettings();
+  if ($('#cmpModal').classList.contains('is-on')) closeCompare();
+  if ($('#alertDrawer').classList.contains('is-on')) closeAlerts();
+  if ($('#drawer').classList.contains('is-on')) closeDrawer();
+  if ($('#portfolio').classList.contains('is-on')) closePortfolio();
+  renderToday();
+  const d = $('#todayPanel');
+  d.inert = false;
+  d.classList.add('is-on');
+  d.setAttribute('aria-hidden', 'false');
+  $('#todayScrim').classList.add('is-on');
+  document.body.style.overflow = 'hidden';
+  $('#todayClose').focus({ preventScroll: true });
+}
+function closeToday() {
+  const d = $('#todayPanel');
+  d.classList.remove('is-on');
+  d.setAttribute('aria-hidden', 'true');
+  d.inert = true;
+  $('#todayScrim').classList.remove('is-on');
+  if (!$('#drawer').classList.contains('is-on') && !$('#portfolio').classList.contains('is-on')) {
+    document.body.style.overflow = '';
+  }
+}
 function notifySystem(msg) {
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -4548,6 +4642,8 @@ function checkAlerts() {
   if (changed) {
     saveAlerts();
     renderAlerts();
+    /* N1:待办面板开着时同步刷新聚合内容 */
+    if ($('#todayPanel').classList.contains('is-on')) renderToday();
   }
 }
 async function pollAlertQuotes() {
@@ -5368,7 +5464,7 @@ function closeDrawer() {
 /* R6 收尾(§Q23):「价格提醒/设置/明暗主题」是低频次级入口,
    与 5 个页面导航视觉分层——次级色 13px + 组间分隔线,可发现性压回 P2 损失 */
 .nav-links.is-open a.nav-m{color:var(--mute);font-size:13px;padding:11px 0}
-.nav-links.is-open a.nav-m[data-mact="alerts"]{border-top:1px solid var(--line-2);margin-top:8px;padding-top:15px}
+.nav-links.is-open a.nav-m[data-mact="today"]{border-top:1px solid var(--line-2);margin-top:8px;padding-top:15px}
 .nav-links.is-open a.nav-m:last-of-type{border-bottom:none}
 </style>
 <script>
@@ -5632,7 +5728,7 @@ function palChoose() {
 /* ============ focus trap ============ */
 /* 打开的对话框按层级从上到下排列,Tab 焦点只在最上层那个里循环 */
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-const DIALOG_ORDER = ['palette', 'syncModal', 'settingsModal', 'cmpModal', 'alertDrawer', 'sectorDrawer', 'portfolio', 'drawer'];
+const DIALOG_ORDER = ['palette', 'syncModal', 'settingsModal', 'cmpModal', 'alertDrawer', 'todayPanel', 'sectorDrawer', 'portfolio', 'drawer'];
 function topDialog() {
   for (const id of DIALOG_ORDER) {
     const el = document.getElementById(id);
@@ -5707,7 +5803,7 @@ function wireEvents() {
   };
   const KB_CLOSE = {
     palette: palClose, syncModal: closeSyncModal, settingsModal: closeSettings,
-    cmpModal: closeCompare, alertDrawer: closeAlerts, sectorDrawer: closeSectorDrawer,
+    cmpModal: closeCompare, alertDrawer: closeAlerts, todayPanel: closeToday, sectorDrawer: closeSectorDrawer,
     portfolio: closePortfolio, drawer: closeDrawer,
   };
   let kbRow = -1;
@@ -5751,7 +5847,7 @@ function wireEvents() {
     if (b) b.click();
   }
   const kbDrawerOn = () => document.getElementById('drawer').classList.contains('is-on');
-  const kbBlocked = () => ['palette', 'syncModal', 'settingsModal', 'cmpModal', 'alertDrawer', 'sectorDrawer', 'portfolio']
+  const kbBlocked = () => ['palette', 'syncModal', 'settingsModal', 'cmpModal', 'alertDrawer', 'todayPanel', 'sectorDrawer', 'portfolio']
     .some((id) => document.getElementById(id).classList.contains('is-on'));
   document.addEventListener('keydown', (e) => {
     const cmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
@@ -5935,6 +6031,20 @@ function wireEvents() {
   $('#alertsBtn').addEventListener('click', openAlerts);
   $('#alertClose').addEventListener('click', closeAlerts);
   $('#alertScrim').addEventListener('click', closeAlerts);
+  /* N1 今日待办入口与交互 */
+  $('#todayBtn').addEventListener('click', openToday);
+  $('#todayClose').addEventListener('click', closeToday);
+  $('#todayScrim').addEventListener('click', closeToday);
+  $('#todayPanel').addEventListener('click', (e) => {
+    const row = e.target.closest('[data-today]');
+    if (row) { closeToday(); openDrawer(row.dataset.today); return; }
+    const act = e.target.closest('#todayGoFav, #todayGoAlerts, #todayGoTerm');
+    if (!act) return;
+    if (act.id === 'todayGoAlerts') { closeToday(); openAlerts(); return; }
+    closeToday();
+    if (act.id === 'todayGoFav') applyMarketFilter('FAV');
+    document.getElementById('terminal').scrollIntoView({ behavior: 'smooth' });
+  });
   const fillAlertPrice = () => {
     if (isPctDir($('#alertDir').value)) return;
     const s = findStock($('#alertCode').value);
@@ -6468,6 +6578,7 @@ function wireEvents() {
     if (act === 'settings') openSettings();
     else if (act === 'theme') setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
     else if (act === 'alerts') openAlerts();
+    else if (act === 'today') openToday();
   }));
 
   // magnetic buttons
