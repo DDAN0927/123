@@ -1196,8 +1196,12 @@ table.hot td:nth-child(2){min-width:230px}
 .dh-star.is-on{color:var(--accent);border-color:var(--accent)}
 
 /* ============ 19 · FUNDAMENTALS ============ */
-.fin-chart{display:flex;align-items:flex-end;gap:12px;height:132px;margin-top:12px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.fin-chart{display:flex;align-items:flex-end;gap:12px;height:150px;margin-top:12px;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .fin-year{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;min-width:0}
+/* Q10:柱顶数值标签,颜色与图例对应(营收=灰、净利=accent) */
+.fin-vals{display:flex;flex-direction:column;align-items:center;gap:1px;font-family:var(--mono);font-size:10px;line-height:1.25;white-space:nowrap}
+.fin-vals b{color:var(--mute);font-weight:500}
+.fin-vals i{font-style:normal;color:var(--accent);font-size:9.5px}
 .fin-bars{display:flex;align-items:flex-end;gap:5px;height:100%;width:100%;justify-content:center}
 .fin-bars i{width:20px;min-height:2px;background:var(--line-2);transition:height .8s var(--ease)}
 .fin-bars i.rev{background:color-mix(in srgb,var(--accent) 42%,var(--line))}
@@ -2099,7 +2103,7 @@ table.hot td:nth-child(2){min-width:230px}
     </div>
     <div class="pf-sum">
       <div><span>TOTAL ASSETS · 总资产</span><b id="pfTotal">—</b></div>
-      <div><span>今日盈亏</span><b id="pfDay" class="sm">—</b></div>
+      <div><span title="持仓当日波动 + 当日已实现盈亏(含手续费/印花税)">今日盈亏</span><b id="pfDay" class="sm">—</b></div>
       <div><span>累计收益</span><b id="pfPl" class="sm">—</b></div>
     </div>
     <div class="pf-alloc" id="pfAlloc" aria-hidden="true"></div>
@@ -4176,7 +4180,13 @@ function applyMarketFilter(mkt) {
 const ACCT_KEY = CONFIG.keys.account;
 const INIT_CASH = CONFIG.initCash;
 const FEE_RATE = CONFIG.feeRate, FEE_MIN = CONFIG.feeMin, STAMP_RATE = CONFIG.stampRate;
-let account = { cash: INIT_CASH, positions: {}, trades: [], realized: 0 };
+let account = { cash: INIT_CASH, positions: {}, trades: [], realized: 0, dayRealized: 0, dayStamp: null };
+
+/* 当日历日(本地时区):Q17 今日盈亏的已实现部分按此归零滚动 */
+function dayStamp() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function money(v, d = 2) {
   const sign = v < 0 ? '-' : '';
@@ -4189,7 +4199,10 @@ function loadAccount() {
     if (!raw) return;
     const a = JSON.parse(raw);
     if (a && typeof a.cash === 'number' && a.positions && Array.isArray(a.trades)) {
-      account = { cash: a.cash, positions: a.positions, trades: a.trades, realized: a.realized || 0 };
+      /* 旧备份没有 dayStamp/dayRealized:跨日或缺字段一律从 0 起 */
+      const sameDay = a.dayStamp === dayStamp();
+      account = { cash: a.cash, positions: a.positions, trades: a.trades, realized: a.realized || 0,
+        dayRealized: sameDay ? (a.dayRealized || 0) : 0, dayStamp: dayStamp() };
     }
   } catch (e) {}
 }
@@ -4199,18 +4212,21 @@ function saveAccount() {
 function posOf(code) { return account.positions[code] || null; }
 function lotOf(s) { return s.market === 'CRYPTO' ? 1 : 100; }
 function accountMetrics() {
-  let mv = 0, day = 0, cost = 0;
+  /* Q17:今日盈亏 = 持仓当日市价波动 + 当日已实现盈亏(卖出落袋,含费用)。
+     清仓后持仓波动归零,但当天砍仓的实亏不该显示成 +0 */
+  if (account.dayStamp !== dayStamp()) { account.dayStamp = dayStamp(); account.dayRealized = 0; }
+  let mv = 0, mtm = 0, cost = 0;
   Object.keys(account.positions).forEach((code) => {
     const p = account.positions[code];
     const s = BY_CODE[code];
     if (!s || !p || !p.qty) return;
     mv += s.last * p.qty;
-    day += (s.last - s.prevClose) * p.qty;
+    mtm += (s.last - s.prevClose) * p.qty;
     cost += p.cost * p.qty;
   });
   const total = account.cash + mv;
   const unreal = mv - cost;
-  return { mv, day, cost, total, unreal, pl: account.realized + unreal, cash: account.cash };
+  return { mv, day: mtm + (account.dayRealized || 0), cost, total, unreal, pl: account.realized + unreal, cash: account.cash };
 }
 function calcBuy(price, qty) {
   const amount = price * qty;
@@ -4253,7 +4269,10 @@ function execSell(code, qty) {
   if (qty > p.qty) return { ok: false, msg: `持仓不足,最多可卖 ${p.qty} 股` };
   const q = calcSell(s.last, qty);
   account.cash += q.total;
-  account.realized += (s.last - p.cost) * qty - q.fee - q.stamp;
+  const realizedNow = (s.last - p.cost) * qty - q.fee - q.stamp;
+  account.realized += realizedNow;
+  /* Q17:同日已实现盈亏落账,供「今日盈亏」合并展示(跨日在 accountMetrics 懒重置) */
+  account.dayRealized = (account.dayRealized || 0) + realizedNow;
   p.qty -= qty;
   if (p.qty <= 0) delete account.positions[code];
   account.trades.unshift({ t: Date.now(), code, side: 'sell', qty, price: s.last, fee: q.fee + q.stamp, amount: q.amount });
@@ -4816,10 +4835,14 @@ function renderFund(s) {
 
   const fin = finSeries(s);
   const maxRev = Math.max(...fin.map((f) => f.rev));
+  /* Q10:柱形只给形状读不出金额。rev/pro 单位为亿(由 mcap/pe 反推),每组柱顶
+     直接标数值;finNum 兼容万亿/百亿/小体量三档 */
+  const finNum = (v) => (v >= 10000 ? (v / 10000).toFixed(2) + '万亿' : v >= 100 ? Math.round(v).toLocaleString('en-US') + '亿' : v.toFixed(1) + '亿');
   $('#finChart').innerHTML = fin.map((f) => {
     const rh = Math.max(3, (f.rev / maxRev) * 100);
     const ph = Math.max(2, (f.pro / maxRev) * 100);
     return `<div class="fin-year">
+      <div class="fin-vals"><b>${finNum(f.rev)}</b><i>${finNum(f.pro)}</i></div>
       <div class="fin-bars"><i class="rev" style="height:${rh.toFixed(1)}%"></i><i class="pro" style="height:${ph.toFixed(1)}%"></i></div>
       <span>${f.year}</span>
     </div>`;
@@ -4943,14 +4966,31 @@ function computeDiag(s) {
   const sentiment = clamp(Math.round(50 + s.chgPct * 5 + (s.vol > 0.45 ? -6 : 5) + (h % 9 - 4)), 6, 95);
   const fundamental = clamp(Math.round(40 + s.revG * 1.3 + (s.dy >= 2 ? 9 : 0) + (s.rating === 'buy' ? 7 : 0)), 8, 96);
   const score = Math.round(trend * 0.3 + valuation * 0.2 + flow * 0.2 + sentiment * 0.15 + fundamental * 0.15);
-  let label, action, position;
-  if (score >= 82) { label = '积极关注 · 结构占优'; action = '分批建仓,回踩 MA20 加仓'; position = '4–6%'; }
-  else if (score >= 68) { label = '逢低增持 · 趋势跟随'; action = '区间下沿分批买入,跌破止损离场'; position = '3–5%'; }
-  else if (score >= 55) { label = '持有观察 · 等待确认'; action = '等待放量突破或回踩企稳再动'; position = '1–3%'; }
-  else if (score >= 42) { label = '谨慎观望 · 结构偏弱'; action = '不追高,已有仓位逢反弹减'; position = '0–1%'; }
-  else { label = '规避 · 风险偏高'; action = '暂不参与,等待趋势修复'; position = '0'; }
-  const stop = Math.max(s.last * 0.9, Math.min(m60 * 0.985, s.last * 0.97));
-  const entryLo = s.last * 0.975, entryHi = s.last * 1.015;
+  let label, action, position, entryLo, entryHi;
+  /* Q19:进场区间必须与建议动作自洽——「等待回踩」的区间必须整体低于现价,
+     「分批建仓」的区间覆盖现价;且失效价与进场下沿保持 ≥5% 缓冲,
+     不再出现「区间含现价却让等待」或「止损距进场仅 0.9% 被正常波动打掉」 */
+  if (score >= 82) {
+    label = '积极关注 · 结构占优'; action = '分批建仓,回踩 MA20 加仓'; position = '4–6%';
+    entryLo = s.last * 0.97; entryHi = s.last * 1.01;
+  } else if (score >= 68) {
+    label = '逢低增持 · 趋势跟随'; action = '区间下沿分批买入,跌破止损离场'; position = '3–5%';
+    entryLo = s.last * 0.94; entryHi = s.last;
+  } else if (score >= 55) {
+    label = '持有观察 · 等待确认'; action = '等待放量突破或回踩企稳再动'; position = '1–3%';
+    entryLo = s.last * 0.92; entryHi = s.last * 0.96;
+  } else if (score >= 42) {
+    label = '谨慎观望 · 结构偏弱'; action = '不追高,已有仓位逢反弹减'; position = '0–1%';
+    entryLo = null; entryHi = null;
+  } else {
+    label = '规避 · 风险偏高'; action = '暂不参与,等待趋势修复'; position = '0';
+    entryLo = null; entryHi = null;
+  }
+  /* 失效价:结构锚(MA60 下沿 1.5%)与进场缓冲(下沿再留 5%)取更低者,
+     地板为现价 -15%,防止极端结构把止损推得过远 */
+  const stop = entryLo != null
+    ? Math.max(s.last * 0.85, Math.min(m60 * 0.985, s.last * 0.97, entryLo * 0.95))
+    : Math.max(s.last * 0.85, Math.min(m60 * 0.985, s.last * 0.97));
   const trendTxt = m20 >= m60
     ? `MA20 位于 MA60 上方,中期结构向上,近 20 日 ${fmt.pct(ret20, 1)}。`
     : `MA20 低于 MA60,中期结构走弱,近 20 日 ${fmt.pct(ret20, 1)}。`;
@@ -4978,10 +5018,17 @@ function renderDiagnosis(s) {
   $('#diagSubs').innerHTML = d.subs.map(([k, v]) =>
     `<div class="dsub"><span>${k}</span><i style="--v:${(v / 100).toFixed(2)}"></i><b>${v}</b></div>`
   ).join('');
+  /* Q19:进场区间与现价对照显式给结论,三价位(现价/进场/失效)关系一眼可核 */
+  const posVsEntry = d.entryLo == null
+    ? '观望区间 · 不设进场位'
+    : d.score >= 82 ? `现价 ${fmt.px(s.last, 2)} 在区间内,可分批执行`
+      : d.score >= 68 ? `现价 ${fmt.px(s.last, 2)} 位于区间上沿,宜逢低分批`
+        : `现价 ${fmt.px(s.last, 2)} 高于区间,等待回踩企稳`;
   $('#diagPlan').innerHTML = [
     ['建议动作', d.action],
     ['参考仓位', d.position],
-    ['进场区间', `${fmt.px(d.entryLo)} – ${fmt.px(d.entryHi)}`],
+    ['进场区间', d.entryLo == null ? '观望 · 暂不提供进场区间' : `${fmt.px(d.entryLo)} – ${fmt.px(d.entryHi)}`],
+    ['现价对照', posVsEntry],
     ['失效条件', `收盘跌破 ${fmt.px(d.stop)}`],
   ].map(([k, v]) => `<div class="dh-stat"><span>${k}</span><b style="font-size:11.5px;line-height:1.5">${v}</b></div>`).join('');
   $('#thesisList').innerHTML = s.thesis.map((t) => `<li>${escapeHTML(t)}</li>`).join('');
@@ -5018,9 +5065,11 @@ function updateTradeSummary(s) {
   if (!isFinite(qty) || qty < 0) qty = 0;
   const b = calcBuy(s.last, qty);
   const sl = calcSell(s.last, qty);
-  $('#tbAmount').textContent = money0(qty * s.last);
-  $('#tbFee').textContent = qty > 0 ? `${money0(b.fee)} / ${money0(sl.fee + sl.stamp)}` : '—';
-  $('#tbCash').textContent = money0(account.cash);
+  /* Q25:金额统一两位小数。内部总额带小数,money0 各自取整会让
+     「委托金额 + 费用」与「可用资金差额」横加差 1 元 */
+  $('#tbAmount').textContent = money(qty * s.last, 2);
+  $('#tbFee').textContent = qty > 0 ? `${money(b.fee, 2)} / ${money(sl.fee + sl.stamp, 2)}` : '—';
+  $('#tbCash').textContent = money(account.cash, 2);
   const held = posOf(s.code) ? posOf(s.code).qty : 0;
   const lot = lotOf(s);
   const valid = qty >= lot && qty % lot === 0;
@@ -6274,7 +6323,7 @@ function wireEvents() {
     delete btn.dataset.armed;
     btn.textContent = '重置账户';
     clearTimeout(btn._t);
-    account = { cash: INIT_CASH, positions: {}, trades: [], realized: 0 };
+    account = { cash: INIT_CASH, positions: {}, trades: [], realized: 0, dayRealized: 0, dayStamp: dayStamp() };
     saveAccount();
     updateAcctChip();
     renderPortfolio();
@@ -6789,6 +6838,39 @@ function runSelfTests() {
       account = JSON.parse(snap);
       saveAccount();
     }
+  });
+  /* Q17:清仓后持仓市价波动归零,但当天砍仓的实亏(全为费用)必须留在「今日盈亏」 */
+  t('今日盈亏口径: 清仓后当日已实现亏损不为 0 (Q17)', () => {
+    const s = STOCKS.find((x) => lotOf(x) === 100 && x.last > 1 && x.last < 2000);
+    check(s, '当前全市场没有可用于测试的标的');
+    const snap = JSON.stringify(account);
+    try {
+      account = { cash: calcBuy(s.last, 100).total, positions: {}, trades: [], realized: 0, dayRealized: 0, dayStamp: dayStamp() };
+      execBuy(s.code, 100);
+      execSell(s.code, 100);
+      const m = accountMetrics();
+      const fees = calcBuy(s.last, 100).fee + calcSell(s.last, 100).fee + calcSell(s.last, 100).stamp;
+      check(!Object.keys(account.positions).length, '清仓失败');
+      check(m.day === account.dayRealized, `今日盈亏应合并已实现:${m.day} ≠ ${account.dayRealized}`);
+      return check(Math.abs(account.dayRealized + fees) < 1e-6, `当日已实现应为 -${fees},实际 ${account.dayRealized}`);
+    } finally {
+      account = JSON.parse(snap);
+      saveAccount();
+    }
+  });
+  /* Q19:三价位自洽——失效价距进场下沿 ≥5%;「等待回踩」档(55–67)区间整体低于现价;
+     建仓档(≥68)进场下沿不高于现价。全市场扫不变量 */
+  t('AI 诊断三价位自洽: 进场/失效/现价关系 (Q19)', () => {
+    check(STOCKS.length > 0, '全市场为空');
+    const bad = [];
+    for (const x of STOCKS) {
+      const d = computeDiag(x);
+      if (d.entryLo == null) continue;
+      if (d.stop > d.entryLo * 0.95 + 1e-9) bad.push(`${x.code} 失效价距进场仅${(((d.entryLo - d.stop) / d.entryLo) * 100).toFixed(1)}%`);
+      if (d.score >= 55 && d.score < 68 && d.entryHi >= x.last) bad.push(`${x.code} 等待档区间含现价`);
+      if (d.score >= 68 && d.entryLo > x.last) bad.push(`${x.code} 建仓档下沿高于现价`);
+    }
+    return check(bad.length === 0, bad.slice(0, 3).join('; '));
   });
   /* 行业名取自当前全市场,内置数据与真实快照都适用 */
   t('智能选股解析: 数值条件与关键词组合', () => {
