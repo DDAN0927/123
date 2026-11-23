@@ -20,11 +20,11 @@
   --faint:#828C99;
   --line:rgba(255,255,255,.07);
   --line-2:rgba(255,255,255,.14);
-  --up:#FF6B76;
-  --down:#3BE49B;
-  --accent:#FFC46B;
-  --accent-soft:rgba(255,196,107,.12);
-  --glow:rgba(59,228,155,.09);
+  --up:#E39197;
+  --down:#8FC7A9;
+  --accent:#D9BC8C;
+  --accent-soft:rgba(217,188,140,.10);
+  --glow:rgba(143,199,169,.08);
   /* 主操作按钮:此前 8 处 var(--brand)、7 处 var(--brand-ink) 被引用但从未定义,
      计算值无效 → background 回退成 transparent、color 继承正文色,
      “添加提醒”“加入”“同步”三个主按钮全部渲染成纯文本(无底无框、不可辨认为按钮)。
@@ -152,9 +152,9 @@ h1,h2,h3,h4,p{margin:0}
 .nav-links a:hover::after,.nav-links a.is-active::after{transform:scaleX(1)}
 .nav-right{margin-left:auto;display:flex;align-items:center;gap:18px}
 .mkt-status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--mute);letter-spacing:.04em}
-.dot-live{width:6px;height:6px;border-radius:50%;background:#2FBF8F;position:relative}
+.dot-live{width:6px;height:6px;border-radius:50%;background:#7FBF9D;position:relative}
 /* 脉冲环走 transform+opacity(合成层),不再对 box-shadow 每帧重绘(设计审计 §6.3) */
-.dot-live::after{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid rgba(47,191,143,.5);animation:pulse 2.4s infinite}
+.dot-live::after{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid rgba(127,191,157,.45);animation:pulse 2.4s infinite}
 @keyframes pulse{0%{transform:scale(1);opacity:.9}70%{transform:scale(3.6);opacity:0}100%{transform:scale(3.6);opacity:0}}
 /* R7 信任文案:收盘后绿点停跳、转灰,“交易中/已收盘”由 JS 按 A 股时段实时算 */
 .dot-live.dot-off{background:var(--mute);animation:none;box-shadow:none}
@@ -309,7 +309,7 @@ h1,h2,h3,h4,p{margin:0}
   color:#92400e;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.5);
   padding:2px 7px;border-radius:2px;white-space:nowrap;
 }
-[data-theme="dark"] .synth-badge{color:#fbbf24;background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.45)}
+[data-theme="dark"] .synth-badge{color:#D9B06A;background:rgba(217,176,106,.12);border-color:rgba(217,176,106,.4)}
 .synth-line{display:flex;justify-content:flex-end;margin:2px 0 8px}
 .synth-line.left{justify-content:flex-start;margin:0 0 8px}
 /* 作者样式的 display 会压过 UA 的 [hidden]{display:none},必须显式补一条,
@@ -523,8 +523,8 @@ table.hot td:nth-child(2){min-width:230px}
 .px-cap{display:none}
 .flash-up{animation:flashUp 1s var(--ease)}
 .flash-down{animation:flashDown 1s var(--ease)}
-@keyframes flashUp{0%{background:rgba(255,107,118,.18);color:var(--up)}100%{background:transparent}}
-@keyframes flashDown{0%{background:rgba(59,228,155,.18);color:var(--down)}100%{background:transparent}}
+@keyframes flashUp{0%{background:rgba(227,145,151,.15);color:var(--up)}100%{background:transparent}}
+@keyframes flashDown{0%{background:rgba(143,199,169,.15);color:var(--down)}100%{background:transparent}}
 .tbl-spark{width:86px;height:26px}
 .verdict-badge{
   display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;
@@ -1345,7 +1345,7 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
 .set-btn.danger:hover{color:var(--up);border-color:var(--up)}
 .set-note{font-size:10.5px;color:var(--faint);line-height:1.7;margin-top:8px}
 .set-note.warn{color:#b45309}
-[data-theme="dark"] .set-note.warn{color:#fbbf24}
+[data-theme="dark"] .set-note.warn{color:#D9B06A}
 .version-badge{font-family:var(--mono);font-size:9px;border:1px solid var(--line);padding:2px 6px;color:var(--mute);letter-spacing:.06em}
 .icon-btn.is-on{color:var(--accent);border-color:var(--accent)}
 .mkt-status{white-space:nowrap;flex:none}
@@ -4779,7 +4779,7 @@ let cmpRange = '3M';
 function cmpColors() {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   return dark
-    ? ['#FFC46B', '#6FA8FF', '#FF6B76', '#3BE49B']
+    ? ['#D9BC8C', '#8FB3D9', '#E39197', '#8FC7A9']
     : ['#9A6312', '#2C6FB7', '#CF2F3E', '#04855B'];
 }
 function loadCompare() {
