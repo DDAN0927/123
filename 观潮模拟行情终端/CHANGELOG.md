@@ -2,6 +2,26 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 未发布 · 阶段四第 1 轮(2026-11-23,UX 第 2 期:资产常显 / 首屏解耦 / 拼音检索)
+
+三个 commit(3dbb1fc / 59f789a / b9b9b72),探针 `_stage3/verify-{acct,py}.js`。
+
+### feat(mobile): 移动端资产常显(59f789a,R6 第 1 步)
+- `#acctChip` ≤560 由 `display:none` 改为「总资产」单行(约 95px):图标/SIM 标签/涨跌幅全藏,只留 12.5px 数字;561–760 沿用紧凑 chip。
+- 拿掉两处 `display:none!important` 后 375 导航空间不够(约 367px > 335px 可用),价格提醒入口按设置/主题的 `.nav-m` 模式移入移动菜单,`data-mact="alerts"` 接线。
+- 验证:verify-acct 7/7——375/414 chip 可见、`¥1,000,000` 可见、navRight 不溢出、菜单提醒入口可开抽屉。
+
+### perf(boot): 首屏解耦(3dbb1fc,R9)
+- boot 原是 400–800ms 单个同步长任务,FCP(676–1068ms)晚于 DCL(581ms)就是被它挡住的。
+- 拆两阶段:首帧前只做便宜接线(inert/acctChip/wireEvents/时钟/主题);万级宇宙构建 + 折叠线下渲染 + initHero + selftest 挪进首帧后的 `setTimeout(0)`。浏览器在两阶段间获得绘制机会。
+- **selftest 依赖宇宙构建,随迁到延迟块内**(顺序不能错)。
+- 实测(probe-vitals,3 次/视口):mobile FCP 516–944 → **528–624ms**,desktop 常态 600–1068 → **500–552ms**(desktop run1 1356 为冷启动噪声);CLS 0 → 0.021(远低于 0.1)。
+
+### feat(search): 拼音首字母检索(b9b9b72,R4)
+- 不引拼音库:`Intl.Collator('zh-CN-u-co-pinyin')` 对 22 个 GB 边界字(八嚓咑妸发旮…)定位首字母;每标的懒计算缓存 `_py`。
+- 统一 `stockMatch()`(代码/名称/英文/拼音首字母),替换 palette、终端、板块抽屉三处重复表达式。palette 占位符本就承诺「拼音首字母」,此次兑现。
+- 验证:verify-py 7/7——gzmt→贵州茅台、ndsd→宁德时代、混合串 hs300、中文/代码回归。**探针教训**:`window.BY_CODE` 取不到(top-level const 不挂 window,全局词法环境才可达);`textContent.slice(0,30)` 会被行首空白坑,用 innerText+压缩空白。
+
 ## 未发布 · 阶段三第四轮(2026-11-23,R7 信任文案销项,cc8929b)
 
 UX 第 1 期路线图最后一项。三处不实宣称改为如实标注:
