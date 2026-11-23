@@ -586,6 +586,12 @@ table.hot td:nth-child(2){min-width:230px}
 .alert-item[data-code]:hover{background:var(--bg-2)}
 .alert-item.is-hit .a-cond{color:var(--accent)}
 .alert-empty{padding:22px 0;text-align:center;color:var(--mute);font-size:12px}
+/* N2 条件单表单 */
+.cond-form{display:grid;grid-template-columns:1.3fr 1fr auto;gap:8px;margin-top:10px}
+.cond-form select,.cond-form input{height:34px;border:1px solid var(--line);background:var(--bg-2);color:var(--ink);font-size:11.5px;padding:0 9px;outline:none;min-width:0}
+.cond-form select:focus,.cond-form input:focus{border-color:var(--accent)}
+.cond-form button{height:34px;padding:0 14px;border:1px solid var(--accent);color:var(--accent);font-size:11px;background:var(--accent-soft);white-space:nowrap;cursor:pointer}
+.cond-form button:hover{opacity:.9}
 .notify-btn{width:100%;height:34px;border:1px solid var(--line-2);font-size:11.5px;color:var(--ink-2);margin-top:12px}
 .notify-btn:hover{color:var(--accent);border-color:var(--accent)}
 
@@ -1459,6 +1465,7 @@ table.hot td:nth-child(2){min-width:230px}
   .set-select{height:44px}
   .btn-sync{height:44px}
   #palInput,#smartQuery,#cmpInput,#sectorSearch,#alertCode,#alertPrice,#alertDir{height:44px}
+  .cond-form select,.cond-form input,.cond-form button{height:44px}
   #smartApply,#smartClear,#cmpAdd,#sectorFilter,#alertAdd,#notifyBtn{height:44px;padding:0 14px}
   /* 第 2 期 R6:移动端资产常显——压成「总资产」单行放导航右侧,
      图标/标签/涨跌幅全藏,只留数字(设计审计 §17.7③ 方案 B) */
@@ -2083,6 +2090,19 @@ table.hot td:nth-child(2){min-width:230px}
           <button class="btn-sell" id="btnSell">卖出</button>
         </div>
         <p class="trade-note" id="tradeMsg">按最新价即时撮合。佣金万 2.5(最低 5 元),卖出另收 0.05% 印花税;T+1 与涨跌停未模拟。</p>
+      </div>
+      <div class="trade-box" style="margin-top:14px">
+        <div class="tb-title"><span>条件单 · 模拟</span><span id="condMeta">—</span></div>
+        <div class="cond-form">
+          <select id="condSide" aria-label="条件单方向">
+            <option value="buy">升破触发 · 买入</option>
+            <option value="sell">跌破触发 · 卖出(止损)</option>
+          </select>
+          <input id="condTrig" type="number" step="0.01" min="0.01" placeholder="触发价" aria-label="触发价格">
+          <button id="condAdd">挂单</button>
+        </div>
+        <p class="trade-note">数量沿用上方委托数量。升破触发买入、跌破触发卖出,按触发时市价撮合,一次性有效;触发时资金或持仓不足则作废。</p>
+        <div id="condList"></div>
       </div>
       <div class="trade-recent">
         <h4>本标的最近成交</h4>
@@ -4646,6 +4666,88 @@ function checkAlerts() {
     if ($('#todayPanel').classList.contains('is-on')) renderToday();
   }
 }
+
+/* ============ N2 条件单:价格触发型模拟挂单 ============
+   升破触发买入 / 跌破触发卖出(止损),一次性有效,触发按当时市价撮合。
+   轮询复用行情 tick(checkCondOrders),与提醒同一条时间线。 */
+const COND_KEY = 'guanchao-cond-v1';
+let condOrders = [];
+function loadCondOrders() {
+  try {
+    const raw = localStorage.getItem(COND_KEY);
+    if (!raw) return;
+    const a = JSON.parse(raw);
+    if (Array.isArray(a)) {
+      condOrders = a.filter((o) => o && typeof o.code === 'string' && CODE_RE.test(o.code)
+        && (o.side === 'buy' || o.side === 'sell')
+        && Number.isFinite(o.qty) && o.qty > 0
+        && Number.isFinite(o.trig) && o.trig > 0).slice(0, 20);
+    }
+  } catch (e) {}
+}
+function saveCondOrders() {
+  try { localStorage.setItem(COND_KEY, JSON.stringify(condOrders)); } catch (e) {}
+}
+function condAdd() {
+  const s = BY_CODE[state.openCode];
+  if (!s) return;
+  const side = $('#condSide').value;
+  const trig = parseFloat($('#condTrig').value);
+  const lot = lotOf(s);
+  const qty = parseInt(($('#tradeQty').value || ''), 10) || 0;
+  if (!isFinite(trig) || trig <= 0) { toast('请输入有效的触发价', 'err'); return; }
+  if (Math.floor(qty / lot) * lot < lot) { toast(`委托数量需为 ${lot} 股的整数倍`, 'err'); return; }
+  if (side === 'sell' && (!posOf(s.code) || posOf(s.code).qty <= 0)) { toast('还没有该标的持仓,止损单无法建立', 'err'); return; }
+  if (side === 'buy' && trig <= s.last) { toast('升破买入单的触发价应高于现价', 'err'); return; }
+  if (side === 'sell' && trig >= s.last) { toast('跌破止损单的触发价应低于现价', 'err'); return; }
+  if (condOrders.length >= 20) { toast('条件单最多同时挂 20 条', 'err'); return; }
+  condOrders.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    code: s.code, side, qty: Math.floor(qty / lot) * lot, trig, t: Date.now(),
+  });
+  saveCondOrders();
+  renderCondList();
+  toast(`条件单已挂: ${s.name} ${side === 'buy' ? '升破' : '跌破'} ${fmt.px(trig)} 时${side === 'buy' ? '买入' : '卖出'} ${Math.floor(qty / lot) * lot} 股`);
+}
+function condCancel(id) {
+  condOrders = condOrders.filter((o) => o.id !== id);
+  saveCondOrders();
+  renderCondList();
+}
+function renderCondList() {
+  const meta = $('#condMeta');
+  const host = $('#condList');
+  if (!host) return;
+  if (meta) meta.textContent = condOrders.length ? `${condOrders.length} 条挂单` : '—';
+  host.innerHTML = condOrders.length ? condOrders.slice().reverse().map((o) => {
+    const s = BY_CODE[o.code];
+    const lot = s ? lotOf(s) : 100;
+    return `<div class="alert-item" title="挂单中 · 行情刷新时自动检查">
+      <div class="a-name">${escapeHTML(s ? s.name : o.code)}<small>${escapeHTML(o.code)} · ${o.side === 'buy' ? '升破买入' : '跌破止损'} ${o.qty} 股</small></div>
+      <div class="a-cond">触发 ${fmt.px(o.trig)}<br><span style="font-size:9px;color:var(--faint)">现价 ${s ? fmt.px(s.last, s.market === 'CRYPTO' ? 0 : 2) : '—'}</span></div>
+      <button class="a-del" data-condcancel="${escapeHTML(o.id)}" aria-label="撤销条件单">×</button>
+    </div>`;
+  }).join('') : `<div class="alert-empty">暂无条件单。选方向、填触发价后挂单,行情刷新时自动检查触发。</div>`;
+}
+function checkCondOrders() {
+  if (!condOrders.length) return;
+  const fired = [];
+  condOrders.forEach((o) => {
+    const s = BY_CODE[o.code];
+    if (!s) { fired.push({ o, res: { ok: false, msg: '标的不存在,条件单作废' } }); return; }
+    const hit = o.side === 'buy' ? s.last >= o.trig : s.last <= o.trig;
+    if (hit) fired.push({ o, res: o.side === 'buy' ? execBuy(o.code, o.qty) : execSell(o.code, o.qty) });
+  });
+  if (!fired.length) return;
+  /* 一次性有效:无论成交与否都从挂单列表移除,保证幂等不重复触发 */
+  condOrders = condOrders.filter((o) => !fired.some((f) => f.o.id === o.id));
+  saveCondOrders();
+  renderCondList();
+  fired.forEach((f) => toast(f.res.ok ? `条件单触发: ${f.res.msg}` : `条件单触发失败: ${f.res.msg}`, f.res.ok ? 'ok' : 'err'));
+  updateAcctChip();
+  if ($('#portfolio').classList.contains('is-on')) renderPortfolio();
+  if (state.openCode && BY_CODE[state.openCode]) renderTradePane(BY_CODE[state.openCode], false);
+}
 async function pollAlertQuotes() {
   const liveCodes = Array.from(new Set(alerts.filter((a) => !a.hit).map((a) => a.code)))
     .filter((c) => BY_CODE[c] && BY_CODE[c].live)
@@ -5207,6 +5309,7 @@ function renderTradePane(s, resetQty = true) {
   });
   updateTradeSummary(s);
   renderStockTrades(s.code);
+  renderCondList(); /* N2:条件单挂在抽屉交易页里,开页即刷新 */
 }
 
 /* ============ advisory signals ============ */
@@ -5611,6 +5714,7 @@ function liveTick() {
   updateAcctChip();
   if ($('#portfolio').classList.contains('is-on')) renderPortfolio();
   checkAlerts();
+  checkCondOrders(); /* N2:条件单与提醒同一条轮询时间线 */
   if (Date.now() - alertPollAt > 30000) {
     alertPollAt = Date.now();
     pollAlertQuotes();
@@ -6031,6 +6135,12 @@ function wireEvents() {
   $('#alertsBtn').addEventListener('click', openAlerts);
   $('#alertClose').addEventListener('click', closeAlerts);
   $('#alertScrim').addEventListener('click', closeAlerts);
+  /* N2 条件单 */
+  $('#condAdd').addEventListener('click', condAdd);
+  $('#condList').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-condcancel]');
+    if (c) condCancel(c.dataset.condcancel);
+  });
   /* N1 今日待办入口与交互 */
   $('#todayBtn').addEventListener('click', openToday);
   $('#todayClose').addEventListener('click', closeToday);
@@ -7569,6 +7679,7 @@ function boot() {
   window.addEventListener('offline', () => { try { toast('网络已断开,实时数据不可用', 'err'); } catch (e) {} });
   loadAccount();
   loadAlerts();
+  loadCondOrders();
   const SNAP = loadSnapshotIntoUniverse();
   loadFavs();
   loadCompare();
