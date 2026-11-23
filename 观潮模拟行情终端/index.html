@@ -4210,12 +4210,28 @@ function loadAccount() {
     const raw = localStorage.getItem(ACCT_KEY);
     if (!raw) return;
     const a = JSON.parse(raw);
-    if (a && typeof a.cash === 'number' && a.positions && Array.isArray(a.trades)) {
-      /* 旧备份没有 dayStamp/dayRealized:跨日或缺字段一律从 0 起 */
-      const sameDay = a.dayStamp === dayStamp();
-      account = { cash: a.cash, positions: a.positions, trades: a.trades, realized: a.realized || 0,
-        dayRealized: sameDay ? (a.dayRealized || 0) : 0, dayStamp: dayStamp() };
+    /* bughunt 探针 B2 抓到:这是唯一没有 sanitize 的存储入口,
+       脏数据可注入负现金/非法持仓,毒化整个账户引擎(NaN 传染盈亏)。
+       与 loadCondOrders 同风格:结构不合法整体弃用,字段逐条校验 */
+    const cashOk = a && Number.isFinite(a.cash) && a.cash >= 0 && a.positions && !Array.isArray(a.positions) && Array.isArray(a.trades);
+    if (!cashOk) return;
+    const positions = {};
+    let nPos = 0;
+    for (const [code, p] of Object.entries(a.positions)) {
+      if (nPos >= 60 || !CODE_RE.test(code) || !p) continue;
+      if (!Number.isFinite(p.qty) || p.qty <= 0 || !Number.isFinite(p.cost) || p.cost < 0) continue;
+      positions[code] = { qty: p.qty, cost: p.cost };
+      nPos++;
     }
+    const trades = a.trades.filter((t) => t && typeof t.code === 'string' && CODE_RE.test(t.code)
+      && (t.side === 'buy' || t.side === 'sell')
+      && Number.isFinite(t.qty) && t.qty > 0
+      && Number.isFinite(t.price) && t.price > 0
+      && Number.isFinite(t.amount) && Number.isFinite(t.fee)).slice(0, 80);
+    /* 旧备份没有 dayStamp/dayRealized:跨日或缺字段一律从 0 起 */
+    const sameDay = a.dayStamp === dayStamp();
+    account = { cash: a.cash, positions, trades, realized: Number.isFinite(a.realized) ? a.realized : 0,
+      dayRealized: sameDay && Number.isFinite(a.dayRealized) ? a.dayRealized : 0, dayStamp: dayStamp() };
   } catch (e) {}
 }
 function saveAccount() {
