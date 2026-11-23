@@ -1447,7 +1447,8 @@ table.hot td:nth-child(2){min-width:230px}
   .cmp-ranges button{min-width:44px;height:44px;padding:0 12px}
   .sb-tabbtns button{padding:14px 10px}
   .dh-tabs button{padding:14px 12px;min-width:44px;text-align:center}
-  .kbd-btn{min-width:44px;height:44px;padding:0 14px}
+  /* R6 收尾:kbd-btn 与导航图标(48)对齐,Q04 大小不齐销项 */
+  .kbd-btn{min-width:48px;height:48px;padding:0 14px}
   .term-btn{height:44px;padding:0 14px}
   .term-search input{height:44px;padding:0 10px;font-size:13px}
   .mini-select{height:44px;background-position:calc(100% - 14px) 20px,calc(100% - 10px) 20px}
@@ -5359,6 +5360,11 @@ function closeDrawer() {
 }
 .nav-links.is-open a{padding:14px 0;border-bottom:1px solid var(--line);font-size:15px}
 .nav-links.is-open a::after{display:none}
+/* R6 收尾(§Q23):「价格提醒/设置/明暗主题」是低频次级入口,
+   与 5 个页面导航视觉分层——次级色 13px + 组间分隔线,可发现性压回 P2 损失 */
+.nav-links.is-open a.nav-m{color:var(--mute);font-size:13px;padding:11px 0}
+.nav-links.is-open a.nav-m[data-mact="alerts"]{border-top:1px solid var(--line-2);margin-top:8px;padding-top:15px}
+.nav-links.is-open a.nav-m:last-of-type{border-bottom:none}
 </style>
 <script>
 /* ============ hero chart ============ */
