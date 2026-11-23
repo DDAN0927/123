@@ -1419,6 +1419,41 @@ table.hot td:nth-child(2){min-width:230px}
   .cmp-head,.sync-head,.settings-head,.cmp-body,.sync-body,.settings-body{padding-left:14px;padding-right:14px}
   #cmpChart{height:200px}
 }
+/* ============ 触摸目标 ≥44px(阶段三 QA:375/414 下 120 个 <48px)============
+   标准:独立图标按钮 48×48(与导航图标一致);密集行内控件(标签页/筛选片/
+   工具条)44×44——Apple HIG 44pt,WL-WCAG 2.5.8 相邻留白豁免。
+   input/select 不支持伪元素扩命中区,只能真实加高;按钮同理直接加高,
+   统一放在最后一个媒体块,源序覆盖前面所有同名规则。 */
+@media (max-width:760px){
+  .icon-btn{width:48px;height:48px}
+  .dh-star{width:48px;height:48px}
+  .tk-star{width:44px;height:44px}
+  .tk-star svg{width:15px;height:15px}
+  .brand{padding:11.5px 0}
+  .foot-col a{padding:12px 0}
+  .link-arrow{padding:12px 0}
+  .pf-reset{display:inline-block;min-width:44px;padding:14px 0;text-align:center}
+  .pager{flex-wrap:wrap}
+  .pager button{min-width:44px;height:44px}
+  .page-jump input{width:56px;height:44px;font-size:12px}
+  .cc-range button{min-width:44px;height:44px;padding:0 12px}
+  .dh-ranges button,.ind-toggle button{min-width:44px;height:44px;padding:0 12px}
+  .seg button{height:44px;padding:0 14px}
+  .preset-row button{height:44px;padding:0 14px}
+  .cmp-ranges button{min-width:44px;height:44px;padding:0 12px}
+  .sb-tabbtns button{padding:14px 10px}
+  .dh-tabs button{padding:14px 12px;min-width:44px;text-align:center}
+  .kbd-btn{min-width:44px;height:44px;padding:0 14px}
+  .term-btn{height:44px;padding:0 14px}
+  .term-search input{height:44px;padding:0 10px;font-size:13px}
+  .mini-select{height:44px;background-position:calc(100% - 14px) 20px,calc(100% - 10px) 20px}
+  .data-import{height:44px;padding:0 14px;font-size:10px}
+  .set-btn,.settings-actions button{height:44px;padding:0 14px}
+  .set-select{height:44px}
+  .btn-sync{height:44px}
+  #palInput,#smartQuery,#cmpInput,#sectorSearch,#alertCode,#alertPrice,#alertDir{height:44px}
+  #smartApply,#smartClear,#cmpAdd,#sectorFilter,#alertAdd,#notifyBtn{height:44px;padding:0 14px}
+}
 </style>
 </head>
 <body>
@@ -5236,7 +5271,7 @@ function closeDrawer() {
   box-shadow:0 16px 40px rgba(12,15,19,.14);
   padding:12px var(--gutter) 20px;gap:2px;
 }
-.nav-links.is-open a{padding:12px 0;border-bottom:1px solid var(--line);font-size:15px}
+.nav-links.is-open a{padding:14px 0;border-bottom:1px solid var(--line);font-size:15px}
 .nav-links.is-open a::after{display:none}
 </style>
 <script>
