@@ -2729,7 +2729,7 @@ const INDICES = [
 /* ---------- synthetic market data ---------- */
 const SERIES_DAYS = 1300; // ~5 years of sessions
 
-function genSeries(sym) {
+function genSeries(sym, opts) {
   const rng = mulberry32(hashStr(sym.code));
   const n = SERIES_DAYS;
   const dailyVol = sym.vol / Math.sqrt(252);
@@ -2745,6 +2745,12 @@ function genSeries(sym) {
   // rescale so last close equals sym.price
   const k = sym.price / closes[n - 1];
   for (let i = 0; i < n; i++) closes[i] *= k;
+
+  /* 诊断只要收盘价:同一个 seed、同一段 gauss、同一次 rescale,只是不构造 OHLCV 对象。
+     必须放在 rescale 之后 —— 否则拿到的是没锚定到现价的路径。
+     (调用方是 ensureDiagCloses;这里刻意复用同一函数而不是另写一份,
+      因为「另写一份」正是诊断与图表分裂成两条价格路径的原因) */
+  if (opts && opts.closesOnly) return closes;
 
   const out = [];
   for (let i = 0; i < n; i++) {
@@ -3534,23 +3540,27 @@ function setSynthBadge(id, text) {
 function ensureSeries(s) {
   if (s.series) return s.series;
   s.series = genSeries({ ...s, price: s.last });
+  /* 图表序列建好后,诊断必须以它为准:此前可能已有一份基于旧 last 的临时 _dc */
+  s._dc = s.series.slice(-Math.min(120, s.series.length)).map((d) => d.c);
   return s.series;
 }
 function ensureDiagCloses(s) {
   if (s._dc) return s._dc;
-  const n = 120;
-  const rng = mulberry32(hashStr(s.code + 'dc'));
-  const dv = (s.vol || 0.3) / Math.sqrt(252);
-  let p = s.last / Math.exp((s.drift || 0.1) * 0.5);
-  const arr = [];
-  for (let i = 0; i < n; i++) {
-    p = Math.max(p * Math.exp((s.drift || 0.1) / 252 + gauss(rng) * dv), 0.0001);
-    arr.push(p);
+  /* 诊断(RSI/MACD/BOLL/ATR/止损/支撑压力)与 K 线图必须是同一条价格路径。
+     旧实现自己用 seed = code + 'dc' 另造一条 120 根随机路 —— 实测与图表的日收益
+     相关系数只有 -0.067~0.147,等于两条互不相干的随机游走。后果是会被用户当场看见的:
+       · 600519 图上近 20 日 +10.9%,诊断说 +1.4%;
+       · 0700 图上 RSI 32.6(偏弱),诊断说 55.9(偏强);
+       · 止损位落在图上 20 日最低价之外,量价图上找不到这个价位。
+     现在统一从 series 末 120 根派生。图表还没建时走 closesOnly 快捷键
+     (同一 seed、同一段 gauss,只是不构造 OHLCV 对象),拿到的是逐位相同的收盘价。 */
+  if (s.series && s.series.length) {
+    s._dc = s.series.slice(-Math.min(120, s.series.length)).map((d) => d.c);
+    return s._dc;
   }
-  const k = s.last / arr[n - 1];
-  for (let i = 0; i < n; i++) arr[i] *= k;
-  s._dc = arr;
-  return arr;
+  const all = genSeries({ ...s, price: s.last }, { closesOnly: true });
+  s._dc = all.slice(-Math.min(120, all.length));
+  return s._dc;
 }
 function avatarOf(s) {
   if ((s.sim || s.live) && (s.market === 'CN' || s.market === 'HK')) return s.name.slice(0, 2);
