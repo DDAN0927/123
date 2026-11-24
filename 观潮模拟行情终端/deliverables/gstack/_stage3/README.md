@@ -33,6 +33,10 @@ sh _qa_run.sh verify-*.js probe-*.js contrast.js   # 结果写进 _qa_logs/<name
    同一份断言在两台机器上会因为后端是否在跑而得出不同结果。
 2. **断言条数不是契约**。改动会让它变(比如 29 → 52)。报告里写的数字是当时实测,
    不是要求。要的是「0 FAIL」,不是「等于某个数」。
+3. **`verify-deploy.js` 是例外,它做 `http` 而不是 `file://`**。这是唯一一个需要
+   真实后端的探针,所以它自己用 `child_process` 起停 uvicorn(端口 18325 / 18326,
+   避开常用的 8000),前置条件只剩「Python 装好了 `backend/requirements.txt`」。
+   端口被占就改脚本顶部两个常量。
 
 ## 约定
 
@@ -54,6 +58,7 @@ sh _qa_run.sh verify-*.js probe-*.js contrast.js   # 结果写进 _qa_logs/<name
 | `verify-api-bridge.js` | 前端数据桥与 FastAPI 后端的字段/数值一致性 | 18 条 |
 | `verify-borrow.js` | 借鉴 QuantFlow Pro 的四个面板(纪律/周月K/分散度/温度计) | 34 条 |
 | `verify-bughunt.js` | localStorage 与输入的注入/污染面 | 12 条 |
+| `verify-deploy.js` | 部署链路:制品静检 / 开发态 / 鉴权态 / 前端真实接入(自己起停服务) | 51 条 |
 | `verify-diag-source.js` | 诊断面板(RSI/MACD/BOLL/止损)与 K 线图同源 | 48 条 |
 | `verify-brand.js` / `verify-brand2.js` | 品牌命名与标题 | 退出码 |
 | `verify-fmt.js` | 价格/百分比/大数格式 | 退出码 |

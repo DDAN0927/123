@@ -8757,7 +8757,13 @@ document.addEventListener('DOMContentLoaded', boot);
  * 一致到 5e-15（backend/tests/test_parity_api.py 30/30），所以两种来源
  * 在用户眼里应当是同一根 K 线，不存在跳变。
  *
- * 状态写在 <html data-data-source="server|local|degraded">，便于探针断言，
+ * 可选鉴权（对应后端 ACCESS_TOKEN）：?token=xxx 或 localStorage['gc.api.token']，
+ * 带 Authorization: Bearer 出去。后端没开鉴权时这段是空操作。
+ *
+ * 401 单独标成 "denied"："后端在但不让你进" 和 "后端根本没起来" 是两件事，
+ * 混成一个 local 会让排查永远从错误方向开始。
+ *
+ * 状态写在 <html data-data-source="server|local|degraded|denied">，便于探针断言，
  * 不新增任何可见 UI。
  * ==================================================================== */
 (function () {
@@ -8775,12 +8781,28 @@ document.addEventListener('DOMContentLoaded', boot);
   var LIMIT = 1300;   /* 全量同步：否则 1Y/5Y 区间会退回本地生成，出现两个真相 */
   var CONC = 4;       /* 并发上限，别让 31 个请求同时打满 */
 
+  /* token 来源：URL 上的 ?token= 优先（首次带进来的入口），
+     否则读 localStorage（刷新后仍然记得）。存不住就算了，隐私模式不该报错。 */
+  function readToken() {
+    var m = /[?&]token=([^&#]+)/.exec(location.search);
+    if (m) {
+      var t = '';
+      try { t = decodeURIComponent(m[1]); } catch (e) { t = m[1]; }
+      try { localStorage.setItem('gc.api.token', t); } catch (e) { /* 忽略 */ }
+      return t;
+    }
+    try { return localStorage.getItem('gc.api.token') || ''; } catch (e) { return ''; }
+  }
+  var TOKEN = readToken();
+
   function fetchJSON(url, ms) {
     var ctl = new AbortController();
     var timer = setTimeout(function () { ctl.abort(); }, ms || 4000);
-    return fetch(url, { cache: 'no-store', signal: ctl.signal })
+    var opt = { cache: 'no-store', signal: ctl.signal };
+    if (TOKEN) opt.headers = { Authorization: 'Bearer ' + TOKEN };
+    return fetch(url, opt)
       .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
         return r.json();
       })
       .finally(function () { clearTimeout(timer); });
@@ -8826,18 +8848,18 @@ document.addEventListener('DOMContentLoaded', boot);
   }
 
   function syncAll(codes) {
-    var ok = 0, fail = 0, i = 0;
+    var ok = 0, fail = 0, denied = 0, i = 0;
     function worker() {
       if (i >= codes.length) return Promise.resolve();
       var code = codes[i++];
       return fetchJSON(BASE + '/api/market/bars?code=' + encodeURIComponent(code) + '&limit=' + LIMIT, 8000)
         .then(function (j) { if (applySeries(code, j.data)) ok++; else fail++; })
-        .catch(function () { fail++; })
+        .catch(function (e) { fail++; if (e && e.status === 401) denied++; })
         .then(worker);
     }
     var pool = [];
     for (var k = 0; k < CONC; k++) pool.push(worker());
-    return Promise.all(pool).then(function () { return { ok: ok, fail: fail }; });
+    return Promise.all(pool).then(function () { return { ok: ok, fail: fail, denied: denied }; });
   }
 
   fetchJSON(BASE + '/api/health', 3500)
@@ -8856,15 +8878,20 @@ document.addEventListener('DOMContentLoaded', boot);
       return syncAll(codes).then(function (r) {
         window.QF_API.synced = r.ok;
         window.QF_API.failed = r.fail;
-        /* 过半失败视为降级：数据来源不可信，明说而不是装作成功 */
-        if (r.fail > r.ok) mark('degraded');
+        /* 过半失败视为降级：数据来源不可信，明说而不是装作成功。
+           但「全失败且原因都是 401」不是数据降级，是没权限——/api/health 在
+           白名单里必然 200，光看探活结果永远发现不了这一点。 */
+        if (r.fail > r.ok) mark(r.denied === r.fail ? 'denied' : 'degraded');
         repaint();
         console.info('[api] 后端数据已接入 ' + r.ok + '/' + codes.length + ' 只，provider=' + window.QF_API.provider);
       });
     })
     .catch(function (e) {
-      mark('local');
-      console.info('[api] 后端不可用，使用本地生成序列（' + (e && e.message) + '）');
+      var denied = e && e.status === 401;
+      mark(denied ? 'denied' : 'local');
+      console.info(denied
+        ? '[api] 后端已开鉴权但没有可用 token，使用本地生成序列（加 ?token=xxx 可接入）'
+        : '[api] 后端不可用，使用本地生成序列（' + (e && e.message) + '）');
     });
 })();
 </script>
