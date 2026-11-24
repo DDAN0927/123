@@ -6066,7 +6066,13 @@ function computeThermo() {
   }
   const sample = cn.slice(0, 400);
   const vAvg = sample.length ? sample.reduce((a, s) => a + atrPct(s), 0) / sample.length : 1.5;
-  const dims = { trend: cl(trendRaw), breadth: cl(breadthRaw), rotation: cl(rotationRaw), volatility: cl(85 - vAvg * 55) };
+  /* 波动维度是反向项:低波动=情绪偏热,高波动=偏冷。
+     锚点按 CN 股 atrPct 实测区间标定(均值 3.56、区间 1.47–7.42):
+     1.5% → 87 分、3.5% → 64 分、7.5% → 18 分。
+     原式 85-vAvg*55 在均值处得负值,clamp 后**恒等于 4**,等于把硬编码 64 换成了
+     硬编码 4,还把「过热」档(≥80)压成永久不可达(复合分上界 73.75)。 */
+  const volDim = cl(104 - vAvg * 11.5);
+  const dims = { trend: cl(trendRaw), breadth: cl(breadthRaw), rotation: cl(rotationRaw), volatility: volDim };
   const composite = Math.round(dims.trend * 0.3 + dims.breadth * 0.25 + dims.rotation * 0.2 + dims.volatility * 0.25);
   const LEVELS = [
     [80, '过热', '情绪已到高位,注意拥挤交易风险,不宜追高加仓。'],
