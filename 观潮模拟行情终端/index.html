@@ -8239,5 +8239,130 @@ function boot() {
 }
 document.addEventListener('DOMContentLoaded', boot);
 </script>
+<script>
+/* ================= 后端数据桥（渐进增强 / 可整体回滚） =================
+ * 定位：只替换「数据来源」，不动任何渲染函数。series 仍同步读取，
+ * 因此 PriceChart / 分散度 / 纪律面板等 200+ 函数一行不改。
+ *
+ * 开关（学 QuantFlow Pro 的 shell=off，首段判定、早于任何 DOM 操作）：
+ *   ?api=off        → 强制本地生成（原有行为，selftest 46/46 完全不受影响）
+ *   ?api=on         → 强制尝试后端（file:// 下会去连 127.0.0.1:8000）
+ *   都不带           → http(s) 下自动探测 /api/health；file:// 下直接用本地
+ *
+ * 为什么必须保留本地回退：后端不可用时页面不能白屏。且前后端序列已实测
+ * 一致到 5e-15（backend/tests/test_parity_api.py 30/30），所以两种来源
+ * 在用户眼里应当是同一根 K 线，不存在跳变。
+ *
+ * 状态写在 <html data-data-source="server|local|degraded">，便于探针断言，
+ * 不新增任何可见 UI。
+ * ==================================================================== */
+(function () {
+  'use strict';
+  var CL = document.documentElement;
+  function mark(v) { try { CL.dataset.dataSource = v; } catch (e) { /* 忽略 */ } }
+
+  var q = location.search;
+  if (/[?&]api=off(&|$)/.test(q)) { mark('local'); return; }
+  var forced = /[?&]api=on(&|$)/.test(q);
+  var fromFile = location.protocol === 'file:';
+  if (fromFile && !forced) { mark('local'); return; }
+
+  var BASE = fromFile ? 'http://127.0.0.1:8000' : '';
+  var LIMIT = 1300;   /* 全量同步：否则 1Y/5Y 区间会退回本地生成，出现两个真相 */
+  var CONC = 4;       /* 并发上限，别让 31 个请求同时打满 */
+
+  function fetchJSON(url, ms) {
+    var ctl = new AbortController();
+    var timer = setTimeout(function () { ctl.abort(); }, ms || 4000);
+    return fetch(url, { cache: 'no-store', signal: ctl.signal })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .finally(function () { clearTimeout(timer); });
+  }
+
+  /* 后端日期是本地口径的 YYYY-MM-DD，必须用 'YYYY/MM/DD' 解析，
+     否则 new Date('2026-11-17') 会按 UTC 解释并在 +08:00 倒退一天。 */
+  function toDate(s) { return new Date(String(s).replace(/-/g, '/')); }
+
+  function applySeries(code, bars) {
+    var st = BY_CODE[code];
+    if (!st || !bars || !bars.length) return false;
+    st.series = bars.map(function (b) {
+      return { t: toDate(b.t), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v };
+    });
+    /* 数据来源留痕：前后端序列本就一致到 5e-15，光比数值无法证明"确实走了后端"。
+       这个标记让探针能直接区分「同步过的」与「本地生成的」。 */
+    st._src = 'api';
+    var n = st.series.length;
+    var last = st.series[n - 1];
+    var prev = n > 1 ? st.series[n - 2] : last;
+    st.last = last.c;
+    st.prevClose = prev.c;
+    st.chgPct = prev.c ? ((last.c - prev.c) / prev.c) * 100 : 0;
+    st.dayHigh = last.h;
+    st.dayLow = last.l;
+    st.spark = st.series.slice(-32).map(function (d) { return d.c; });
+    return true;
+  }
+
+  function repaint() {
+    try { if (typeof renderSignals === 'function') renderSignals(); } catch (e) { /* 渲染失败不影响数据 */ }
+    try {
+      if (typeof detailChart !== 'undefined' && detailChart && state && state.openCode) {
+        var s = BY_CODE[state.openCode];
+        if (s) {
+          detailChart.setData(drawerBars(s), { animate: false });
+          updateOhlc(s, -1);
+          setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
+        }
+      }
+    } catch (e) { /* 抽屉未打开时静默 */ }
+  }
+
+  function syncAll(codes) {
+    var ok = 0, fail = 0, i = 0;
+    function worker() {
+      if (i >= codes.length) return Promise.resolve();
+      var code = codes[i++];
+      return fetchJSON(BASE + '/api/market/bars?code=' + encodeURIComponent(code) + '&limit=' + LIMIT, 8000)
+        .then(function (j) { if (applySeries(code, j.data)) ok++; else fail++; })
+        .catch(function () { fail++; })
+        .then(worker);
+    }
+    var pool = [];
+    for (var k = 0; k < CONC; k++) pool.push(worker());
+    return Promise.all(pool).then(function () { return { ok: ok, fail: fail }; });
+  }
+
+  fetchJSON(BASE + '/api/health', 3500)
+    .then(function (h) {
+      if (!h || h.status !== 'ok') throw new Error('health not ok');
+      window.QF_API = {
+        mode: 'server',
+        base: BASE,
+        version: h.version,
+        provider: h.provider && h.provider.provider,
+        simulated: true
+      };
+      mark('server');
+      var codes = (typeof CURATED !== 'undefined' ? CURATED : []).map(function (s) { return s.code; });
+      if (!codes.length) { mark('local'); return null; }
+      return syncAll(codes).then(function (r) {
+        window.QF_API.synced = r.ok;
+        window.QF_API.failed = r.fail;
+        /* 过半失败视为降级：数据来源不可信，明说而不是装作成功 */
+        if (r.fail > r.ok) mark('degraded');
+        repaint();
+        console.info('[api] 后端数据已接入 ' + r.ok + '/' + codes.length + ' 只，provider=' + window.QF_API.provider);
+      });
+    })
+    .catch(function (e) {
+      mark('local');
+      console.info('[api] 后端不可用，使用本地生成序列（' + (e && e.message) + '）');
+    });
+})();
+</script>
 </body>
 </html>
