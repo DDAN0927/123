@@ -3792,7 +3792,7 @@ function renderBoards() {
     const name = escapeHTML(b.name);
     const sub = b.kind === 'market'
       ? `${b.count} 个标的 · 成交 ${fmt.cap(b.turn)}`
-      : `成交 ${fmt.cap(b.turn)} · 涨 ${b.up} / 跌 ${b.down}${b.flat ? ` / 平 ${b.flat}` : ''}`;
+      : `成交 ${fmt.cap(b.turn)} · 涨 ${b.up} / 跌 ${b.down}`;
     return `<button class="sb-row ${boardActive(b) ? 'is-on' : ''}" data-kind="${b.kind}" data-key="${escapeHTML(b.kind === 'market' ? b.key : b.name)}" aria-label="按 ${name} 筛选行情">
       <span class="sb-name">
         <span class="sb-title">${name}<i>${b.count}</i></span>
@@ -3871,7 +3871,8 @@ function renderSectorDrawer() {
     ['成分股', b.count.toLocaleString('en-US')],
     ['涨跌幅', fmt.pct(b.chg)],
     ['成交额', fmt.cap(b.turn)],
-    [b.flat ? '涨 / 跌 / 平' : '涨 / 跌', b.flat ? `${b.up} / ${b.down} / ${b.flat}` : `${b.up} / ${b.down}`],
+    /* 4 列 grid 每格约 90px:`130 / 159 / 1` 带空格会换行并把最后一个数挤出格 —— 改紧凑写法 */
+    [b.flat ? '涨/跌/平' : '涨 / 跌', b.flat ? `${b.up}/${b.down}/${b.flat}` : `${b.up} / ${b.down}`],
   ].map(([k, v]) => `<div class="sector-stat"><span>${k}</span><b>${v}</b></div>`).join('');
   const q = ($('#sectorSearch').value || '').trim().toLowerCase();
   let members = b.members.slice().sort((a, x) => x.mcap - a.mcap);
