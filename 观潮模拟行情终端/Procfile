@@ -1,0 +1,4 @@
+# 进程声明（Render / Heroku 兼容写法）。
+# 必须绑 0.0.0.0 并读平台注入的 $PORT：绑 127.0.0.1 或写死 8000 在云端会直接 502。
+# 健康检查路径见 render.yaml（healthCheckPath: /api/health）。
+web: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT

@@ -1,0 +1,21 @@
+# Render 部署描述（Blueprint）。对标 QuantFlow Pro 的 onrender 部署方式，
+# 但保留一处刻意差异：它的免费实例冷启动会命中等待页，观潮的健康检查路径
+# 必须是自己真实的 /api/health，不能写 /healthz 之类不存在的路径——
+# 写错了平台会一直判定不健康并反复重启，这是最常见的部署事故。
+services:
+  - type: web
+    name: guanchao-terminal
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    # 注意：不要改成 --reload（生产会重复起进程），也不要绑 127.0.0.1
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.14"
+      # 可选鉴权。留空 = 开发模式（接口无鉴权，只适合本机/内网）。
+      # 填值 = 除 /api/health 外全部要求 Authorization: Bearer <token>。
+      # sync: false 表示不在仓库里存明文，由控制台/密钥管理注入。
+      - key: ACCESS_TOKEN
+        sync: false

@@ -15,6 +15,8 @@ coverage/
 .dev.vars
 .env
 .env.*
+# 示例文件不含真实值，必须入库（否则新人不知道要配哪些变量）
+!backend/.env.example
 .wrangler/
 
 # 评估交付物:报告与回归探针入库(换机器要能自证),截图/本地依赖/临时脚本不入库
