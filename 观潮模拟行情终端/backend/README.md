@@ -12,8 +12,8 @@
 ## 快速开始
 
 ```bash
-# 1) 安装依赖
-python -m pip install fastapi "uvicorn[standard]"
+# 1) 安装依赖（版本与实测环境一致，见 backend/requirements.txt）
+python -m pip install -r backend/requirements.txt
 
 # 2) 从 index.html 抽取标的资产（首次或前端 UNIVERSE 变更后执行）
 node backend/scripts/extract_universe.js
@@ -135,6 +135,58 @@ python backend/tests/test_parity_api.py        # 接口：3 标的 × 10 组区�
 
 ---
 
+## 部署
+
+三种入口，任选其一。**三者都必须满足两条**：绑 `0.0.0.0`、读平台注入的 `$PORT`。
+绑 `127.0.0.1` 或写死 `8000` 在云端是 502，且日志里看不出来原因。
+
+| 方式 | 制品 | 命令 |
+|---|---|---|
+| Render Blueprint | `render.yaml` | 连仓库后按 `render.yaml` 建服务 |
+| 通用 PaaS / Heroku | `Procfile` | `web: uvicorn … --port $PORT` |
+| 容器 | `backend/Dockerfile` | `docker build -f backend/Dockerfile -t guanchao . && docker run -p 8000:8000 guanchao` |
+
+### 鉴权（可选，默认关）
+
+| `ACCESS_TOKEN` | 行为 |
+|---|---|
+| 不设 / 空 | 开发模式：所有 `/api/*` 放行；`/api/health` 里 `auth.mode="off"`，**明说无鉴权** |
+| 设了值 | 除 `/api/health` 外全部要求 `Authorization: Bearer <token>`（或 `X-API-Token`），否则 401 |
+
+白名单只有 `/api/health`：它是探活端点，前端靠它判断「后端在不在」。
+`/`、`/docs`、`/openapi.json` 也不拦 —— 拦了页面白屏，用户连「没有权限」这句话都看不到。
+
+前端接入带 token 的写法（无需改代码）：
+
+```
+https://<host>/?token=<token>        # 首次带进来，之后记在 localStorage
+https://<host>/?api=off              # 无论有没有 token，强制离线本地生成
+```
+
+`?api=off` 的优先级高于一切，鉴权态下同样有效 —— 回滚开关不能被新功能吃掉。
+
+### 四种失败态必须能分得开
+
+`<html data-data-source>` 取值，探针按它断言：
+
+| 值 | 含义 | 用户该做什么 |
+|---|---|---|
+| `server` | 已连后端 | — |
+| `local` | 后端没起来 / `?api=off` | 页面照常用，数据来自本地同算法 |
+| `degraded` | 后端在，但过半请求失败 | 查上游/限流 |
+| `denied` | 后端在，但没给有效 token | 加 `?token=` |
+
+`denied` 是这轮补的：`/api/health` 在白名单里必然返回 200，**光看探活结果永远发现不了没权限**——
+以前全部行情 401 会被笼统归到 `degraded`，排查方向直接错。
+
+### ⚠️ 数据持久化仍未做
+
+持仓/交易/账本仍在浏览器 `localStorage`，后端**不写任何用户数据**。
+这意味着换设备、换浏览器看不到自己的持仓。这是刻意的（避免无账号体系时把私人数据收上云端），
+但也意味着「多端同步」这件事还没解决，不要对外宣称「云端持仓」。
+
+---
+
 ## 已验证 / 待办
 
 完成：
@@ -142,10 +194,14 @@ python backend/tests/test_parity_api.py        # 接口：3 标的 × 10 组区�
 - 数据质量信封（`available/total/missing/degraded/note`）
 - 前后端数值一致性测试（序列 + 聚合，共 34 组用例）
 - 前端三场景接入验收（同源 / `?api=off` / `file://`，18 条断言）
+- **可部署**：`requirements.txt` 钉版本、`Procfile` / `render.yaml` / `Dockerfile` 三入口、可选 Bearer 鉴权、`/api/health` 自描述鉴权态
+- 部署链路验收 51 条（制品静检 20 + 开发态 5 + 鉴权态 16 + 前端真实接入 10），见 `_stage3/verify-deploy.js`
 
 待办：
 - 大盘温度计：四维每维带 `available`/`note`，不可用维置中性分并计入 `missing`
   （参考 QuantFlow Pro 的 `data_quality` 做法）
-- 持仓、交易、纪律复盘、分散度迁到后端
+- 持仓、交易、纪律复盘、分散度迁到后端 ——**前提是先想清账号体系**，否则只是把本地数据搬到别人的服务器
 - 真实行情 provider（akshare 等）——需要先决定产品定位与合规口径
-- 认证：当前接口无鉴权，仅适合本机/内网；对外暴露前必须加
+- 数据持久化（当前零写入，见上文「数据持久化仍未做」）
+- 限流：现在只有鉴权没有频率限制，token 泄露后可以无限刷
+
