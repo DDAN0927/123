@@ -870,6 +870,8 @@ table.hot td:nth-child(2){min-width:230px}
 .adv-meta div{background:var(--bg);padding:14px 16px}
 .adv-meta span{display:block;font-family:var(--mono);font-size:9.5px;color:var(--faint);letter-spacing:.08em}
 .adv-meta b{display:block;font-family:var(--mono);font-size:17px;font-weight:500;margin-top:3px}
+/* 大盘温度计:维度条 + 诚实标注 */
+.thermo-note{display:block;margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--faint);letter-spacing:.05em;line-height:1.6}
 .sig-list{display:flex;flex-direction:column;border-top:1px solid var(--line-2)}
 .sig-card{
   border-bottom:1px solid var(--line);padding:26px 0;display:grid;
@@ -1778,16 +1780,19 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
               <small>RISK APPETITE</small>
             </div>
             <div class="gauge-txt">
-              <h4>风险偏好 · 中性偏积极</h4>
-              <p>北向资金连续三日净流入,但两融余额增速放缓。建议维持 6 成仓位,保留加仓弹药。</p>
+              <h4 id="gaugeTitle">大盘温度 · —</h4>
+              <p id="gaugeAction">—</p>
+              <span class="thermo-note">四维复合评分 · 本地模拟序列确定性计算 · 非真实市场研判 · 不构成投资建议</span>
             </div>
           </div>
 
+          <div class="xray-bars" id="thermoDims" style="margin-top:16px"></div>
+
           <div class="adv-meta">
-            <div><span>两市成交额</span><b>2.31 万亿</b></div>
-            <div><span>涨跌家数比</span><b>1.84</b></div>
-            <div><span>北向净流入</span><b class="up">+86.4 亿</b></div>
-            <div><span>波动率 VIX</span><b>14.2</b></div>
+            <div><span>两市成交额(模拟)</span><b id="advTurnover">—</b></div>
+            <div><span>涨跌家数比</span><b id="advAdr">—</b></div>
+            <div><span>指数 20 日涨幅</span><b id="advRet20" class="up">—</b></div>
+            <div><span>模拟波动率</span><b id="advVol">—</b></div>
           </div>
         </aside>
 
@@ -6009,6 +6014,83 @@ function liveTick() {
   if (tc) tc.textContent = ticked.toLocaleString('en-US');
 }
 
+/* ============ 大盘温度计(借鉴 QuantFlow Pro thermometer,替代硬编码 64 分) ============
+   四维复合:趋势(指数 vs MA20).30 + 宽度(上涨占比).25 + 轮动(行业极差).20
+   + 波动(ATR% 反向).25;本地模拟序列确定性计算,日粒度,不进 liveTick。 */
+let thermoCache = null;
+function computeThermo() {
+  const cl = (x) => clamp(Math.round(x), 4, 97);
+  const cnIdx = INDICES.filter((x) => x.mkt === 'CN');
+  let trendRaw = 50;
+  if (cnIdx.length) {
+    const devs = cnIdx.map((idx) => {
+      const ser = indexSeries(idx);
+      const ma = movingAvg(ser, 20);
+      const m = ma[ma.length - 1];
+      return m ? (ser[ser.length - 1] / m - 1) * 100 : 0;
+    });
+    trendRaw = 50 + (devs.reduce((a, b) => a + b, 0) / devs.length) * 6;
+  }
+  const cn = STOCKS.filter((s) => s.market === 'CN');
+  const upR = cn.length ? cn.filter((s) => s.chgPct > 0).length / cn.length : 0.5;
+  const breadthRaw = upR * 125;
+  const boards = industryBoards();
+  let rotationRaw = 50;
+  if (boards.length > 1) {
+    const chgs = boards.map((b) => b.chg);
+    rotationRaw = 35 + (Math.max(...chgs) - Math.min(...chgs)) * 9;
+  }
+  const sample = cn.slice(0, 400);
+  const vAvg = sample.length ? sample.reduce((a, s) => a + atrPct(s), 0) / sample.length : 1.5;
+  const dims = { trend: cl(trendRaw), breadth: cl(breadthRaw), rotation: cl(rotationRaw), volatility: cl(85 - vAvg * 55) };
+  const composite = Math.round(dims.trend * 0.3 + dims.breadth * 0.25 + dims.rotation * 0.2 + dims.volatility * 0.25);
+  const LEVELS = [
+    [80, '过热', '情绪已到高位,注意拥挤交易风险,不宜追高加仓。'],
+    [60, '偏热', '市场偏强,可维持现有仓位,为新机会留出弹药。'],
+    [40, '中性', '多空均衡,按个股信号操作,不做总量判断。'],
+    [20, '偏冷', '情绪降温,控制回撤优先,等待企稳信号。'],
+    [-Infinity, '过冷', '市场冰点,分批布局需配合严格止损纪律。'],
+  ];
+  const lv = LEVELS.find(([min]) => composite >= min);
+  const turnoverY = cn.reduce((a, s) => a + s.mcap * 0.006, 0); /* 亿,与 boardStats.turn 同口径 */
+  const upN = cn.filter((s) => s.chgPct > 0).length;
+  const downN = cn.filter((s) => s.chgPct < 0).length;
+  const adr = downN ? upN / downN : 1;
+  const ret20s = cnIdx.map((idx) => {
+    const ser = indexSeries(idx);
+    const base = ser[Math.max(0, ser.length - 21)];
+    return base ? (ser[ser.length - 1] / base - 1) * 100 : 0;
+  });
+  return {
+    composite, level: lv[1], action: lv[2], dims, vAvg,
+    meta: {
+      turnover: turnoverY, adr,
+      ret20: ret20s.reduce((a, b) => a + b, 0) / Math.max(ret20s.length, 1),
+    },
+  };
+}
+function renderThermo() {
+  if (!$('#gaugeChart')) return;
+  if (!thermoCache) thermoCache = computeThermo();
+  const t = thermoCache;
+  drawGauge(t.composite);
+  $('#gaugeTitle').textContent = `大盘温度 · ${t.level}`;
+  $('#gaugeAction').textContent = t.action;
+  $('#advTurnover').textContent = (t.meta.turnover / 10000).toFixed(2) + ' 万亿';
+  $('#advAdr').textContent = t.meta.adr.toFixed(2);
+  const retEl = $('#advRet20');
+  retEl.textContent = `${t.meta.ret20 >= 0 ? '+' : ''}${t.meta.ret20.toFixed(1)}%`;
+  retEl.className = t.meta.ret20 >= 0 ? 'up' : 'down';
+  $('#advVol').textContent = t.vAvg.toFixed(1);
+  const dimRows = [
+    ['趋势', t.dims.trend], ['宽度', t.dims.breadth], ['轮动', t.dims.rotation], ['波动', t.dims.volatility],
+  ];
+  const host = $('#thermoDims');
+  if (host) host.innerHTML = dimRows.map(([n, v]) =>
+    `<div class="xray-bar"><span>${n}</span><i style="--w:${(v / 100).toFixed(2)}"></i><b>${v}</b></div>`
+  ).join('');
+}
+
 /* ============ theme ============ */
 function setTheme(mode) {
   document.documentElement.setAttribute('data-theme', mode);
@@ -6022,7 +6104,7 @@ function setTheme(mode) {
       const s = BY_CODE[cv.dataset.spark];
       if (s) drawSpark(cv, s.spark, s.chgPct >= 0);
     });
-    if ($('#gaugeVal').textContent !== '0' && $('#gaugeVal').textContent !== '') drawGauge(64);
+    if (thermoCache) renderThermo();
     if ($('#cmpModal').classList.contains('is-on')) renderCompare();
     if ($('#settingsModal').classList.contains('is-on')) renderSettingsUI();
   });
@@ -7013,13 +7095,13 @@ function initReveal() {
     const gio = new IntersectionObserver((ents) => {
       ents.forEach((en) => {
         if (en.isIntersecting) {
-          drawGauge(64);
+          renderThermo();
           const el = $('#gaugeVal');
           let v = 0;
           const t0 = performance.now();
           const anim = (t) => {
             const k = clamp((t - t0) / 1100, 0, 1);
-            v = Math.round(64 * (1 - Math.pow(1 - k, 3)));
+            v = Math.round(thermoCache.composite * (1 - Math.pow(1 - k, 3)));
             el.textContent = v;
             if (k < 1) requestAnimationFrame(anim);
           };
