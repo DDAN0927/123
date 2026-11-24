@@ -24,6 +24,9 @@
   --down:#8FC7A9;
   --accent:#D9BC8C;
   --accent-soft:rgba(217,188,140,.10);
+  /* K 线 MA5/10/20 折线:属图形件(WCAG 1.4.11 ≥3:1),非文本 4.5:1 标准。
+     暗底实测 7.52 / 7.86 / 5.87;亮色主题另给压深一档的同色系值(见下) */
+  --ma5:#C9974B;--ma10:#7BA7D9;--ma20:#9C7BD9;
   --glow:rgba(143,199,169,.08);
   /* 主操作按钮:此前 8 处 var(--brand)、7 处 var(--brand-ink) 被引用但从未定义,
      计算值无效 → background 回退成 transparent、color 继承正文色,
@@ -63,6 +66,9 @@
   --down:#047A53;
   --accent:#875510;
   --accent-soft:rgba(135,85,16,.08);
+  /* MA 三色亮色版:同一色相压深一档。原 #C9974B/#7BA7D9/#9C7BD9 在亮底 #EFEFEA 上
+     实测仅 2.27 / 2.17 / 2.91,不达图形件 3:1;现值 4.22 / 4.74 / 4.69 */
+  --ma5:#96682A;--ma10:#3D6C9E;--ma20:#7A57B8;
   --glow:rgba(135,85,16,.055);
   /* --brand/--brand-ink 由 :root 继承 var(--ink)/var(--bg),亮色下自动反转为黑底白字。
      阴影必须按主题给,亮色沿用暗色的 .55/.60 黑会在弹窗四周留下脏灰晕 */
@@ -303,6 +309,13 @@ h1,h2,h3,h4,p{margin:0}
 }
 .cc-foot .legend{display:flex;gap:16px}
 .cc-foot .legend i{display:inline-block;width:14px;height:1px;vertical-align:middle;margin-right:6px}
+/* 抽屉 K 线 MA5/10/20 图例(复用 hero 图例的短横线视觉) */
+.synth-line .legend{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:9.5px;color:var(--mute);letter-spacing:.03em}
+.synth-line .legend i{display:inline-block;width:14px;height:1px;vertical-align:middle;margin-right:5px}
+/* MA 图例色块跟主题走:与 canvas 里的折线同源(--ma5/10/20),避免图例与线不同色 */
+.synth-line .legend i.ma5{background:var(--ma5)}
+.synth-line .legend i.ma10{background:var(--ma10)}
+.synth-line .legend i.ma20{background:var(--ma20)}
 /* 合成数据角标:与"实时"同屏时必须一眼可见,不放进 tooltip。FE-03 / FE-04 共用这一套 */
 .synth-badge{
   display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
@@ -1937,13 +1950,18 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
           <button data-range="1Y">1Y</button>
           <button data-range="5Y">5Y</button>
         </div>
+        <div class="dh-ranges" id="dhPeriod" role="group" aria-label="K线周期">
+          <button data-period="D" class="is-on">日K</button>
+          <button data-period="W">周K</button>
+          <button data-period="M">月K</button>
+        </div>
         <div class="ind-toggle" id="indToggle">
           <button data-ind="ma" class="is-on" title="均线">MA</button>
           <button data-ind="boll" title="布林带">BOLL</button>
           <button data-ind="vol" class="is-on" title="成交量">VOL</button>
         </div>
       </div>
-      <div class="synth-line"><span class="synth-badge" id="detailSynth" hidden></span></div>
+      <div class="synth-line"><span class="synth-badge" id="detailSynth" hidden></span><span class="legend" style="margin-left:auto;gap:12px"><span><i class="ma5"></i>MA5</span><span><i class="ma10"></i>MA10</span><span><i class="ma20"></i>MA20</span></span></div>
       <canvas id="detailChart" role="img" aria-label="标的K线图"></canvas>
       <div class="dh-ohlc" id="dhOhlc"></div>
       <div class="dh-stat-grid" id="dhStats"></div>
@@ -3063,6 +3081,10 @@ class PriceChart {
       this.ma20 = movingAvg(closes, 20);
       this.ma60 = movingAvg(closes, 60);
     }
+    /* MA5/10/20(K 线周期聚合配套,借鉴 loadKline calcMA):仅在 opts.maFast 开启时计算 */
+    this.maFast = this.opts.maFast
+      ? [movingAvg(closes, 5), movingAvg(closes, 10), movingAvg(closes, 20)]
+      : null;
 
     let min = Infinity, max = -Infinity, maxV = 0;
     data.forEach((d, i) => {
@@ -3221,6 +3243,13 @@ class PriceChart {
       };
       if (this.ma20) drawMA(this.ma20, accent);
       if (this.ma60 && n > 60) drawMA(this.ma60, withAlpha(mute, 0.85), [3, 3]);
+      /* MA5/10/20:canvas 不认 CSS 变量,故在绘制时读计算值(--ma5/10/20 按主题取值);
+         图形件按 3:1 标准标定,暗底 7.52/7.86/5.87、亮底 4.22/4.74/4.69(verify-ma-contrast.js) */
+      if (this.maFast) {
+        drawMA(this.maFast[0], css('--ma5'));
+        drawMA(this.maFast[1], css('--ma10'));
+        drawMA(this.maFast[2], css('--ma20'));
+      }
     }
     ctx.restore();
 
@@ -3412,14 +3441,46 @@ function rangeData(stock, range) {
   ensureSeries(stock);
   return stock.series.slice(-n);
 }
+/* ============ K 线周期聚合(借鉴 QuantFlow Pro loadKline) ============
+   周K=5 根日线一组、月K=21 根一组(会话日口径):o 取组首、c 取组尾、
+   h/l 取组内极值、v 求和;t 用组首。纯函数,确定性聚合,不碰种子。 */
+function aggBars(bars, mult) {
+  const out = [];
+  for (let i = 0; i < bars.length; i += mult) {
+    const g = bars.slice(i, i + mult);
+    if (!g.length) break;
+    out.push({
+      o: g[0].o,
+      c: g[g.length - 1].c,
+      h: Math.max(...g.map((b) => b.h)),
+      l: Math.min(...g.map((b) => b.l)),
+      v: g.reduce((a, b) => a + (b.v || 0), 0),
+      t: g[0].t,
+    });
+  }
+  return out;
+}
+let drawerPeriod = 'D';
+let _dhSeq = 0; /* 快速连点日/周/月 + liveTick rAF 晚到帧的防竞态 */
+const DH_CANDLE_MAX = 170; /* PriceChart isLine 阈值,聚合后超限从最旧端截尾 */
+function drawerBars(s) {
+  const raw = rangeData(s, drawerRange);
+  if (drawerPeriod === 'D') return raw;
+  /* 1D 分时无周期概念:切周/月时自动换到对应日线路径 */
+  const bars = raw.filter((b) => b && ['o', 'h', 'l', 'c'].every((k) => Number.isFinite(b[k]) && b[k] > 0));
+  const agg = aggBars(bars, drawerPeriod === 'W' ? 5 : 21);
+  return agg.length > DH_CANDLE_MAX ? agg.slice(-DH_CANDLE_MAX) : agg;
+}
 /* FE-03:1D 分时是本地合成的(genIntraday),真实/导入标的也不能和"实时"混着显示。
    FE-03 补:非 1D 区间同样可能是合成走势——只有 loadRealKline() 成功过的标的
    才有真实 K 线,其余(导入标的、K 线未加载/加载失败的 live、内置模拟)都必须标注。
    返回空串表示不需要角标。 */
-function synthNote(stock, range) {
+function synthNote(stock, range, period) {
   if (!stock) return '模拟数据';
   if (range === '1D') return (stock.live || stock.imported) ? '模拟分时 · 非真实成交' : '模拟数据';
-  if (stock._realKline) return '';
+  if (stock._realKline) return period && period !== 'D' ? (period === 'W' ? '真实日线 · 周K(5 日聚合)' : '真实日线 · 月K(21 日聚合)') : '';
+  if (period === 'W') return (stock.live || stock.imported) ? '模拟走势 · 周K(5 日聚合) · 非真实' : '模拟数据 · 周K(5 日聚合)';
+  if (period === 'M') return (stock.live || stock.imported) ? '模拟走势 · 月K(21 日聚合) · 非真实' : '模拟数据 · 月K(21 日聚合)';
   return (stock.live || stock.imported) ? '模拟走势 · 非真实 K 线' : '模拟数据';
 }
 function setSynthBadge(id, text) {
@@ -5614,6 +5675,7 @@ function pruneTabs() {
 function openDrawer(code) {
   const s = BY_CODE[code];
   if (!s) return;
+  ++_dhSeq; /* 换标的:前一个标的的在途 K 线回调全部作废 */
   if ($('#portfolio').classList.contains('is-on')) closePortfolio();
   if (!document.getElementById('drawer').classList.contains('is-on')) lastFocus = document.activeElement;
   state.openCode = code;
@@ -5680,10 +5742,11 @@ function openDrawer(code) {
   detailChart.opts.showMA = $('#indToggle [data-ind="ma"]').classList.contains('is-on');
   detailChart.opts.showVol = $('#indToggle [data-ind="vol"]').classList.contains('is-on');
   detailChart.opts.showBoll = $('#indToggle [data-ind="boll"]').classList.contains('is-on');
+  detailChart.opts.maFast = drawerPeriod !== 'D'; /* 周/月 K 显示 MA5/10/20 */
   detailChart.opts.onHover = (i) => updateOhlc(s, i);
-  detailChart.setData(rangeData(s, drawerRange));
+  detailChart.setData(drawerBars(s));
   updateOhlc(s, -1);
-  setSynthBadge('detailSynth', synthNote(s, drawerRange));
+  setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
 
   // open UI
   $('#drawer').classList.add('is-on');
@@ -5699,8 +5762,9 @@ function openDrawer(code) {
 
   if (s.live) {
     const openCode = code;
+    const seq = ++_dhSeq; /* 网络窗口内用户切周期/换标的时,晚到回调不得覆盖新视图 */
     loadRealKline(s).then((ok) => {
-      if (!ok || state.openCode !== openCode) return;
+      if (!ok || state.openCode !== openCode || seq !== _dhSeq) return;
       const up2 = s.chgPct >= 0;
       $('#drawerPrice').textContent = fmt.px(s.last, s.market === 'CRYPTO' ? 0 : 2);
       const chgEl2 = $('#drawerChg');
@@ -5709,9 +5773,9 @@ function openDrawer(code) {
       renderDiagnosis(s);
       renderIndicators(s);
       if (detailChart) {
-        detailChart.setData(rangeData(s, drawerRange));
+        detailChart.setData(drawerBars(s));
         updateOhlc(s, -1);
-        setSynthBadge('detailSynth', synthNote(s, drawerRange));
+        setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
       }
     });
   }
@@ -5720,14 +5784,15 @@ function openDrawer(code) {
 function updateOhlc(s, i) {
   const el = $('#dhOhlc');
   if (i < 0) {
-    el.innerHTML = `<span>移动指针查看逐日 OHLC</span>`;
+    el.innerHTML = `<span>移动指针查看逐${drawerPeriod === 'W' ? '周' : drawerPeriod === 'M' ? '月' : '日'} OHLC</span>`;
     return;
   }
-  const d = rangeData(s, drawerRange)[i];
+  const d = drawerBars(s)[i];
   if (!d) return;
   const chg = ((d.c - d.o) / d.o) * 100;
+  const pk = drawerPeriod === 'W' ? '周K ' : drawerPeriod === 'M' ? '月K ' : '';
   el.innerHTML = `
-    <span>${d.intraday ? d.t.toTimeString().slice(0, 5) : `${d.t.getFullYear()}-${String(d.t.getMonth() + 1).padStart(2, '0')}-${String(d.t.getDate()).padStart(2, '0')}`}</span>
+    <span>${pk}${d.intraday ? d.t.toTimeString().slice(0, 5) : `${d.t.getFullYear()}-${String(d.t.getMonth() + 1).padStart(2, '0')}-${String(d.t.getDate()).padStart(2, '0')}`}</span>
     <span>开 <b>${fmt.px(d.o)}</b></span><span>高 <b>${fmt.px(d.h)}</b></span>
     <span>低 <b>${fmt.px(d.l)}</b></span><span>收 <b class="${chg >= 0 ? 'up' : 'down'}">${fmt.px(d.c)}</b></span>
     <span>量 <b>${fmt.vol(d.v)}</b></span>`;
@@ -6853,13 +6918,35 @@ function wireEvents() {
   $('#dhRanges').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-range]');
     if (!b) return;
+    ++_dhSeq;
     $$('#dhRanges button').forEach((x) => x.classList.toggle('is-on', x === b));
     drawerRange = b.dataset.range;
     const s = BY_CODE[state.openCode];
     if (s && detailChart) {
-      detailChart.setData(rangeData(s, drawerRange));
+      detailChart.setData(drawerBars(s));
       updateOhlc(s, -1);
-      setSynthBadge('detailSynth', synthNote(s, drawerRange));
+      setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
+    }
+  });
+  /* K 线周期(日/周/月):周=5 根日线一组、月=21 根一组;
+     ++_dhSeq 防竞态(连点时 liveTick 的 rAF 晚到帧不覆盖新周期) */
+  $('#dhPeriod').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-period]');
+    if (!b) return;
+    ++_dhSeq;
+    drawerPeriod = b.dataset.period;
+    $$('#dhPeriod button').forEach((x) => x.classList.toggle('is-on', x === b));
+    /* 1D 分时无周期概念:选周/月自动换到对应日线路径 */
+    if (drawerRange === '1D' && drawerPeriod !== 'D') {
+      drawerRange = drawerPeriod === 'W' ? '1W' : '1M';
+      $$('#dhRanges button').forEach((x) => x.classList.toggle('is-on', x.dataset.range === drawerRange));
+    }
+    const s = BY_CODE[state.openCode];
+    if (s && detailChart) {
+      detailChart.opts.maFast = drawerPeriod !== 'D';
+      detailChart.setData(drawerBars(s), { animate: false });
+      updateOhlc(s, -1);
+      setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
     }
   });
   $('#indToggle').addEventListener('click', (e) => {
