@@ -17,8 +17,20 @@ coverage/
 .env.*
 .wrangler/
 
-# 评估交付物（报告为过程产物，不进版本库）
-deliverables/
+# 评估交付物:报告与回归探针入库(换机器要能自证),截图/本地依赖/临时脚本不入库
+deliverables/**
+!deliverables/gstack/
+!deliverables/gstack/*.md
+!deliverables/gstack/_stage3/
+# 只收「当前回归集」:verify-* / probe-* / contrast.js。
+# qa-*.js 与 shot-*.js 是一次性排查与截图脚本,不纳入回归,也不入库(见 _stage3/README.md)
+!deliverables/gstack/_stage3/verify-*.js
+!deliverables/gstack/_stage3/probe-*.js
+!deliverables/gstack/_stage3/contrast.js
+!deliverables/gstack/_stage3/_qa_run.sh
+!deliverables/gstack/_stage3/README.md
+deliverables/gstack/_stage3/_qa_logs/
+deliverables/gstack/_stage3/_tmp/
 
 # 工作区元数据
 .workbuddy-ai/
@@ -33,8 +45,6 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
-# 评估过程产物（截图、探针脚本、本地依赖）
-deliverables/
 
 # 删除前的备份包（含旧后端代码，勿提交）
 _backup/
