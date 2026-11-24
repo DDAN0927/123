@@ -38,3 +38,12 @@ deliverables/
 
 # 删除前的备份包（含旧后端代码，勿提交）
 _backup/
+
+# Python（后端）
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# 后端一致性基准（体积大且可由脚本重生成：node backend/tests/parity_gen.js）
+backend/tests/parity_*.json
