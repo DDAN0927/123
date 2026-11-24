@@ -1120,6 +1120,25 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
 .pf-sec{margin-top:24px}
 .pf-sec>h4{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:600;margin-bottom:8px}
 .pf-sec>h4 span{font-family:var(--mono);font-size:9px;color:var(--faint);font-weight:400;letter-spacing:.04em}
+/* 复盘纪律:三态芯片(✓ 通过 / ! 未守 / — 缺失),缺失只标注不计入命中率 */
+.disc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.disc-chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;font-size:11px;border:1px solid var(--line);color:var(--ink-2)}
+.disc-chip b{font-family:var(--mono);font-weight:600}
+.disc-chip.is-pass{color:var(--down);border-color:color-mix(in srgb,var(--down) 45%,transparent)}
+.disc-chip.is-fail{color:var(--up);border-color:color-mix(in srgb,var(--up) 45%,transparent)}
+.disc-chip.is-miss{color:var(--mute)}
+.disc-grade{font-size:11.5px;font-weight:600;margin-bottom:8px}
+.disc-note{font-size:10px;color:var(--faint);line-height:1.6;margin-top:8px}
+/* 分散度诊断:HHI + 有效持仓 + 相关矩阵。
+   相关性是风险维度不是涨跌(C-06 教训):中性色阶,禁用红涨绿跌 */
+.corr-grid{display:grid;gap:2px;font-family:var(--mono);font-size:9px;margin-top:10px;max-width:420px}
+.corr-grid b{display:flex;align-items:center;justify-content:center;height:26px;color:var(--ink);font-weight:500}
+.corr-grid i{display:flex;align-items:center;justify-content:center;height:26px;color:var(--ink-2);font-style:normal}
+.corr-head{display:grid;grid-template-columns:repeat(var(--cn),1fr);gap:2px;font-family:var(--mono);font-size:9px;color:var(--mute);margin-top:10px;max-width:420px}
+.corr-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.diver-kpis{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
+.diver-kpis div{font-size:11px;color:var(--mute)}
+.diver-kpis b{display:block;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink)}
 .pf-table{width:100%;border-collapse:collapse;min-width:420px}
 .pf-table-wrap{overflow-x:auto;scrollbar-width:thin}
 .pf-table th{font-family:var(--mono);font-size:8.5px;color:var(--faint);font-weight:400;text-align:right;padding:6px 7px;border-bottom:1px solid var(--line);letter-spacing:.05em;white-space:nowrap}
@@ -2108,12 +2127,20 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
       <div id="pfXray"></div>
     </div>
     <div class="pf-sec">
+      <h4>分散度诊断 <span>模拟回放</span></h4>
+      <div id="pfDivers"></div>
+    </div>
+    <div class="pf-sec">
       <h4>自选 <span id="pfFavMeta">—</span></h4>
       <div id="pfFavList"></div>
     </div>
     <div class="pf-sec">
       <h4>最近成交 <span id="pfTradeMeta">—</span></h4>
       <div id="pfTradeList"></div>
+    </div>
+    <div class="pf-sec">
+      <h4>交易纪律 <span id="pfDiscMeta">—</span></h4>
+      <div id="pfDisc"></div>
     </div>
     <div class="pf-foot">
       <span>模拟交易,不涉及真实资金。</span>
@@ -4281,7 +4308,7 @@ function execBuy(code, qty) {
   p.cost = (p.cost * p.qty + q.amount + q.fee) / newQty;
   p.qty = newQty;
   account.positions[code] = p;
-  account.trades.unshift({ t: Date.now(), code, side: 'buy', qty, price: s.last, fee: q.fee + q.stamp, amount: q.amount });
+  account.trades.unshift({ t: Date.now(), code, side: 'buy', qty, price: s.last, fee: q.fee + q.stamp, amount: q.amount, chg: s.chgPct });
   if (account.trades.length > 80) account.trades.length = 80;
   saveAccount();
   return { ok: true, msg: `买入 ${s.name} ${qty} 股,成交价 ${fmt.px(s.last)}` };
@@ -4303,7 +4330,7 @@ function execSell(code, qty) {
   account.dayRealized = (account.dayRealized || 0) + realizedNow;
   p.qty -= qty;
   if (p.qty <= 0) delete account.positions[code];
-  account.trades.unshift({ t: Date.now(), code, side: 'sell', qty, price: s.last, fee: q.fee + q.stamp, amount: q.amount });
+  account.trades.unshift({ t: Date.now(), code, side: 'sell', qty, price: s.last, fee: q.fee + q.stamp, amount: q.amount, chg: s.chgPct });
   if (account.trades.length > 80) account.trades.length = 80;
   saveAccount();
   return { ok: true, msg: `卖出 ${s.name} ${qty} 股,成交价 ${fmt.px(s.last)}` };
@@ -4355,6 +4382,8 @@ function closePortfolio() {
   $('#pfScrim').classList.remove('is-on');
   if (!$('#drawer').classList.contains('is-on')) document.body.style.overflow = '';
 }
+/* 集中度阈值(X-RAY 与纪律面板共用,DRY) */
+const CONC_LIMIT = { stock: 0.4, group: 0.5 };
 function renderPortfolio() {
   const m = accountMetrics();
   $('#pfTotal').textContent = money0(m.total);
@@ -4406,8 +4435,8 @@ function renderPortfolio() {
       ).join('');
       const maxShare = Math.max(...holdings.map((h) => h.mv / Math.max(m.total, 1)));
       const risks = [];
-      if (maxShare > 0.4) risks.push(`单一持仓 ${holdings[0].s.name} 占 ${(maxShare * 100).toFixed(1)}%,集中度偏高`);
-      if (gRows[0] && gRows[0][1] / Math.max(m.total, 1) > 0.5) risks.push(`${gRows[0][0]} 行业占 ${((gRows[0][1] / Math.max(m.total, 1)) * 100).toFixed(1)}%,行业集中`);
+      if (maxShare > CONC_LIMIT.stock) risks.push(`单一持仓 ${holdings[0].s.name} 占 ${(maxShare * 100).toFixed(1)}%,集中度偏高`);
+      if (gRows[0] && gRows[0][1] / Math.max(m.total, 1) > CONC_LIMIT.group) risks.push(`${gRows[0][0]} 行业占 ${((gRows[0][1] / Math.max(m.total, 1)) * 100).toFixed(1)}%,行业集中`);
       if (m.cash / Math.max(m.total, 1) < 0.1) risks.push('现金占比低于 10%,加仓空间有限');
       if (m.cash / Math.max(m.total, 1) > 0.5) risks.push('现金占比超过 50%,资金利用率偏低');
       if (holdings.length < 3) risks.push(`持仓仅 ${holdings.length} 只,分散度不足`);
@@ -4453,6 +4482,156 @@ function renderPortfolio() {
       </div>`;
     }).join('')
     : `<div class="pf-empty"><b>暂无成交</b>从任意个股的“交易”标签开始</div>`;
+
+  renderDiscipline(holdings);
+  renderDiversification(holdings, m);
+}
+
+/* ============ 分散度诊断(借鉴 QuantFlow Pro loadPortfolioDiversification) ============
+   HHI、有效持仓=1/HHI、两两 Pearson 相关矩阵(近 120 根模拟日收盘)。
+   相关性是风险维度不是涨跌:中性色阶;导入标的为本地合成回放,如实标注。 */
+const DIVER_CORR_WINDOW = 120;
+const DIVER_CORR_MAX = 8; /* 相关矩阵最多展示前 8 大权重,防网格爆炸 */
+function pearson(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 21) return null;
+  const xa = a.slice(-n), xb = b.slice(-n);
+  const ra = [], rb = [];
+  for (let i = 1; i < n; i++) {
+    if (!(xa[i - 1] > 0) || !(xb[i - 1] > 0)) continue;
+    ra.push(xa[i] / xa[i - 1] - 1);
+    rb.push(xb[i] / xb[i - 1] - 1);
+  }
+  const m = ra.length;
+  if (m < 20) return null;
+  const ma = ra.reduce((x, y) => x + y, 0) / m;
+  const mb = rb.reduce((x, y) => x + y, 0) / m;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < m; i++) {
+    const d1 = ra[i] - ma, d2 = rb[i] - mb;
+    num += d1 * d2; da += d1 * d1; db += d2 * d2;
+  }
+  if (da <= 1e-12 || db <= 1e-12) return null;
+  return num / Math.sqrt(da * db);
+}
+function computeDiversification(holdings) {
+  const total = holdings.reduce((a, h) => a + h.mv, 0);
+  if (holdings.length < 2 || total <= 0) return null;
+  const sorted = holdings.slice().sort((a, b) => b.mv - a.mv).slice(0, DIVER_CORR_MAX);
+  const weights = sorted.map((h) => h.mv / total);
+  const hhi = weights.reduce((a, w) => a + w * w, 0);
+  const eff = 1 / hhi;
+  const closes = sorted.map((h) => {
+    ensureSeries(h.s);
+    return h.s.series.map((d) => d.c);
+  });
+  const corr = closes.map((ca, i) => closes.map((cb, j) => (i === j ? 1 : pearson(ca, cb))));
+  return { names: sorted.map((h) => h.s.name), codes: sorted.map((h) => h.code), weights, hhi, eff, corr };
+}
+function renderDiversification(holdings, m) {
+  const host = $('#pfDivers');
+  if (!host) return;
+  const d = computeDiversification(holdings);
+  if (!d) {
+    host.innerHTML = '<div class="alert-empty" style="padding:16px 0">持仓不足 2 只,无法计算相关矩阵</div>';
+    return;
+  }
+  const cn = d.names.length;
+  const corrCell = (i, j) => {
+    const r = d.corr[i][j];
+    const txt = r === null ? '—' : r.toFixed(2);
+    /* 中性风险色阶:用墨色透明度表示相关强度,与涨跌语义无关 */
+    const a = r === null ? 0 : 0.06 + Math.min(Math.abs(r), 1) * 0.42;
+    return `<i style="background:rgba(128,138,152,${a.toFixed(2)})" title="${escapeHTML(d.names[i])} × ${escapeHTML(d.names[j])}${r === null ? ' · 重叠不足 21 日' : ` · 相关 ${r.toFixed(2)}`}">${txt}</i>`;
+  };
+  const headCells = d.names.map((n) => `<span title="${escapeHTML(n)}">${escapeHTML(n)}</span>`).join('');
+  const gridRows = d.names.map((n, i) =>
+    `<b title="${escapeHTML(n)}">${escapeHTML(n.length > 4 ? n.slice(0, 4) : n)}</b>` + d.names.map((_, j) => corrCell(i, j)).join('')
+  ).join('');
+  const importedNote = holdings.some((h) => h.s.imported) ? ' · 导入标的走势为本地合成回放' : '';
+  host.innerHTML = `
+    <div class="diver-kpis">
+      <div>HHI<b>${d.hhi.toFixed(3)}</b></div>
+      <div>有效持仓(1/HHI)<b>${d.eff.toFixed(1)} 只</b></div>
+      <div>实际持仓<b>${holdings.length} 只</b></div>
+    </div>
+    <div class="corr-head" style="--cn:${cn}"><span></span>${headCells}</div>
+    <div class="corr-grid" style="grid-template-columns:64px repeat(${cn},1fr)">${gridRows}</div>
+    <p class="disc-note">口径:HHI=Σ 权重²,有效持仓=1/HHI(数学恒等);相关系数为近 ${DIVER_CORR_WINDOW} 根模拟交易日收盘对数收益 Pearson,重叠不足 21 日记「—」;格子颜色深浅表示相关程度,不是红涨绿跌;名义分散 ≠ 实际分散。${importedNote} · 模拟回放,不构成投资建议。</p>`;
+}
+
+/* ============ 复盘纪律面板(借鉴 QuantFlow Pro renderDisciplineCompact) ============
+   纯本地规则引擎,从 account.trades/positions 即时推导,零新增存储;
+   三态:✓通过 / !未守 / —缺失;缺失只标注不计入命中率;样本不足不硬判。 */
+const DISCIPLINE_SAMPLE_MIN = 5;
+function computeDiscipline(holdings) {
+  const buys = account.trades.filter((t) => t.side === 'buy');
+  const sells = account.trades.filter((t) => t.side === 'sell');
+  const rules = [];
+  /* R1 追高:买入笔成交时当日 |涨幅|≥3% 占比;旧记录缺 chg 字段 → 缺失态 */
+  const withChg = buys.filter((t) => typeof t.chg === 'number');
+  if (buys.length && withChg.length === buys.length) {
+    const chase = withChg.filter((t) => Math.abs(t.chg) >= TODAY_MOVE_PCT).length;
+    const ratio = chase / withChg.length;
+    rules.push({ name: '不追高', val: `${chase}/${withChg.length} 笔追高`, pass: ratio <= 0.4, hint: `追高占比 ${(ratio * 100).toFixed(0)}%,阈值 ≤40%` });
+  } else {
+    rules.push({ name: '不追高', val: null, pass: null, hint: '历史成交缺少当日涨幅字段,无法统计' });
+  }
+  /* R2 止损:持仓现价跌破诊断止损参考 → 未守 */
+  if (holdings.length) {
+    const broken = holdings.filter((h) => {
+      const dg = computeDiag(h.s);
+      return dg && Number.isFinite(dg.stop) && h.s.last < dg.stop;
+    });
+    rules.push({ name: '止损在位', val: broken.length ? `${broken.length} 只破位` : '全部在位', pass: broken.length === 0, hint: '现价 vs 诊断止损参考' });
+  } else {
+    rules.push({ name: '止损在位', val: null, pass: null, hint: '空仓,无止损可查' });
+  }
+  /* R3 频率:同一会话日成交 ≤10 笔;零成交无从复盘 → 缺失态 */
+  const today = dayStamp();
+  const sameDay = account.trades.filter((t) => {
+    const d = new Date(t.t);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === today;
+  }).length;
+  rules.push({
+    name: '频率节制',
+    val: account.trades.length ? `今日 ${sameDay} 笔` : null,
+    pass: account.trades.length ? sameDay <= 10 : null,
+    hint: account.trades.length ? '同日成交阈值 ≤10 笔' : '暂无成交',
+  });
+  /* R4/R5 集中度:与 X-RAY 共用阈值 */
+  const total = holdings.reduce((a, h) => a + h.mv, 0);
+  if (holdings.length) {
+    const maxShare = Math.max(...holdings.map((h) => h.mv / Math.max(total, 1)));
+    rules.push({ name: '单票 ≤40%', val: `${(maxShare * 100).toFixed(0)}%`, pass: maxShare <= CONC_LIMIT.stock, hint: '与持仓分析 X-RAY 同口径' });
+    const groups = {};
+    holdings.forEach((h) => { const g = h.s.group || h.s.sector || '其他'; groups[g] = (groups[g] || 0) + h.mv; });
+    const maxGroup = Math.max(...Object.values(groups)) / Math.max(total, 1);
+    rules.push({ name: '单行业 ≤50%', val: `${(maxGroup * 100).toFixed(0)}%`, pass: maxGroup <= CONC_LIMIT.group, hint: '与持仓分析 X-RAY 同口径' });
+  } else {
+    rules.push({ name: '单票 ≤40%', val: null, pass: null, hint: '空仓' });
+    rules.push({ name: '单行业 ≤50%', val: null, pass: null, hint: '空仓' });
+  }
+  void sells;
+  const judged = rules.filter((r) => r.pass !== null);
+  const hit = judged.filter((r) => r.pass).length;
+  const grade = account.trades.length < DISCIPLINE_SAMPLE_MIN
+    ? { txt: '样本不足', cls: 'is-miss', pct: null }
+    : { txt: judged.length ? `${hit}/${judged.length} 守住` : '—', cls: hit === judged.length ? 'is-pass' : 'is-fail', pct: judged.length ? hit / judged.length : null };
+  return { rules, grade };
+}
+function renderDiscipline(holdings) {
+  const host = $('#pfDisc');
+  if (!host) return;
+  const { rules, grade } = computeDiscipline(holdings);
+  $('#pfDiscMeta').textContent = `${grade.txt}${grade.pct !== null ? ` · ${(grade.pct * 100).toFixed(0)}%` : ''}`;
+  const chips = rules.map((r) => {
+    const cls = r.pass === true ? 'is-pass' : r.pass === false ? 'is-fail' : 'is-miss';
+    const mark = r.pass === true ? '✓' : r.pass === false ? '!' : '—';
+    const title = r.pass === null ? `${r.hint}(缺失不计入)` : `${r.hint}`;
+    return `<span class="disc-chip ${cls}" title="${escapeHTML(title)}"><b>${mark}</b>${escapeHTML(r.name)}${r.val ? ` · ${escapeHTML(r.val)}` : ''}</span>`;
+  }).join('');
+  host.innerHTML = `<div class="disc-grade ${grade.cls}">${escapeHTML(grade.txt)}</div><div class="disc-chips">${chips}</div><p class="disc-note">本地规则引擎 · 由模拟成交记录即时推导,不构成投资建议;缺失项只标注不计入命中率。</p>`;
 }
 
 /* ============ R6 第 4 步:首屏快览条(指数 + 自选) ============
