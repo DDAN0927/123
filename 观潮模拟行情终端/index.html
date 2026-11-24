@@ -1177,10 +1177,22 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
 .pf-table tbody tr.is-orphan{cursor:default}
 .pf-table tbody tr.is-orphan .nm{font-style:italic}
 .pf-table tbody tr.is-orphan .cd{color:var(--accent);font-style:normal}
+/* 孤儿行没有数值,跨列文字左对齐才读得下去;右对齐会把它推到表格最右(窄屏视口外) */
+.pf-table tbody tr.is-orphan td[colspan]{text-align:left}
+/* 孤儿行的唯一出口。文案刻意不用「卖出」:这里没有成交价,叫卖出会让人以为按市价成交了。
+   二次确认状态也不用红绿(本项目的红绿是涨跌语义),靠文案加粗 + 虚框 + 底色区分。 */
+/* 放在名称列而不是最右列:.pf-table 有 min-width:420px + overflow-x:auto,
+   窄屏上最右列在视口外 —— 把唯一出口放在要横向滚动才能看见的地方,等于没有出口。 */
+.pf-orphan-act{display:inline-block;font-family:var(--sans);font-size:10px;line-height:1.6;color:var(--accent);background:none;border:1px solid currentColor;border-radius:3px;padding:0 6px;margin-top:3px;cursor:pointer;white-space:nowrap}
+.pf-orphan-act:hover{background:var(--panel-2)}
+.pf-orphan-act.is-arming{background:var(--accent-soft);border-style:dashed;font-weight:600}
+
 .pf-empty{padding:22px 0;text-align:center;color:var(--mute);font-size:12px;line-height:1.7}
 .pf-empty b{display:block;color:var(--ink);font-size:13px;margin-bottom:3px}
 .pf-trade-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px}
 .pf-trade-row .side{font-family:var(--mono);font-size:9.5px;padding:1px 6px;border:1px solid currentColor}
+/* 注销不是涨也不是跌:它是账务动作,用中性色,不能用 up/down */
+.pf-trade-row .side.is-close{color:var(--mute)}
 .pf-trade-row b{font-family:var(--mono);font-weight:500}
 .pf-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:26px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--faint)}
 .pf-reset{font-family:var(--mono);font-size:10px;text-decoration:underline;text-underline-offset:3px;color:var(--mute)}
@@ -4337,7 +4349,7 @@ function loadAccount() {
       nPos++;
     }
     const trades = a.trades.filter((t) => t && typeof t.code === 'string' && CODE_RE.test(t.code)
-      && (t.side === 'buy' || t.side === 'sell')
+      && (t.side === 'buy' || t.side === 'sell' || t.side === 'close')
       && Number.isFinite(t.qty) && t.qty > 0
       && Number.isFinite(t.price) && t.price > 0
       && Number.isFinite(t.amount) && Number.isFinite(t.fee)).slice(0, 80);
@@ -4497,6 +4509,26 @@ function resolveHoldings() {
   orphan.sort((a, b) => b.costAmt - a.costAmt);
   return { priced, orphan };
 }
+/* 孤儿持仓的退出通道。
+   持仓掉出股票池后既不能在详情页卖出(BY_CODE 查不到,也没有报价),也没有别的出口 ——
+   用户只能重置整个账户,把正常持仓和历史一起清掉。这里给一条最小通路:按成本价注销。
+   **不采用任何市场报价**(该标的已无可信价格),所以这笔不计盈亏(realized 不动),
+   只在成交记录里留一条 side:'close' 的痕迹。
+   同时把账面恒等式补回去:cash + mv 重新等于 初始资金 + 已实现 + 浮动。
+   注销前这部分成本悬在账外 —— 既不进 mv 也不进 realized,正是它必须留痕的原因:
+   现金凭空变多却没有记录,和静默蒸发是同一类问题,只是方向相反。 */
+function closeOrphanPosition(code) {
+  if (BY_CODE[code]) return { ok: false, msg: '该标的有报价,请走正常卖出' };
+  const p = account.positions[code];
+  if (!p || !(p.qty > 0)) return { ok: false, msg: '没有该标的持仓' };
+  const qty = p.qty, cost = p.cost, amt = cost * qty;
+  account.cash += amt;
+  delete account.positions[code];
+  account.trades.unshift({ t: Date.now(), code, side: 'close', qty, price: cost, fee: 0, amount: amt, chg: null, note: '按成本注销' });
+  if (account.trades.length > 80) account.trades.length = 80;
+  saveAccount();
+  return { ok: true, msg: `已按成本注销 ${code} ${qty} 股,退回 ${money0(amt)} · 不计盈亏`, amount: amt };
+}
 function dataQuality(available, total, opts) {
   const o = opts || {};
   const t = Math.max(0, Math.floor(total || 0));
@@ -4533,11 +4565,10 @@ function renderPortfolio() {
       <td>${((h.mv / Math.max(m.total, 1)) * 100).toFixed(1)}%</td>
     </tr>`;
   }).join('') + orphan.map((o) => `<tr data-code="${escapeHTML(o.code)}" class="is-orphan">
-      <td><span class="nm">${escapeHTML(o.code)}</span><span class="cd">不在当前股票池</span></td>
+      <td><span class="nm">${escapeHTML(o.code)}</span><span class="cd">不在当前股票池</span><button type="button" class="pf-orphan-act" data-close-orphan="${escapeHTML(o.code)}">按成本注销</button></td>
       <td>${escapeHTML(o.qty)}</td>
       <td>${fmt.px(o.cost, 2)}</td>
-      <td colspan="2">无法定价</td>
-      <td>—</td>
+      <td colspan="3">无法定价</td>
     </tr>`).join('');
   $('#pfHoldEmpty').innerHTML = (priced.length || orphan.length) ? '' : `<div class="pf-empty"><b>还没有持仓</b>打开任意个股的“交易”标签,用模拟资金买入<br>初始资金 ¥1,000,000</div>`;
   const holdTotal = priced.length + orphan.length;
@@ -4614,9 +4645,11 @@ function renderPortfolio() {
     ? trades.map((t) => {
       const s = BY_CODE[t.code];
       const d = new Date(t.t);
+      const sideTxt = t.side === 'buy' ? '买入' : t.side === 'close' ? '注销' : '卖出';
+      const sideCls = t.side === 'buy' ? 'up' : t.side === 'close' ? 'is-close' : 'down';
       return `<div class="pf-trade-row">
-        <span class="side ${t.side === 'buy' ? 'up' : 'down'}">${t.side === 'buy' ? '买入' : '卖出'}</span>
-        <span style="flex:1;min-width:0">${escapeHTML(s ? s.name : t.code)} · ${escapeHTML(t.qty)} 股</span>
+        <span class="side ${sideCls}">${sideTxt}</span>
+        <span style="flex:1;min-width:0">${escapeHTML(s ? s.name : t.code)} · ${escapeHTML(t.qty)} 股${t.side === 'close' ? ' · 按成本,不计盈亏' : ''}</span>
         <b>${fmt.px(t.price, 2)}</b>
         <span class="mono" style="color:var(--faint);font-size:9.5px">${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}</span>
       </div>`;
@@ -4793,17 +4826,20 @@ function computeDiscipline(holdings, orphan) {
   } else {
     rules.push({ name: '止损在位', val: null, pass: null, hint: '空仓,无止损可查' });
   }
-  /* R3 频率:同一会话日成交 ≤10 笔;零成交无从复盘 → 缺失态 */
+  /* R3 频率:同一会话日成交 ≤10 笔;零成交无从复盘 → 缺失态。
+     注销(close)不算成交:它是清理账务的动作,计入换手率等于惩罚用户整理数据,
+     而且会让「今日 N 笔」这个数字对不上他自己记得的买卖次数。 */
   const today = dayStamp();
-  const sameDay = account.trades.filter((t) => {
+  const traded = account.trades.filter((t) => t.side !== 'close');
+  const sameDay = traded.filter((t) => {
     const d = new Date(t.t);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === today;
   }).length;
   rules.push({
     name: '频率节制',
-    val: account.trades.length ? `今日 ${sameDay} 笔` : null,
-    pass: account.trades.length ? sameDay <= 10 : null,
-    hint: account.trades.length ? '同日成交阈值 ≤10 笔' : '暂无成交',
+    val: traded.length ? `今日 ${sameDay} 笔` : null,
+    pass: traded.length ? sameDay <= 10 : null,
+    hint: traded.length ? '同日成交阈值 ≤10 笔' : '暂无成交',
   });
   /* R4/R5 集中度:与 X-RAY 共用阈值 */
   const total = holdings.reduce((a, h) => a + h.mv, 0);
@@ -4826,7 +4862,7 @@ function computeDiscipline(holdings, orphan) {
   const hit = judged.filter((r) => r.pass).length;
   const full = judged.length === rules.length && rules.length > 0;
   let grade;
-  if (account.trades.length < DISCIPLINE_SAMPLE_MIN) {
+  if (traded.length < DISCIPLINE_SAMPLE_MIN) {
     grade = { txt: '样本不足', cls: 'is-miss', pct: null };
   } else if (!judged.length) {
     grade = { txt: '—', cls: 'is-miss', pct: null };
@@ -7002,9 +7038,36 @@ function wireEvents() {
       ['时间', '代码', '名称', '方向', '数量', '价格', '金额', '费用'],
       account.trades.map((t) => {
         const s = BY_CODE[t.code];
-        return [new Date(t.t).toLocaleString('zh-CN'), t.code, s ? s.name : '', t.side === 'buy' ? '买入' : '卖出', t.qty, t.price, Number(t.amount || t.qty * t.price).toFixed(2), Number(t.fee || 0).toFixed(2)];
+        const sideTxt = t.side === 'buy' ? '买入' : t.side === 'close' ? '按成本注销' : '卖出';
+        return [new Date(t.t).toLocaleString('zh-CN'), t.code, s ? s.name : '', sideTxt, t.qty, t.price, Number(t.amount || t.qty * t.price).toFixed(2), Number(t.fee || 0).toFixed(2)];
       }));
     toast(`已导出 ${account.trades.length} 笔成交`);
+  });
+  /* 孤儿持仓注销:必须点两次。
+     一次点击就让持仓消失,和「静默蒸发」的观感太像 —— 二次确认是这里唯一能把
+     「用户主动」和「程序丢数据」区分开的东西,所以宁可多一次点击。
+     4 秒不动自动撤回,防手滑隔一会儿再点到同一个位置。 */
+  const holdBodyEl = $('#pfHoldBody');
+  if (holdBodyEl) holdBodyEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-close-orphan]');
+    if (!btn) return;
+    const code = btn.getAttribute('data-close-orphan');
+    if (btn.getAttribute('data-armed') !== '1') {
+      btn.setAttribute('data-armed', '1');
+      btn.textContent = '再点一次确认';
+      btn.classList.add('is-arming');
+      clearTimeout(btn._armTimer);
+      btn._armTimer = setTimeout(() => {
+        btn.removeAttribute('data-armed');
+        btn.textContent = '按成本注销';
+        btn.classList.remove('is-arming');
+      }, 4000);
+      return;
+    }
+    clearTimeout(btn._armTimer);
+    const r = closeOrphanPosition(code);
+    toast(r.msg, r.ok ? 'ok' : 'err');
+    if (r.ok) { renderPortfolio(); updateAcctChip(); }
   });
 
   // terminal filters
@@ -7213,7 +7276,13 @@ function wireEvents() {
   }));
   $('#portfolio').addEventListener('click', (e) => {
     if (e.target.closest('#pfReset') || e.target.closest('#pfClose')) return;
+    /* 孤儿行没有详情页(BY_CODE 查不到)。旧实现一视同仁地 closePortfolio + openDrawer(code):
+       点一下就关掉持仓面板,然后什么也不发生。而它的注销按钮就在这一行里 ——
+       点按钮等于顺带关掉整个抽屉。(上一轮只给了 cursor:default,那是视觉,不是行为。)
+       孤儿行的点击要么交给注销按钮自己处理,要么什么都不做。 */
+    if (e.target.closest('[data-close-orphan]')) return;
     const row = e.target.closest('[data-code]');
+    if (row && row.classList.contains('is-orphan')) return;
     if (row) {
       const code = row.dataset.code;
       closePortfolio();
@@ -8155,7 +8224,7 @@ function sanitizeState(data) {
       });
     }
     const trades = (Array.isArray(ac.trades) ? ac.trades : [])
-      .filter((t) => t && typeof t === 'object' && typeof t.code === 'string' && CODE_RE.test(t.code) && (t.side === 'buy' || t.side === 'sell'))
+      .filter((t) => t && typeof t === 'object' && typeof t.code === 'string' && CODE_RE.test(t.code) && (t.side === 'buy' || t.side === 'sell' || t.side === 'close'))
       .slice(0, 80)
       .map((t) => cleanValue(t, 0));
     out.account = { cash: ac.cash, positions, trades, realized: isFinite(Number(ac.realized)) ? Number(ac.realized) : 0 };
