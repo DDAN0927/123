@@ -6124,6 +6124,7 @@ function computeThermo(input) {
   const availW = live.reduce((a, d) => a + d.weight, 0);
   const composite = availW > 0 ? Math.round(live.reduce((a, d) => a + d.score * d.weight, 0) / availW) : THERMO_NEUTRAL;
   const missing = dimList.filter((d) => !d.available).map((d) => d.key);
+  const missingLabels = dimList.filter((d) => !d.available).map((d) => d.label);
   const coverage = Math.round(availW * 100) / 100;
   const LEVELS = [
     [80, '过热', '情绪已到高位,注意拥挤交易风险,不宜追高加仓。'],
@@ -6136,7 +6137,7 @@ function computeThermo(input) {
   const lv = insufficient ? null : LEVELS.find(([min]) => composite >= min);
   const level = lv ? lv[1] : '维度不足';
   const action = lv ? lv[2]
-    : `四维只有 ${live.length}/4 维有数据(权重覆盖 ${Math.round(coverage * 100)}%),不给结论。缺失:${missing.join('、') || '—'}`;
+    : `四维只有 ${live.length}/4 维有数据(权重覆盖 ${Math.round(coverage * 100)}%),不给结论。缺失:${missingLabels.join('、') || '—'}`;
   const turnoverY = cn.reduce((a, s) => a + s.mcap * 0.006, 0); /* 亿,与 boardStats.turn 同口径 */
   const ret20s = [];
   cnIdx.forEach((idx) => {
