@@ -1146,6 +1146,12 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
 .disc-chip.is-miss{color:var(--mute)}
 .disc-grade{font-size:11.5px;font-weight:600;margin-bottom:8px}
 .disc-note{font-size:10px;color:var(--faint);line-height:1.6;margin-top:8px}
+/* 数据质量行:面板结论建立在部分数据上时,必须把「缺了什么」放在结论同一屏,
+   不能塞进脚注。degraded 态用主题强调色,和普通口径说明区分开。 */
+.dq-line{display:flex;align-items:flex-start;gap:6px;font-size:10px;line-height:1.6;color:var(--mute);margin:8px 0}
+.dq-line .dq-tag{flex:none;font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:1px 5px;border:1px solid var(--line-2);color:var(--mute)}
+.dq-line.is-degraded{color:var(--ink-2)}
+.dq-line.is-degraded .dq-tag{border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent)}
 /* 分散度诊断:HHI + 有效持仓 + 相关矩阵。
    相关性是风险维度不是涨跌(C-06 教训):中性色阶,禁用红涨绿跌 */
 .corr-grid{display:grid;gap:2px;font-family:var(--mono);font-size:9px;margin-top:10px;max-width:420px}
@@ -1166,6 +1172,11 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
 .pf-table td .cd{font-family:var(--mono);font-size:8.5px;color:var(--faint);display:block;letter-spacing:.03em}
 .pf-table tbody tr{cursor:pointer}
 .pf-table tbody tr:hover{background:var(--panel-2)}
+/* 无法定价的持仓行:不能和正常行一个样子,但也不能藏起来 —— 灰化 + 斜体代码 */
+.pf-table tbody tr.is-orphan td{color:var(--mute)}
+.pf-table tbody tr.is-orphan{cursor:default}
+.pf-table tbody tr.is-orphan .nm{font-style:italic}
+.pf-table tbody tr.is-orphan .cd{color:var(--accent);font-style:normal}
 .pf-empty{padding:22px 0;text-align:center;color:var(--mute);font-size:12px;line-height:1.7}
 .pf-empty b{display:block;color:var(--ink);font-size:13px;margin-bottom:3px}
 .pf-trade-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px}
@@ -2140,6 +2151,7 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
   <div class="drawer-body">
     <div class="pf-sec">
       <h4>持仓 <span id="pfHoldMeta">—</span></h4>
+      <div id="pfHoldDq"></div>
       <div class="pf-table-wrap">
       <table class="pf-table">
         <thead><tr><th>标的</th><th>持仓</th><th>成本</th><th>现价</th><th>盈亏</th><th>仓位</th></tr></thead>
@@ -4344,18 +4356,18 @@ function accountMetrics() {
   /* Q17:今日盈亏 = 持仓当日市价波动 + 当日已实现盈亏(卖出落袋,含费用)。
      清仓后持仓波动归零,但当天砍仓的实亏不该显示成 +0 */
   if (account.dayStamp !== dayStamp()) { account.dayStamp = dayStamp(); account.dayRealized = 0; }
+  /* 分两堆:能定价的进市值;掉出股票池的只报成本,不猜价格(见 resolveHoldings)。
+     面板要能说出「有几只没算进去」,所以把两堆一起返回,不只返回加总。 */
+  const { priced, orphan } = resolveHoldings();
   let mv = 0, mtm = 0, cost = 0;
-  Object.keys(account.positions).forEach((code) => {
-    const p = account.positions[code];
-    const s = BY_CODE[code];
-    if (!s || !p || !p.qty) return;
-    mv += s.last * p.qty;
-    mtm += (s.last - s.prevClose) * p.qty;
-    cost += p.cost * p.qty;
+  priced.forEach((h) => {
+    mv += h.mv;
+    mtm += (h.s.last - h.s.prevClose) * h.p.qty;
+    cost += h.p.cost * h.p.qty;
   });
   const total = account.cash + mv;
   const unreal = mv - cost;
-  return { mv, day: mtm + (account.dayRealized || 0), cost, total, unreal, pl: account.realized + unreal, cash: account.cash };
+  return { mv, day: mtm + (account.dayRealized || 0), cost, total, unreal, pl: account.realized + unreal, cash: account.cash, priced, orphan };
 }
 function calcBuy(price, qty) {
   const amount = price * qty;
@@ -4458,8 +4470,48 @@ function closePortfolio() {
 }
 /* 集中度阈值(X-RAY 与纪律面板共用,DRY) */
 const CONC_LIMIT = { stock: 0.4, group: 0.5 };
+
+/* ============ 持仓解析 + 数据质量信封 ============
+   「标的掉出股票池」是真实可达的状态:同步 A 股快照(resetUniverseTo)、导入 CSV
+   (applyImportedUniverse)、加载缓存快照(loadSnapshotIntoUniverse)都会**整体替换**
+   STOCKS/BY_CODE。此时 account.positions 里仍留着旧代码,而 BY_CODE 里查不到。
+   此前 renderPortfolio 与 accountMetrics 各自用 `if (!s) return null` 跳过 ——
+   结果:持仓从表里消失、市值从总资产里消失,**界面上没有一个字说它去哪了**,
+   而纪律面板还会对「剩下那只」打一个「✓ 止损在位 · 全部在位」的绿灯。
+   这里统一成「能定价的 / 无法定价的」两堆,后面所有面板共用同一口径。
+
+   信封形状对齐后端 core/envelope.py:available / total / missing / degraded / note。
+   只算能算的,不补中性值 —— 拿 0 或 50 去凑,会把局部数据稀释成「全部正常」。
+   粒度:这是**面板级**信封(一个结论 + N 项证据);温度计用的是**维度级**
+   (每个维度各自 available),两者不同,别硬合并。 */
+function resolveHoldings() {
+  const priced = [], orphan = [];
+  Object.keys(account.positions).forEach((code) => {
+    const p = account.positions[code];
+    if (!p || !p.qty) return;
+    const s = BY_CODE[code];
+    if (!s) { orphan.push({ code, qty: p.qty, cost: p.cost, costAmt: p.cost * p.qty }); return; }
+    priced.push({ code, p, s, mv: s.last * p.qty, pnl: (s.last - p.cost) * p.qty });
+  });
+  priced.sort((a, b) => b.mv - a.mv);
+  orphan.sort((a, b) => b.costAmt - a.costAmt);
+  return { priced, orphan };
+}
+function dataQuality(available, total, opts) {
+  const o = opts || {};
+  const t = Math.max(0, Math.floor(total || 0));
+  const a = Math.min(t, Math.max(0, Math.floor(available || 0)));
+  const notes = (o.notes || []).filter(Boolean);
+  return { available: a, total: t, missing: t - a, degraded: t - a > 0 || notes.length > 0, notes };
+}
+/* 一行「数据质量」。正文由各面板自己写:缺什么、按什么口径算,各面板说法不同,
+   统一模板只会写出含糊官话;这里只负责外壳与 degraded 视觉。 */
+function dqLineHTML(key, text, degraded) {
+  return `<div class="dq-line${degraded ? ' is-degraded' : ''}" data-dq="${escapeHTML(key)}"><span class="dq-tag">数据质量</span><span>${escapeHTML(text)}</span></div>`;
+}
 function renderPortfolio() {
   const m = accountMetrics();
+  const priced = m.priced, orphan = m.orphan;
   $('#pfTotal').textContent = money0(m.total);
   const dEl = $('#pfDay'), pEl = $('#pfPl');
   dEl.textContent = (m.day >= 0 ? '+' : '') + money0(m.day);
@@ -4469,17 +4521,8 @@ function renderPortfolio() {
   $('#pfCash').textContent = money0(m.cash);
   $('#pfMv').textContent = money0(m.mv);
 
-  const holdings = Object.keys(account.positions)
-    .map((code) => {
-      const p = account.positions[code], s = BY_CODE[code];
-      if (!s || !p || !p.qty) return null;
-      return { code, p, s, mv: s.last * p.qty, pnl: (s.last - p.cost) * p.qty };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.mv - a.mv);
-  const totalMv = holdings.reduce((a, h) => a + h.mv, 0) || 1;
   const body = $('#pfHoldBody');
-  body.innerHTML = holdings.map((h) => {
+  body.innerHTML = priced.map((h) => {
     const pnlPct = ((h.s.last - h.p.cost) / h.p.cost) * 100;
     return `<tr data-code="${escapeHTML(h.code)}">
       <td><span class="nm">${escapeHTML(h.s.name)}</span><span class="cd">${escapeHTML(h.code)}</span></td>
@@ -4489,17 +4532,39 @@ function renderPortfolio() {
       <td class="${h.pnl >= 0 ? 'up' : 'down'}">${(h.pnl >= 0 ? '+' : '') + fmt.px(h.pnl, 0)}<br><span style="font-size:9px">${fmt.pct(pnlPct, 1)}</span></td>
       <td>${((h.mv / Math.max(m.total, 1)) * 100).toFixed(1)}%</td>
     </tr>`;
-  }).join('');
-  $('#pfHoldEmpty').innerHTML = holdings.length ? '' : `<div class="pf-empty"><b>还没有持仓</b>打开任意个股的“交易”标签,用模拟资金买入<br>初始资金 ¥1,000,000</div>`;
-  $('#pfHoldMeta').textContent = holdings.length ? `${holdings.length} 只 · 市值 ${money0(m.mv)}` : '空仓';
+  }).join('') + orphan.map((o) => `<tr data-code="${escapeHTML(o.code)}" class="is-orphan">
+      <td><span class="nm">${escapeHTML(o.code)}</span><span class="cd">不在当前股票池</span></td>
+      <td>${escapeHTML(o.qty)}</td>
+      <td>${fmt.px(o.cost, 2)}</td>
+      <td colspan="2">无法定价</td>
+      <td>—</td>
+    </tr>`).join('');
+  $('#pfHoldEmpty').innerHTML = (priced.length || orphan.length) ? '' : `<div class="pf-empty"><b>还没有持仓</b>打开任意个股的“交易”标签,用模拟资金买入<br>初始资金 ¥1,000,000</div>`;
+  const holdTotal = priced.length + orphan.length;
+  $('#pfHoldMeta').textContent = !holdTotal
+    ? '空仓'
+    : `${priced.length} 只 · 市值 ${money0(m.mv)}${orphan.length ? ` · ${orphan.length} 只无法定价` : ''}`;
+
+  /* 无法定价的持仓:不编造价格,但必须把「有这回事、成本多少」摆到结论同一屏 */
+  const holdDq = $('#pfHoldDq');
+  if (holdDq) {
+    if (!orphan.length) { holdDq.innerHTML = ''; }
+    else {
+      const cost = orphan.reduce((a, o) => a + o.costAmt, 0);
+      const q = dataQuality(priced.length, holdTotal, { notes: ['持仓已掉出当前股票池,未计入总资产与市值'] });
+      holdDq.innerHTML = dqLineHTML('orphan',
+        `${priced.length}/${holdTotal} 只持仓可定价 · ${orphan.length} 只无法定价(成本 ${money0(cost)}),未计入总资产与市值 · ${orphan.map((o) => o.code).join('/')}`,
+        q.degraded);
+    }
+  }
 
   const xray = $('#pfXray');
   if (xray) {
-    if (!holdings.length) {
+    if (!priced.length) {
       xray.innerHTML = '<div class="alert-empty" style="padding:16px 0">建立持仓后生成行业分布与集中度提示</div>';
     } else {
       const groups = {};
-      holdings.forEach((h) => {
+      priced.forEach((h) => {
         const g = h.s.group || h.s.sector || '其他';
         groups[g] = (groups[g] || 0) + h.mv;
       });
@@ -4507,21 +4572,22 @@ function renderPortfolio() {
       const bars = gRows.map(([g, v]) =>
         `<div class="xray-bar"><span>${escapeHTML(g)}</span><i style="--w:${(v / Math.max(m.total, 1)).toFixed(3)}"></i><b>${((v / Math.max(m.total, 1)) * 100).toFixed(1)}%</b></div>`
       ).join('');
-      const maxShare = Math.max(...holdings.map((h) => h.mv / Math.max(m.total, 1)));
+      const maxShare = Math.max(...priced.map((h) => h.mv / Math.max(m.total, 1)));
       const risks = [];
-      if (maxShare > CONC_LIMIT.stock) risks.push(`单一持仓 ${holdings[0].s.name} 占 ${(maxShare * 100).toFixed(1)}%,集中度偏高`);
+      if (maxShare > CONC_LIMIT.stock) risks.push(`单一持仓 ${priced[0].s.name} 占 ${(maxShare * 100).toFixed(1)}%,集中度偏高`);
       if (gRows[0] && gRows[0][1] / Math.max(m.total, 1) > CONC_LIMIT.group) risks.push(`${gRows[0][0]} 行业占 ${((gRows[0][1] / Math.max(m.total, 1)) * 100).toFixed(1)}%,行业集中`);
       if (m.cash / Math.max(m.total, 1) < 0.1) risks.push('现金占比低于 10%,加仓空间有限');
       if (m.cash / Math.max(m.total, 1) > 0.5) risks.push('现金占比超过 50%,资金利用率偏低');
-      if (holdings.length < 3) risks.push(`持仓仅 ${holdings.length} 只,分散度不足`);
+      if (priced.length < 3) risks.push(`可定价持仓仅 ${priced.length} 只,分散度不足`);
+      if (orphan.length) risks.push(`${orphan.length} 只无法定价,未计入上述分布`);
       const notes = risks.length ? risks : ['行业与个股分布相对均衡'];
       xray.innerHTML = `<div class="xray-bars">${bars}</div><div class="xray-notes">${notes.map((n) => `<div class="xray-note ${risks.length ? '' : 'ok'}">${escapeHTML(n)}</div>`).join('')}</div>`;
     }
   }
 
   const alloc = $('#pfAlloc');
-  if (holdings.length) {
-    alloc.innerHTML = holdings.slice(0, 6).map((h, i) =>
+  if (priced.length) {
+    alloc.innerHTML = priced.slice(0, 6).map((h, i) =>
       `<i style="width:${((h.mv / Math.max(m.total, 1)) * 100).toFixed(2)}%;opacity:${(0.9 - i * 0.11).toFixed(2)}"></i>`
     ).join('') + `<i style="width:${((m.cash / Math.max(m.total, 1)) * 100).toFixed(2)}%;background:var(--line-2);opacity:1"></i>`;
   } else {
@@ -4557,8 +4623,8 @@ function renderPortfolio() {
     }).join('')
     : `<div class="pf-empty"><b>暂无成交</b>从任意个股的“交易”标签开始</div>`;
 
-  renderDiscipline(holdings);
-  renderDiversification(holdings);
+  renderDiscipline(priced, orphan);
+  renderDiversification(priced, orphan);
 }
 
 /* ============ 分散度诊断(借鉴 QuantFlow Pro loadPortfolioDiversification) ============
@@ -4588,7 +4654,8 @@ function pearson(a, b) {
   if (da <= 1e-12 || db <= 1e-12) return null;
   return num / Math.sqrt(da * db);
 }
-function computeDiversification(holdings) {
+function computeDiversification(holdings, orphan) {
+  const orph = orphan || [];
   const total = holdings.reduce((a, h) => a + h.mv, 0);
   if (holdings.length < 2 || total <= 0) return null;
   const sorted = holdings.slice().sort((a, b) => b.mv - a.mv).slice(0, DIVER_CORR_MAX);
@@ -4596,20 +4663,46 @@ function computeDiversification(holdings) {
   const hhi = weights.reduce((a, w) => a + w * w, 0);
   const eff = 1 / hhi;
   /* 必须真切到窗口长度:此前 DIVER_CORR_WINDOW 只用在文案里,pearson 收的是全量序列,
-     UI 说「近 120 根」而实际算 1300 根(AAPL×MSFT 实测 -0.005 vs -0.105),属口径不实 */
+     UI 说「近 120 根」而实际算 1300 根(AAPL×MSFT 实测 -0.005 vs -0.105),属口径不实。
+     反向也防:序列短于窗口时按实际根数算,但窗口长度必须按实际报,
+     不能再拿 120 去写死文案 —— 那是同一种口径不实的另一个方向。
+     (当前不可达:genSeries 恒 1300 根,后端同步 LIMIT=1300;留着是防有人把窗口或 LIMIT 调小) */
   const closes = sorted.map((h) => {
     ensureSeries(h.s);
     return h.s.series.slice(-DIVER_CORR_WINDOW).map((d) => d.c);
   });
+  const bars = closes.map((c) => c.length);
+  const win = Math.min.apply(null, bars.concat([DIVER_CORR_WINDOW]));
   const corr = closes.map((ca, i) => closes.map((cb, j) => (i === j ? 1 : pearson(ca, cb))));
-  return { names: sorted.map((h) => h.s.name), codes: sorted.map((h) => h.code), weights, hhi, eff, corr };
+  /* 相关矩阵可能半空,而 HHI / 有效持仓照样算出个像样的数字。
+     不报覆盖率就等于让人以为整张表都算过了。 */
+  const pairsTotal = (sorted.length * (sorted.length - 1)) / 2;
+  let pairsOk = 0;
+  corr.forEach((row, i) => row.forEach((v, j) => { if (j > i && v !== null) pairsOk += 1; }));
+  const notes = [];
+  if (win < DIVER_CORR_WINDOW) {
+    const short = sorted.filter((h, i) => bars[i] < DIVER_CORR_WINDOW).map((h) => h.s.name);
+    notes.push(`窗口按实际可得 ${win} 根(${short.slice(0, 3).join('/')} 不足 ${DIVER_CORR_WINDOW} 根)`);
+  }
+  if (pairsOk < pairsTotal) notes.push(`${pairsTotal - pairsOk} 对重叠不足 21 个收益日`);
+  if (orph.length) notes.push(`${orph.length} 只无法定价未纳入权重`);
+  return {
+    names: sorted.map((h) => h.s.name), codes: sorted.map((h) => h.code),
+    weights, hhi, eff, corr, win, orphanCount: orph.length,
+    quality: dataQuality(pairsOk, pairsTotal, { notes }),
+  };
 }
-function renderDiversification(holdings) {
+function renderDiversification(holdings, orphan) {
   const host = $('#pfDivers');
   if (!host) return;
-  const d = computeDiversification(holdings);
+  const orph = orphan || [];
+  const d = computeDiversification(holdings, orph);
   if (!d) {
-    host.innerHTML = '<div class="alert-empty" style="padding:16px 0">持仓不足 2 只,无法计算相关矩阵</div>';
+    /* 孤儿信息只写一次:质量行就是它的位置,空态文案不再重复一遍 */
+    host.innerHTML = '<div class="alert-empty" style="padding:16px 0">可定价持仓不足 2 只,无法计算相关矩阵</div>'
+      + (orph.length
+        ? dqLineHTML('diver', `${holdings.length}/${holdings.length + orph.length} 只可定价 · ${orph.length} 只无法定价,未纳入计算`, true)
+        : '');
     return;
   }
   const cn = d.names.length;
@@ -4625,40 +4718,78 @@ function renderDiversification(holdings) {
     `<b title="${escapeHTML(n)}">${escapeHTML(n.length > 4 ? n.slice(0, 4) : n)}</b>` + d.names.map((_, j) => corrCell(i, j)).join('')
   ).join('');
   const importedNote = holdings.some((h) => h.s.imported) ? ' · 导入标的走势为本地合成回放' : '';
+  const q = d.quality;
+  const dq = dqLineHTML('diver',
+    q.degraded
+      ? `相关 ${q.available}/${q.total} 对可算 · ${q.notes.join(' · ')}`
+      : `相关 ${q.total}/${q.total} 对可算 · ${d.win} 根窗口 · 权重覆盖全部可定价持仓`,
+    q.degraded);
   host.innerHTML = `
     <div class="diver-kpis">
       <div>HHI<b>${d.hhi.toFixed(3)}</b></div>
       <div>有效持仓(1/HHI)<b>${d.eff.toFixed(1)} 只</b></div>
-      <div>实际持仓<b>${holdings.length} 只</b></div>
+      <div>实际持仓<b>${holdings.length}${d.orphanCount ? ` +${d.orphanCount} 未定价` : ''} 只</b></div>
     </div>
+    ${dq}
     <div class="corr-head" style="--cn:${cn}"><span></span>${headCells}</div>
     <div class="corr-grid" style="grid-template-columns:64px repeat(${cn},1fr)">${gridRows}</div>
-    <p class="disc-note">口径:HHI=Σ 权重²,有效持仓=1/HHI(数学恒等);相关系数为近 ${DIVER_CORR_WINDOW} 根模拟交易日收盘对数收益 Pearson,重叠不足 21 日记「—」;格子颜色深浅表示相关程度,不是红涨绿跌;名义分散 ≠ 实际分散。${importedNote} · 模拟回放,不构成投资建议。</p>`;
+    <p class="disc-note">口径:HHI=Σ 权重²,有效持仓=1/HHI(数学恒等);相关系数为近 ${d.win} 根模拟交易日收盘对数收益 Pearson,重叠不足 21 日记「—」;格子颜色深浅表示相关程度,不是红涨绿跌;名义分散 ≠ 实际分散。${importedNote} · 模拟回放,不构成投资建议。</p>`;
 }
 
 /* ============ 复盘纪律面板(借鉴 QuantFlow Pro renderDisciplineCompact) ============
    纯本地规则引擎,从 account.trades/positions 即时推导,零新增存储;
    三态:✓通过 / !未守 / —缺失;缺失只标注不计入命中率;样本不足不硬判。 */
 const DISCIPLINE_SAMPLE_MIN = 5;
-function computeDiscipline(holdings) {
+function computeDiscipline(holdings, orphan) {
   const buys = account.trades.filter((t) => t.side === 'buy');
   const rules = [];
-  /* R1 追高:买入笔成交时当日 |涨幅|≥3% 占比;旧记录缺 chg 字段 → 缺失态 */
+  const caveats = [];
+  /* R1 追高:买入笔成交时当日 |涨幅|≥3% 占比。
+     旧实现是「全有全无」:只要有一笔缺 chg,整条规则打成缺失,19 笔有效样本白扔;
+     反过来又允许 2 笔样本就判「追高 50% > 40% 未守」。两头都不对。
+     现在:按可用子集判定,但可用笔数要过 5 笔样本线,并如实标注覆盖率。 */
   const withChg = buys.filter((t) => typeof t.chg === 'number');
-  if (buys.length && withChg.length === buys.length) {
+  const chgMiss = buys.length - withChg.length;
+  if (withChg.length >= DISCIPLINE_SAMPLE_MIN) {
     const chase = withChg.filter((t) => Math.abs(t.chg) >= TODAY_MOVE_PCT).length;
     const ratio = chase / withChg.length;
-    rules.push({ name: '不追高', val: `${chase}/${withChg.length} 笔追高`, pass: ratio <= 0.4, hint: `追高占比 ${(ratio * 100).toFixed(0)}%,阈值 ≤40%` });
-  } else {
-    rules.push({ name: '不追高', val: null, pass: null, hint: '历史成交缺少当日涨幅字段,无法统计' });
-  }
-  /* R2 止损:持仓现价跌破诊断止损参考 → 未守 */
-  if (holdings.length) {
-    const broken = holdings.filter((h) => {
-      const dg = computeDiag(h.s);
-      return dg && Number.isFinite(dg.stop) && h.s.last < dg.stop;
+    const cov = chgMiss ? `仅 ${withChg.length}/${buys.length} 笔含当日涨幅` : '';
+    if (cov) caveats.push(cov);
+    rules.push({
+      name: '不追高', val: `${chase}/${withChg.length} 笔追高`, pass: ratio <= 0.4,
+      hint: `追高占比 ${(ratio * 100).toFixed(0)}%,阈值 ≤40%${cov ? ';' + cov : ''}`,
     });
-    rules.push({ name: '止损在位', val: broken.length ? `${broken.length} 只破位` : '全部在位', pass: broken.length === 0, hint: '现价 vs 诊断止损参考' });
+  } else {
+    rules.push({
+      name: '不追高', val: null, pass: null,
+      hint: buys.length
+        ? `仅 ${withChg.length} 笔含当日涨幅,不足 ${DISCIPLINE_SAMPLE_MIN} 笔不判`
+        : '暂无买入成交',
+    });
+  }
+  /* R2 止损:持仓现价跌破诊断止损参考 → 未守。
+     不能对「查不到的持仓」打绿灯:掉出股票池的持仓(见 resolveHoldings)没有诊断价,
+     旧实现直接把它跳过,界面上显示「✓ 止损在位 · 全部在位」——查过 1 只,报了全部。 */
+  const orph = orphan || [];
+  const holdTotal = holdings.length + orph.length;
+  if (holdTotal) {
+    const broken = [], undiag = orph.map((o) => o.code);
+    holdings.forEach((h) => {
+      const dg = computeDiag(h.s);
+      if (!dg || !Number.isFinite(dg.stop)) { undiag.push(h.code); return; }
+      if (h.s.last < dg.stop) broken.push(h);
+    });
+    const checked = holdTotal - undiag.length;
+    const pass = broken.length ? false : (undiag.length ? null : true);
+    if (undiag.length) caveats.push(`${undiag.length} 只无诊断止损,未验证`);
+    rules.push({
+      name: '止损在位',
+      val: broken.length ? `${broken.length} 只破位` : (undiag.length ? `已验 ${checked}/${holdTotal} 只` : '全部在位'),
+      pass,
+      hint: undiag.length
+        ? `现价 vs 诊断止损参考;${undiag.length} 只无法验证(${undiag.slice(0, 4).join('/')})`
+        : '现价 vs 诊断止损参考',
+    });
   } else {
     rules.push({ name: '止损在位', val: null, pass: null, hint: '空仓,无止损可查' });
   }
@@ -4676,28 +4807,44 @@ function computeDiscipline(holdings) {
   });
   /* R4/R5 集中度:与 X-RAY 共用阈值 */
   const total = holdings.reduce((a, h) => a + h.mv, 0);
+  const concSuffix = orph.length ? `(仅按可定价市值,${orph.length} 只未计入)` : '';
   if (holdings.length) {
     const maxShare = Math.max(...holdings.map((h) => h.mv / Math.max(total, 1)));
-    rules.push({ name: '单票 ≤40%', val: `${(maxShare * 100).toFixed(0)}%`, pass: maxShare <= CONC_LIMIT.stock, hint: '与持仓分析 X-RAY 同口径' });
+    rules.push({ name: '单票 ≤40%', val: `${(maxShare * 100).toFixed(0)}%`, pass: maxShare <= CONC_LIMIT.stock, hint: '与持仓分析 X-RAY 同口径' + concSuffix });
     const groups = {};
     holdings.forEach((h) => { const g = h.s.group || h.s.sector || '其他'; groups[g] = (groups[g] || 0) + h.mv; });
     const maxGroup = Math.max(...Object.values(groups)) / Math.max(total, 1);
-    rules.push({ name: '单行业 ≤50%', val: `${(maxGroup * 100).toFixed(0)}%`, pass: maxGroup <= CONC_LIMIT.group, hint: '与持仓分析 X-RAY 同口径' });
+    rules.push({ name: '单行业 ≤50%', val: `${(maxGroup * 100).toFixed(0)}%`, pass: maxGroup <= CONC_LIMIT.group, hint: '与持仓分析 X-RAY 同口径' + concSuffix });
   } else {
     rules.push({ name: '单票 ≤40%', val: null, pass: null, hint: '空仓' });
     rules.push({ name: '单行业 ≤50%', val: null, pass: null, hint: '空仓' });
   }
+  if (orph.length) caveats.push(`${orph.length} 只无法定价`);
+  /* 命中率的分母必须和「查了几条」一致。旧实现在 2 条缺失时显示「3/3 守住」,
+     读起来是满分,实际只查了 5 条里的 3 条 —— 完美判定必须以全项可判为前提。 */
   const judged = rules.filter((r) => r.pass !== null);
   const hit = judged.filter((r) => r.pass).length;
-  const grade = account.trades.length < DISCIPLINE_SAMPLE_MIN
-    ? { txt: '样本不足', cls: 'is-miss', pct: null }
-    : { txt: judged.length ? `${hit}/${judged.length} 守住` : '—', cls: hit === judged.length ? 'is-pass' : 'is-fail', pct: judged.length ? hit / judged.length : null };
-  return { rules, grade };
+  const full = judged.length === rules.length && rules.length > 0;
+  let grade;
+  if (account.trades.length < DISCIPLINE_SAMPLE_MIN) {
+    grade = { txt: '样本不足', cls: 'is-miss', pct: null };
+  } else if (!judged.length) {
+    grade = { txt: '—', cls: 'is-miss', pct: null };
+  } else {
+    const miss = rules.length - judged.length;
+    grade = {
+      txt: `${hit}/${judged.length} 守住${full ? '' : ` · ${miss} 项缺失`}`,
+      cls: hit === judged.length ? (full ? 'is-pass' : 'is-miss') : 'is-fail',
+      pct: full ? hit / judged.length : null,
+    };
+  }
+  const quality = dataQuality(judged.length, rules.length, { notes: caveats });
+  return { rules, grade, quality };
 }
-function renderDiscipline(holdings) {
+function renderDiscipline(holdings, orphan) {
   const host = $('#pfDisc');
   if (!host) return;
-  const { rules, grade } = computeDiscipline(holdings);
+  const { rules, grade, quality } = computeDiscipline(holdings, orphan);
   $('#pfDiscMeta').textContent = `${grade.txt}${grade.pct !== null ? ` · ${(grade.pct * 100).toFixed(0)}%` : ''}`;
   const chips = rules.map((r) => {
     const cls = r.pass === true ? 'is-pass' : r.pass === false ? 'is-fail' : 'is-miss';
@@ -4705,7 +4852,12 @@ function renderDiscipline(holdings) {
     const title = r.pass === null ? `${r.hint}(缺失不计入)` : `${r.hint}`;
     return `<span class="disc-chip ${cls}" title="${escapeHTML(title)}"><b>${mark}</b>${escapeHTML(r.name)}${r.val ? ` · ${escapeHTML(r.val)}` : ''}</span>`;
   }).join('');
-  host.innerHTML = `<div class="disc-grade ${grade.cls}">${escapeHTML(grade.txt)}</div><div class="disc-chips">${chips}</div><p class="disc-note">本地规则引擎 · 由模拟成交记录即时推导,不构成投资建议;缺失项只标注不计入命中率。</p>`;
+  const dq = dqLineHTML('disc',
+    quality.degraded
+      ? `${quality.available}/${quality.total} 条可判 · ${quality.notes.join(' · ') || '其余缺失'}`
+      : `${quality.total}/${quality.total} 条可判`,
+    quality.degraded);
+  host.innerHTML = `<div class="disc-grade ${grade.cls}">${escapeHTML(grade.txt)}</div><div class="disc-chips">${chips}</div>${dq}<p class="disc-note">本地规则引擎 · 由模拟成交记录即时推导,不构成投资建议;缺失项只标注不计入命中率,完美判定要求全项可判。</p>`;
 }
 
 /* ============ R6 第 4 步:首屏快览条(指数 + 自选) ============
