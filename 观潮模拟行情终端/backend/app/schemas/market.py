@@ -110,3 +110,6 @@ class HealthResponse(BaseModel):
     provider: dict
     universe: dict
     checks: dict
+    # 鉴权自描述：让下游（和用户）一眼看出这服务要不要 token。
+    # 缺这个字段时，"接口裸奔"只能靠读代码发现。
+    auth: dict = Field(default_factory=dict, description="off=无鉴权 / bearer=需要 token")

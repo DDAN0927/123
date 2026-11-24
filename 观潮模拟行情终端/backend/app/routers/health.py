@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from ..core import auth
 from ..core.store import get_store
 from ..schemas.market import HealthResponse
 from ..version import APP_VERSION
@@ -38,4 +39,5 @@ def health() -> HealthResponse:
         provider=prov,
         universe={"total": len(store.rows), "by_market": markets},
         checks=checks,
+        auth=auth.describe(),
     )

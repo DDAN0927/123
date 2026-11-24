@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
+from .core import auth
 from .routers import health, market
 from .version import APP_VERSION
 
@@ -40,6 +41,18 @@ app = FastAPI(
     version=APP_VERSION,
     openapi_tags=OPENAPI_TAGS,
 )
+
+# 中间件顺序有讲究：Starlette 里"后 add 的在更外层"。
+# 所以先注册鉴权（内层），再注册 CORS（外层）—— 否则 401 响应不带 CORS 头，
+# 浏览器会把"没权限"报成"CORS 错误"，是最容易查错方向的一类假故障。
+@app.middleware("http")
+async def auth_guard(request: Request, call_next):
+    """可选鉴权。未设置 ACCESS_TOKEN 时是空操作（开发模式）。"""
+    blocked = await auth.guard(request)
+    if blocked is not None:
+        return blocked
+    return await call_next(request)
+
 
 # 开发期放开：前端可能以 file:// 打开（Origin 为 null）或走本地静态服务。
 # 生产部署时应改为具体来源白名单，不要长期保留通配。
