@@ -7033,12 +7033,15 @@ function wireEvents() {
     ++_dhSeq;
     $$('#dhRanges button').forEach((x) => x.classList.toggle('is-on', x === b));
     drawerRange = b.dataset.range;
-    /* 1D 是分时,没有周期概念:切回 1D 时强制回落日K,
-       否则「分时数据 × 周聚合」只剩 1 根(2026-11-24 QA 抓到的空白图路径) */
-    if (drawerRange === '1D' && drawerPeriod !== 'D') {
+    /* 区间与周期要匹配,原则是「用户最后点的那个控件赢」:
+       - 点周期(周/月)时区间不够 → 抬档(见 dhPeriod);
+       - 点区间(1D/1W/1M)时不够放下当前周期 → 周期回落日K,与点 1D 的处理同源。
+       1D 没有 RANGE_MAP 项(=0),天然落进这条判断,不必单独写。 */
+    const mult = drawerPeriod === 'W' ? 5 : drawerPeriod === 'M' ? 21 : 1;
+    if (drawerPeriod !== 'D' && (RANGE_MAP[drawerRange] || 0) < 10 * mult) {
       drawerPeriod = 'D';
       $$('#dhPeriod button').forEach((x) => x.classList.toggle('is-on', x.dataset.period === 'D'));
-      detailChart.opts.maFast = false;
+      if (detailChart) detailChart.opts.maFast = false;
     }
     const s = BY_CODE[state.openCode];
     if (s && detailChart) {
