@@ -666,6 +666,8 @@ table.hot td:nth-child(2){min-width:230px}
 .xray-bar i{display:block;height:4px;background:var(--line);position:relative;overflow:hidden}
 .xray-bar i::after{content:"";position:absolute;inset:0;background:var(--accent);transform:scaleX(var(--w,0));transform-origin:left;opacity:.8}
 .xray-bar b{font-family:var(--mono);font-size:9.5px;font-weight:400;text-align:right;color:var(--ink-2)}
+.xray-bar.is-na i{background:none;border-top:1px dashed var(--line-2)}
+.xray-bar.is-na b{color:var(--mute)}
 .xray-notes{margin-top:12px;display:flex;flex-direction:column;gap:5px}
 .xray-note{font-size:10.5px;line-height:1.6;color:var(--mute);display:flex;gap:7px;align-items:flex-start}
 .xray-note::before{content:"";width:4px;height:4px;margin-top:6px;background:var(--accent);transform:rotate(45deg);flex:none}
@@ -6042,38 +6044,87 @@ function liveTick() {
    四维复合:趋势(指数 vs MA20).30 + 宽度(上涨占比).25 + 轮动(行业极差).20
    + 波动(ATR% 反向).25;本地模拟序列确定性计算,日粒度,不进 liveTick。 */
 let thermoCache = null;
-function computeThermo() {
+/* 仪表盘中央数字原本只由「滚入视口」那一次动画写入,renderThermo 从不更新它 ——
+   一旦 thermoCache 变化(例如维度缺失降级),大字会停在上一次的旧值。
+   加个已揭示标记,让首屏动画之后由 renderThermo 负责这个数字。 */
+let gaugeRevealed = false;
+/* 维度定义与可用性阈值集中在此,避免「某一维算不出来时悄悄填个中性值」——
+   原实现分别兜 50 / 0.5 / 50 / 1.5,画面上与真实计算值毫无区别。 */
+const THERMO_DIMS = [
+  { key: 'trend', label: '趋势', weight: 0.30 },
+  { key: 'breadth', label: '宽度', weight: 0.25 },
+  { key: 'rotation', label: '轮动', weight: 0.20 },
+  { key: 'volatility', label: '波动', weight: 0.25 },
+];
+/* 权重覆盖低于 60%(即四维里缺两维以上)就不出结论 —— 与纪律面板「样本不足」、
+   分散度「持仓不足 2 只」同一条规矩:数据不够时不给判断,而不是给个像真的数。 */
+const THERMO_MIN_COVERAGE = 0.6;
+const THERMO_NEUTRAL = 50;
+
+/* input 可选:仅供自检注入空/残缺市场,验证「不可用」分支真实可达。
+   默认读全局 INDICES / STOCKS / industryBoards(),调用点无需改动。 */
+function computeThermo(input) {
   const cl = (x) => clamp(Math.round(x), 4, 97);
-  const cnIdx = INDICES.filter((x) => x.mkt === 'CN');
-  let trendRaw = 50;
-  if (cnIdx.length) {
-    const devs = cnIdx.map((idx) => {
-      const ser = indexSeries(idx);
-      const ma = movingAvg(ser, 20);
-      const m = ma[ma.length - 1];
-      return m ? (ser[ser.length - 1] / m - 1) * 100 : 0;
-    });
-    trendRaw = 50 + (devs.reduce((a, b) => a + b, 0) / devs.length) * 6;
-  }
-  const cn = STOCKS.filter((s) => s.market === 'CN');
-  const upR = cn.length ? cn.filter((s) => s.chgPct > 0).length / cn.length : 0.5;
-  const breadthRaw = upR * 125;
-  const boards = industryBoards();
-  let rotationRaw = 50;
-  if (boards.length > 1) {
-    const chgs = boards.map((b) => b.chg);
-    rotationRaw = 35 + (Math.max(...chgs) - Math.min(...chgs)) * 9;
-  }
+  const opt = input || {};
+  const pick = (k, fn) => (Array.isArray(opt[k]) ? opt[k] : fn());
+  const cnIdx = pick('indices', () => INDICES.filter((x) => x.mkt === 'CN'));
+  const allStocks = pick('stocks', () => STOCKS);
+  const boards = pick('boards', () => industryBoards());
+  const cn = allStocks.filter((s) => s.market === 'CN');
+
+  const devs = [];
+  cnIdx.forEach((idx) => {
+    const ser = indexSeries(idx);
+    if (ser.length < 20) return;
+    const ma = movingAvg(ser, 20);
+    const m = ma[ma.length - 1];
+    if (m == null) return;
+    devs.push((ser[ser.length - 1] / m - 1) * 100);
+  });
+  const trendDev = devs.length ? devs.reduce((a, b) => a + b, 0) / devs.length : 0;
+  const rTrend = devs.length
+    ? { score: cl(50 + trendDev * 6), available: true, note: `${devs.length} 只 CN 指数相对 MA20 平均偏离 ${trendDev.toFixed(2)}%` }
+    : { score: THERMO_NEUTRAL, available: false, note: '无可用 CN 指数(需 ≥20 根序列才能算 MA20)' };
+
+  const upN = cn.filter((s) => s.chgPct > 0).length;
+  const downN = cn.filter((s) => s.chgPct < 0).length;
+  const upR = cn.length ? upN / cn.length : 0;
+  const rBreadth = cn.length
+    ? { score: cl(upR * 125), available: true, note: `${upN} 涨 / ${downN} 跌,共 ${cn.length} 只 CN 标的` }
+    : { score: THERMO_NEUTRAL, available: false, note: '无 CN 标的快照,算不出上涨占比' };
+
+  const chgs = boards.map((b) => b.chg).filter((v) => typeof v === 'number' && isFinite(v));
+  const spread = chgs.length > 1 ? Math.max(...chgs) - Math.min(...chgs) : null;
+  const rRotation = spread == null
+    ? { score: THERMO_NEUTRAL, available: false, note: `可用行业组 ${chgs.length} 个,不足 2 个算不出极差` }
+    : { score: cl(35 + spread * 9), available: true, note: `${chgs.length} 个行业组,最强与最弱相差 ${spread.toFixed(2)}pct` };
+
   const sample = cn.slice(0, 400);
-  const vAvg = sample.length ? sample.reduce((a, s) => a + atrPct(s), 0) / sample.length : 1.5;
+  const atrs = sample.map((s) => atrPct(s)).filter((v) => v > 0);
+  const vAvg = atrs.length ? atrs.reduce((a, b) => a + b, 0) / atrs.length : 0;
   /* 波动维度是反向项:低波动=情绪偏热,高波动=偏冷。
      锚点按 CN 股 atrPct 实测区间标定(均值 3.56、区间 1.47–7.42):
      1.5% → 87 分、3.5% → 64 分、7.5% → 18 分。
      原式 85-vAvg*55 在均值处得负值,clamp 后**恒等于 4**,等于把硬编码 64 换成了
      硬编码 4,还把「过热」档(≥80)压成永久不可达(复合分上界 73.75)。 */
-  const volDim = cl(104 - vAvg * 11.5);
-  const dims = { trend: cl(trendRaw), breadth: cl(breadthRaw), rotation: cl(rotationRaw), volatility: volDim };
-  const composite = Math.round(dims.trend * 0.3 + dims.breadth * 0.25 + dims.rotation * 0.2 + dims.volatility * 0.25);
+  const rVol = atrs.length
+    ? { score: cl(104 - vAvg * 11.5), available: true, note: `${atrs.length} 只样本平均 ATR ${vAvg.toFixed(2)}%(反向项:波动越低情绪越热)` }
+    : { score: THERMO_NEUTRAL, available: false, note: '无足量日线样本(ATR 需 ≥15 根)' };
+
+  const byKey = { trend: rTrend, breadth: rBreadth, rotation: rRotation, volatility: rVol };
+  const dims = {};
+  const dimList = THERMO_DIMS.map((d) => {
+    const r = byKey[d.key];
+    dims[d.key] = r.score;
+    return { key: d.key, label: d.label, weight: d.weight, score: r.score, available: r.available, note: r.note };
+  });
+  /* 只对有数据的维度做加权平均并归一化。缺的维度不填 50 去凑 —— 那会把任何
+     局部数据都稀释成「中性」,恰好是最容易骗过人的那种假。 */
+  const live = dimList.filter((d) => d.available);
+  const availW = live.reduce((a, d) => a + d.weight, 0);
+  const composite = availW > 0 ? Math.round(live.reduce((a, d) => a + d.score * d.weight, 0) / availW) : THERMO_NEUTRAL;
+  const missing = dimList.filter((d) => !d.available).map((d) => d.key);
+  const coverage = Math.round(availW * 100) / 100;
   const LEVELS = [
     [80, '过热', '情绪已到高位,注意拥挤交易风险,不宜追高加仓。'],
     [60, '偏热', '市场偏强,可维持现有仓位,为新机会留出弹药。'],
@@ -6081,21 +6132,27 @@ function computeThermo() {
     [20, '偏冷', '情绪降温,控制回撤优先,等待企稳信号。'],
     [-Infinity, '过冷', '市场冰点,分批布局需配合严格止损纪律。'],
   ];
-  const lv = LEVELS.find(([min]) => composite >= min);
+  const insufficient = coverage < THERMO_MIN_COVERAGE;
+  const lv = insufficient ? null : LEVELS.find(([min]) => composite >= min);
+  const level = lv ? lv[1] : '维度不足';
+  const action = lv ? lv[2]
+    : `四维只有 ${live.length}/4 维有数据(权重覆盖 ${Math.round(coverage * 100)}%),不给结论。缺失:${missing.join('、') || '—'}`;
   const turnoverY = cn.reduce((a, s) => a + s.mcap * 0.006, 0); /* 亿,与 boardStats.turn 同口径 */
-  const upN = cn.filter((s) => s.chgPct > 0).length;
-  const downN = cn.filter((s) => s.chgPct < 0).length;
-  const adr = downN ? upN / downN : 1;
-  const ret20s = cnIdx.map((idx) => {
+  const ret20s = [];
+  cnIdx.forEach((idx) => {
     const ser = indexSeries(idx);
-    const base = ser[Math.max(0, ser.length - 21)];
-    return base ? (ser[ser.length - 1] / base - 1) * 100 : 0;
+    if (ser.length < 21) return;
+    const base = ser[ser.length - 21];
+    if (base) ret20s.push((ser[ser.length - 1] / base - 1) * 100);
   });
   return {
-    composite, level: lv[1], action: lv[2], dims, vAvg,
+    composite, level, action, dims, dimList, missing, coverage, insufficient,
+    vAvg: atrs.length ? vAvg : null,
     meta: {
-      turnover: turnoverY, adr,
-      ret20: ret20s.reduce((a, b) => a + b, 0) / Math.max(ret20s.length, 1),
+      turnover: cn.length ? turnoverY : null,
+      /* 全涨或全跌时 ADR 是无穷大,不是 1;算不出就给 null,由渲染层显示「—」 */
+      adr: downN ? upN / downN : null,
+      ret20: ret20s.length ? ret20s.reduce((a, b) => a + b, 0) / ret20s.length : null,
     },
   };
 }
@@ -6106,19 +6163,35 @@ function renderThermo() {
   drawGauge(t.composite);
   $('#gaugeTitle').textContent = `大盘温度 · ${t.level}`;
   $('#gaugeAction').textContent = t.action;
-  $('#advTurnover').textContent = (t.meta.turnover / 10000).toFixed(2) + ' 万亿';
-  $('#advAdr').textContent = t.meta.adr.toFixed(2);
+  /* 数据不足时不摆一个数字出来充数 —— 与四维条上的「—」保持同一口径 */
+  if (gaugeRevealed) {
+    const gv = $('#gaugeVal');
+    if (gv) gv.textContent = t.insufficient ? '—' : String(t.composite);
+  }
+  const m = t.meta;
+  $('#advTurnover').textContent = m.turnover == null ? '—' : (m.turnover / 10000).toFixed(2) + ' 万亿';
+  $('#advAdr').textContent = m.adr == null ? '—' : m.adr.toFixed(2);
   const retEl = $('#advRet20');
-  retEl.textContent = `${t.meta.ret20 >= 0 ? '+' : ''}${t.meta.ret20.toFixed(1)}%`;
-  retEl.className = t.meta.ret20 >= 0 ? 'up' : 'down';
-  $('#advVol').textContent = t.vAvg.toFixed(1);
-  const dimRows = [
-    ['趋势', t.dims.trend], ['宽度', t.dims.breadth], ['轮动', t.dims.rotation], ['波动', t.dims.volatility],
-  ];
+  if (m.ret20 == null) {
+    retEl.textContent = '—';
+    retEl.className = '';
+  } else {
+    retEl.textContent = `${m.ret20 >= 0 ? '+' : ''}${m.ret20.toFixed(1)}%`;
+    retEl.className = m.ret20 >= 0 ? 'up' : 'down';
+  }
+  $('#advVol').textContent = t.vAvg == null ? '—' : t.vAvg.toFixed(1);
   const host = $('#thermoDims');
-  if (host) host.innerHTML = dimRows.map(([n, v]) =>
-    `<div class="xray-bar"><span>${n}</span><i style="--w:${(v / 100).toFixed(2)}"></i><b>${v}</b></div>`
-  ).join('');
+  if (!host) return;
+  /* 缺数据的维度画成灰色短桩 + 「—」,并把缺失原因挂在 title 上:
+     宁可让人看见「这维没有」,也不给一个与真实计算值长得一样的中性分。 */
+  const list = t.dimList || THERMO_DIMS.map((d) => ({ ...d, score: t.dims[d.key], available: true, note: '' }));
+  host.innerHTML = list.map((d) => {
+    const note = escapeHTML(d.note || '');
+    if (!d.available) {
+      return `<div class="xray-bar is-na" title="${note}"><span>${d.label}</span><i style="--w:0"></i><b>—</b></div>`;
+    }
+    return `<div class="xray-bar" title="${note}"><span>${d.label}</span><i style="--w:${(d.score / 100).toFixed(2)}"></i><b>${d.score}</b></div>`;
+  }).join('');
 }
 
 /* ============ theme ============ */
@@ -7148,8 +7221,9 @@ function initReveal() {
           const anim = (t) => {
             const k = clamp((t - t0) / 1100, 0, 1);
             v = Math.round(thermoCache.composite * (1 - Math.pow(1 - k, 3)));
-            el.textContent = v;
+            el.textContent = thermoCache.insufficient ? '—' : v;
             if (k < 1) requestAnimationFrame(anim);
+            else gaugeRevealed = true;
           };
           requestAnimationFrame(anim);
           gio.disconnect();
@@ -7554,6 +7628,38 @@ function runSelfTests() {
     const expect = a.composite >= 80 ? '过热' : a.composite >= 60 ? '偏热' : a.composite >= 40 ? '中性' : a.composite >= 20 ? '偏冷' : '过冷';
     check(a.level === expect, `level ${a.level} 与分数 ${a.composite} 不自洽`);
     check(Object.values(a.dims).every((v) => v >= 4 && v <= 97), '维度分越界');
+    check(a.missing.length === 0 && a.coverage === 1, `正常态应四维齐全,实际 missing=[${a.missing.join(',')}] coverage=${a.coverage}`);
+    check(a.dimList.length === 4 && a.dimList.every((d) => d.note && d.note.length > 3), '每维应带可读的说明');
+    return true;
+  });
+  t('温度计:四维全缺时标不可用、不出结论', () => {
+    const r = computeThermo({ indices: [], stocks: [], boards: [] });
+    check(r.missing.length === 4, `应 4 维全缺,实际 [${r.missing.join(',')}]`);
+    check(r.coverage === 0, `权重覆盖应为 0,实际 ${r.coverage}`);
+    check(r.level === '维度不足' && r.insufficient === true, `应判维度不足,实际 ${r.level}`);
+    check(r.composite === 50, `无任何数据时合成分应为中性 50,实际 ${r.composite}`);
+    check(r.dimList.every((d) => d.score === 50 && !d.available && d.note), '不可用的维度不该带非中性分');
+    check(r.meta.turnover === null && r.meta.adr === null && r.meta.ret20 === null, '派生指标应给 null 而不是 0/1');
+    check(r.vAvg === null, '波动均值应给 null 而不是兜底常数');
+    return true;
+  });
+  t('温度计:缺两维按权重覆盖判维度不足', () => {
+    const r = computeThermo({ indices: [], boards: [] }); /* 只剩宽度+波动 = 0.50 */
+    check(r.missing.length === 2 && r.missing.includes('trend') && r.missing.includes('rotation'), `缺失项不对:[${r.missing.join(',')}]`);
+    check(r.coverage === 0.5, `覆盖应为 0.5,实际 ${r.coverage}`);
+    check(r.insufficient === true && r.level === '维度不足', `应判维度不足,实际 ${r.level}`);
+    check(r.action.includes('缺失'), '结论里应写明缺哪些维度');
+    const want = Math.round((r.dims.breadth * 0.25 + r.dims.volatility * 0.25) / 0.5);
+    check(r.composite === want, `合成应按可用权重归一,期望 ${want} 实际 ${r.composite}`);
+    return true;
+  });
+  t('温度计:缺一维(覆盖 0.70)仍给结论', () => {
+    const r = computeThermo({ indices: [] }); /* 缺趋势 0.30 → 覆盖 0.70 */
+    check(r.missing.length === 1 && r.missing[0] === 'trend', `应只缺趋势,实际 [${r.missing.join(',')}]`);
+    check(r.coverage === 0.7, `覆盖应为 0.7,实际 ${r.coverage}`);
+    check(r.insufficient === false && r.level !== '维度不足', `三维可用应照常给结论,实际 ${r.level}`);
+    const want = Math.round((r.dims.breadth * 0.25 + r.dims.rotation * 0.2 + r.dims.volatility * 0.25) / 0.7);
+    check(r.composite === want, `合成应按可用权重归一,期望 ${want} 实际 ${r.composite}`);
     return true;
   });
   t('温度计诚实标注:静态假文案已清剿', () => {
