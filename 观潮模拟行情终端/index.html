@@ -7967,6 +7967,49 @@ function runSelfTests() {
     return true;
   });
 
+  /* 孤儿持仓的退出通道:有报价必须拒绝,无报价按成本退回,且必须留痕。
+     「现金变多但没有记录」和「持仓静默蒸发」是同一类问题,只是方向相反 —— 这条要一起锁。 */
+  t('孤儿注销: 有报价拒绝, 无报价按成本退回并留痕', () => {
+    const snap = JSON.stringify(account);
+    try {
+      const cn = STOCKS.find((x) => x.market === 'CN');
+      check(cn, '当前全市场缺 CN 标的');
+      const cost = cn.last, qty = 100;
+      account = { cash: 500000, positions: { [cn.code]: { qty, cost } }, trades: [], realized: 0, dayRealized: 0, dayStamp: dayStamp() };
+      const r0 = closeOrphanPosition(cn.code);
+      check(r0.ok === false && /正常卖出/.test(r0.msg), `有报价的标的不该走注销:${r0.msg}`);
+      const keep = BY_CODE;
+      try {
+        BY_CODE = {}; /* 模拟整体替换后的股票池 */
+        const m0 = accountMetrics();
+        check(m0.orphan.length === 1, `应识别 1 只孤儿,实际 ${m0.orphan.length}`);
+        const cash0 = account.cash, realized0 = account.realized, total0 = m0.total;
+        const r1 = closeOrphanPosition(cn.code);
+        check(r1.ok === true, `注销应成功:${r1.msg}`);
+        check(Math.abs(account.cash - (cash0 + cost * qty)) < 1e-6, `现金应按成本退回,实际 ${account.cash}`);
+        check(account.positions[cn.code] === undefined, '持仓应被移除');
+        check(account.realized === realized0, '注销不计盈亏,realized 不得变');
+        const rec = account.trades[0];
+        check(rec && rec.side === 'close', '必须留一条 close 记录');
+        check(rec && rec.qty === qty && rec.price === cost && rec.fee === 0, `记录应写清数量/成本价/零费用:${JSON.stringify(rec)}`);
+        const m1 = accountMetrics();
+        check(m1.orphan.length === 0, '注销后不应再有孤儿');
+        check(Math.abs(m1.total - (total0 + cost * qty)) < 1e-6, `总资产应补回悬在账外的成本:${m1.total} vs ${total0 + cost * qty}`);
+      } finally {
+        BY_CODE = keep;
+      }
+      /* 持久化:loadAccount 曾经只放行 buy/sell,close 会在刷新后消失 —— 现金却已经变了 */
+      saveAccount();
+      loadAccount();
+      check(account.trades[0] && account.trades[0].side === 'close', '注销记录刷新后必须仍在');
+    } finally {
+      account = JSON.parse(snap);
+      saveAccount();
+      renderPortfolio();
+    }
+    return true;
+  });
+
   /* 命中率的分母:5 条规则只判得出 3 条时,「3/3 守住」不是满分而是一半信息 */
   t('纪律评级: 有规则缺失时不算满分', () => {
     const snap = JSON.stringify(account);
