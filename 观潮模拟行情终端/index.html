@@ -1966,7 +1966,7 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
           <button data-ind="vol" class="is-on" title="成交量">VOL</button>
         </div>
       </div>
-      <div class="synth-line"><span class="synth-badge" id="detailSynth" hidden></span><span class="legend" style="margin-left:auto;gap:12px"><span><i class="ma5"></i>MA5</span><span><i class="ma10"></i>MA10</span><span><i class="ma20"></i>MA20</span></span></div>
+      <div class="synth-line"><span class="synth-badge" id="detailSynth" hidden></span><span class="legend" style="margin-left:auto;gap:12px"><span data-ma="0"><i class="ma5"></i>MA5</span><span data-ma="1"><i class="ma10"></i>MA10</span><span data-ma="2"><i class="ma20"></i>MA20</span></span></div>
       <canvas id="detailChart" role="img" aria-label="标的K线图"></canvas>
       <div class="dh-ohlc" id="dhOhlc"></div>
       <div class="dh-stat-grid" id="dhStats"></div>
@@ -3130,9 +3130,11 @@ class PriceChart {
     const labelCount = Math.min(5, n);
     ctx.fillStyle = mute;
     ctx.textAlign = 'center';
-    for (let i = 0; i < labelCount; i++) {
-      const idx = Math.round((i / (labelCount - 1)) * (n - 1));
-      const d = data[idx].t;
+    /* n===1 时 labelCount-1 === 0,i/(0) 会得到 NaN → data[NaN].t 抛错把整块画布画白。
+       单根数据只画居中一个标签,不做插值。 */
+    for (let i = 0; i < (labelCount > 1 ? labelCount : 1); i++) {
+      const idx = labelCount > 1 ? Math.round((i / (labelCount - 1)) * (n - 1)) : 0;
+      const d = data[idx] && data[idx].t;
       if (!d) continue;
       const s = data[0].intraday
         ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -3230,7 +3232,7 @@ class PriceChart {
 
     // MA lines
     if (this.opts.showMA) {
-      const drawMA = (arr, color, dash) => {
+      const drawMA = (arr, color, dash, alpha) => {
         ctx.beginPath();
         let started = false;
         arr.forEach((v, i) => {
@@ -3241,19 +3243,22 @@ class PriceChart {
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.1;
         ctx.setLineDash(dash || []);
-        ctx.globalAlpha = 0.85;
+        /* MA5/10/20 需按图形件 3:1 标定,半透明会把对比度打折(token 4.22 → 像素 3.28),
+           故这三条不透明绘制;MA20/MA60 属辅助参考线,维持 .85 弱化 */
+        ctx.globalAlpha = alpha == null ? 0.85 : alpha;
         ctx.stroke();
         ctx.globalAlpha = 1;
         ctx.setLineDash([]);
       };
       if (this.ma20) drawMA(this.ma20, accent);
       if (this.ma60 && n > 60) drawMA(this.ma60, withAlpha(mute, 0.85), [3, 3]);
-      /* MA5/10/20:canvas 不认 CSS 变量,故在绘制时读计算值(--ma5/10/20 按主题取值);
-         图形件按 3:1 标准标定,暗底 7.52/7.86/5.87、亮底 4.22/4.74/4.69(verify-ma-contrast.js) */
+      /* MA5/10/20:canvas 不认 CSS 变量,故在绘制时读计算值(--ma5/10/20 按主题取值)。
+         图形件 3:1 标准,用不透明绘制,像素对比度 = token 值:
+         暗底 7.52/7.86/5.87、亮底 4.22/4.74/4.69(verify-ma-contrast.js) */
       if (this.maFast) {
-        drawMA(this.maFast[0], css('--ma5'));
-        drawMA(this.maFast[1], css('--ma10'));
-        drawMA(this.maFast[2], css('--ma20'));
+        drawMA(this.maFast[0], css('--ma5'), null, 1);
+        drawMA(this.maFast[1], css('--ma10'), null, 1);
+        drawMA(this.maFast[2], css('--ma20'), null, 1);
       }
     }
     ctx.restore();
@@ -5752,6 +5757,7 @@ function openDrawer(code) {
   detailChart.setData(drawerBars(s));
   updateOhlc(s, -1);
   setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
+  syncMaLegend();
 
   // open UI
   $('#drawer').classList.add('is-on');
@@ -5781,11 +5787,28 @@ function openDrawer(code) {
         detailChart.setData(drawerBars(s));
         updateOhlc(s, -1);
         setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
+        syncMaLegend();
       }
     });
   }
 }
 
+/* MA 图例只显示真正有数据的线:日K 不画 MA5/10/20;月K 在短区间下 MA20 可能全空。
+   否则会出现「图例写着 MA5/10/20,图上一条都没有」的不实标注(QA 2026-11-24)。 */
+function syncMaLegend() {
+  const slots = $$('.synth-line .legend [data-ma]');
+  if (!slots.length) return;
+  let any = false;
+  slots.forEach((el) => {
+    const i = Number(el.dataset.ma);
+    const arr = drawerPeriod !== 'D' && detailChart && detailChart.maFast ? detailChart.maFast[i] : null;
+    const has = !!(arr && arr.some((v) => v != null && Number.isFinite(v)));
+    el.hidden = !has;
+    if (has) any = true;
+  });
+  const legend = $('.synth-line .legend');
+  if (legend) legend.hidden = !any;
+}
 function updateOhlc(s, i) {
   const el = $('#dhOhlc');
   if (i < 0) {
@@ -7003,11 +7026,19 @@ function wireEvents() {
     ++_dhSeq;
     $$('#dhRanges button').forEach((x) => x.classList.toggle('is-on', x === b));
     drawerRange = b.dataset.range;
+    /* 1D 是分时,没有周期概念:切回 1D 时强制回落日K,
+       否则「分时数据 × 周聚合」只剩 1 根(2026-11-24 QA 抓到的空白图路径) */
+    if (drawerRange === '1D' && drawerPeriod !== 'D') {
+      drawerPeriod = 'D';
+      $$('#dhPeriod button').forEach((x) => x.classList.toggle('is-on', x.dataset.period === 'D'));
+      detailChart.opts.maFast = false;
+    }
     const s = BY_CODE[state.openCode];
     if (s && detailChart) {
       detailChart.setData(drawerBars(s));
       updateOhlc(s, -1);
       setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
+      syncMaLegend();
     }
   });
   /* K 线周期(日/周/月):周=5 根日线一组、月=21 根一组;
@@ -7018,9 +7049,13 @@ function wireEvents() {
     ++_dhSeq;
     drawerPeriod = b.dataset.period;
     $$('#dhPeriod button').forEach((x) => x.classList.toggle('is-on', x === b));
-    /* 1D 分时无周期概念:选周/月自动换到对应日线路径 */
-    if (drawerRange === '1D' && drawerPeriod !== 'D') {
-      drawerRange = drawerPeriod === 'W' ? '1W' : '1M';
+    /* 区间与周期要匹配:区间日线数不足 10 根聚合后就是 1–2 根,既画不出线也画不了刻度。
+       1D/1M 下选周/月会自动抬到最近够用的区间(1D→3M、1M→1Y 等),按钮高亮同步。 */
+    const mult = drawerPeriod === 'W' ? 5 : drawerPeriod === 'M' ? 21 : 1;
+    if (drawerPeriod !== 'D' && (RANGE_MAP[drawerRange] || 0) < 10 * mult) {
+      const need = 10 * mult;
+      const pick = ['1M', '3M', '6M', '1Y', '5Y'].find((r) => (RANGE_MAP[r] || 0) >= need) || '5Y';
+      drawerRange = pick;
       $$('#dhRanges button').forEach((x) => x.classList.toggle('is-on', x.dataset.range === drawerRange));
     }
     const s = BY_CODE[state.openCode];
@@ -7029,6 +7064,7 @@ function wireEvents() {
       detailChart.setData(drawerBars(s), { animate: false });
       updateOhlc(s, -1);
       setSynthBadge('detailSynth', synthNote(s, drawerRange, drawerPeriod));
+      syncMaLegend();
     }
   });
   $('#indToggle').addEventListener('click', (e) => {
