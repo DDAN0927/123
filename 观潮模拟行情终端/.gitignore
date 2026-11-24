@@ -22,6 +22,11 @@ deliverables/
 
 # 工作区元数据
 .workbuddy-ai/
+.workbuddy/
+
+# 发布镜像与部署标记(site-release 与 index.html 内容重复,部署时由脚本生成)
+site-release/
+.wbapp_*.genie
 
 # 系统文件
 Thumbs.db
