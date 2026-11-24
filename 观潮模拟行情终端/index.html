@@ -8020,6 +8020,31 @@ function runSelfTests() {
     return true;
   });
 
+  /* 诊断(RSI/MACD/ATR/止损)与 K 线图曾经是两条互不相干的随机路:
+     实测日收益相关 -0.067~0.147,0700 图上 RSI 32.6 而诊断说 55.9。
+     这条锁死「同源」—— closesOnly 快捷键与完整序列必须逐位相同。 */
+  t('诊断与图表同源: closesOnly 与完整序列逐位一致', () => {
+    const s = STOCKS.find((x) => x.market === 'CN');
+    check(s, '当前全市场缺 CN 标的');
+    const keepSeries = s.series, keepDc = s._dc;
+    try {
+      delete s.series; delete s._dc;
+      const viaDiag = ensureDiagCloses(s).slice();          /* 走 closesOnly 快捷键 */
+      delete s.series; delete s._dc;
+      const viaSeries = ensureSeries(s).slice(-120).map((d) => d.c);
+      check(viaDiag.length === viaSeries.length, `长度 ${viaDiag.length} vs ${viaSeries.length}`);
+      let maxDiff = 0;
+      for (let i = 0; i < viaDiag.length; i++) maxDiff = Math.max(maxDiff, Math.abs(viaDiag[i] - viaSeries[i]));
+      check(maxDiff < 1e-9, `逐位偏差 ${maxDiff}`);
+      check(rsiLast(viaDiag) === rsiLast(viaSeries), 'RSI 必须一致');
+      /* series 建好后 _dc 必须跟着对齐,不能留着用旧 last 算出的值 */
+      check(!!s._dc && Math.abs(s._dc[s._dc.length - 1] - viaSeries[viaSeries.length - 1]) < 1e-9, '_dc 未对齐到 series');
+    } finally {
+      s.series = keepSeries; s._dc = keepDc;
+    }
+    return true;
+  });
+
   /* 命中率的分母:5 条规则只判得出 3 条时,「3/3 守住」不是满分而是一半信息 */
   t('纪律评级: 有规则缺失时不算满分', () => {
     const snap = JSON.stringify(account);
