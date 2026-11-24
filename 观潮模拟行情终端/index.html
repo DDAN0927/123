@@ -3722,9 +3722,13 @@ function boardStats(members) {
   const totalCap = members.reduce((a, s) => a + s.mcap, 0) || 1;
   const chg = members.reduce((a, s) => a + s.chgPct * s.mcap, 0) / totalCap;
   const turn = members.reduce((a, s) => a + s.mcap * 0.006, 0);
-  let up = 0, leader = members[0];
+  /* 平盘既不是涨也不是跌。旧实现是 `chgPct >= 0` 记涨、`down = 总数 - up` 反推跌,
+     结果 0% 的标的被算进「涨」,而温度计那边用的是 `chgPct > 0` —— 同一份数据
+     两处对「上涨家数」给出不同的数。这里三态分开,平盘单列。 */
+  let up = 0, down = 0, leader = members[0];
   members.forEach((s) => {
-    if (s.chgPct >= 0) up++;
+    if (s.chgPct > 0) up++;
+    else if (s.chgPct < 0) down++;
     if (s.chgPct > leader.chgPct) leader = s;
   });
   const n = 24;
@@ -3738,7 +3742,7 @@ function boardStats(members) {
     });
     spark.push(v / totalCap);
   }
-  return { chg, turn, up, down: members.length - up, leader, spark, count: members.length, cap: totalCap };
+  return { chg, turn, up, down, flat: members.length - up - down, leader, spark, count: members.length, cap: totalCap };
 }
 function industryBoards() {
   const map = new Map();
@@ -3788,7 +3792,7 @@ function renderBoards() {
     const name = escapeHTML(b.name);
     const sub = b.kind === 'market'
       ? `${b.count} 个标的 · 成交 ${fmt.cap(b.turn)}`
-      : `成交 ${fmt.cap(b.turn)} · 涨 ${b.up} / 跌 ${b.down}`;
+      : `成交 ${fmt.cap(b.turn)} · 涨 ${b.up} / 跌 ${b.down}${b.flat ? ` / 平 ${b.flat}` : ''}`;
     return `<button class="sb-row ${boardActive(b) ? 'is-on' : ''}" data-kind="${b.kind}" data-key="${escapeHTML(b.kind === 'market' ? b.key : b.name)}" aria-label="按 ${name} 筛选行情">
       <span class="sb-name">
         <span class="sb-title">${name}<i>${b.count}</i></span>
@@ -3867,7 +3871,7 @@ function renderSectorDrawer() {
     ['成分股', b.count.toLocaleString('en-US')],
     ['涨跌幅', fmt.pct(b.chg)],
     ['成交额', fmt.cap(b.turn)],
-    ['涨 / 跌', `${b.up} / ${b.down}`],
+    [b.flat ? '涨 / 跌 / 平' : '涨 / 跌', b.flat ? `${b.up} / ${b.down} / ${b.flat}` : `${b.up} / ${b.down}`],
   ].map(([k, v]) => `<div class="sector-stat"><span>${k}</span><b>${v}</b></div>`).join('');
   const q = ($('#sectorSearch').value || '').trim().toLowerCase();
   let members = b.members.slice().sort((a, x) => x.mcap - a.mcap);
@@ -7728,6 +7732,15 @@ function runSelfTests() {
   t('关键 DOM 节点存在', () => ['settingsModal', 'drawer', 'portfolio', 'alertDrawer', 'sectorDrawer', 'cmpModal', 'syncModal', 'palette', 'hotBody', 'favGroupRow', 'drawerGroups'].every((id) => document.getElementById(id)));
   t('无重复活动 ID', () => { const ids = Array.from(document.querySelectorAll('[id]')).map((el) => el.id); return new Set(ids).size === ids.length; });
   t('板块聚合完整', () => getBoards('industry').reduce((a, b) => a + b.count, 0) === STOCKS.length);
+  /* 平盘既不是涨也不是跌。旧实现 up 用 `>= 0`、down 用「总数 - up」反推,
+     等于把 0% 的标的算进「涨」,而温度计用的是 `> 0` —— 同一份数据两个数。 */
+  t('板块涨跌家数: 平盘不算涨, 三态相加等于总数', () => {
+    const mk = (chgPct) => ({ code: 'T' + chgPct + Math.random(), chgPct, mcap: 1e10, spark: Array(30).fill(1) });
+    const b = boardStats([mk(1), mk(2), mk(-1), mk(0), mk(0), mk(-3)]);
+    check(b.up === 2 && b.down === 2 && b.flat === 2, `应 2涨/2跌/2平,实际 ${b.up}/${b.down}/${b.flat}`);
+    check(b.up + b.down + b.flat === b.count, `三态相加应等于 ${b.count},实际 ${b.up + b.down + b.flat}`);
+    return true;
+  });
   t('分页大小有效', () => CONFIG.pageSizes.includes(state.pageSize) && state.pageSize > 0);
   t('本地存储可用', () => { try { localStorage.setItem('__gc_t', '1'); localStorage.removeItem('__gc_t'); return true; } catch (e) { return false; } });
   t('模拟账户现金非负', () => account.cash >= 0);
