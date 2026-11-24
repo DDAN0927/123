@@ -2,6 +2,42 @@
 
 说明:2026-11-21 起本环境已可执行代码并提交 git,记录改为以 commit 为准。"验证"一栏只写实际做过的事。
 
+## 未发布 · 全栈化第一阶段(2026-11-24,借鉴 QuantFlow Pro 前后端框架)
+
+把「单文件纯前端模拟终端」升级为前后端分离。**前端仍是那个 `index.html`,没有重写**;后端新增 FastAPI 服务。
+
+### 研究对象实测
+`https://fund-assessment.onrender.com` = FastAPI(uvicorn) + OpenAPI 3.1 + **148 路由 / 19 tag**;前端 10335 行 HTML + 20 个 JS + 10+ CSS、**零框架零构建**(无 `type=module`)、25 个 `#page-*` 视图。完整研究见 `deliverables/gstack/framework-study-quantflow-2026-11-24.md`。
+
+借鉴三项 / 不借两项:
+- **借**:数据质量信封(`data_quality.available_dims/total_dims/missing_dims`)、按域分 tag 的分层、骨架层回滚开关(首段判定即 return)
+- **不借**:25 页面 + 148 路由的多页形态(观潮是单屏终端,照搬即毁)、它「只有请求有模型、响应是 `additionalProperties:true` 裸 dict」的做法(响应同样要有契约)
+
+### feat(backend): FastAPI 骨架 + 行情 API(556f98b)
+- 分层:`providers/`(行情来源协议 + mock 实现)、`services/`(切片/聚合/均线)、`routers/`(行情、健康检查)、`core/`(质量信封、标的注册表)
+- 接口:`/api/health`、`/api/market/universe`、`/quote/{code}`、`/kline`(日/周/月)、`/bars`(增量同步)
+- **1D 分时返回 422 而非编造**:前端分时是 `genIntraday` 本地合成,后端再造一份就是两个真相
+- 标的资产由脚本从前端抽取(`extract_universe.js` → `data/universe.json`,31 只:CN 12/US 10/HK 6/CRYPTO 3),不手抄
+
+### feat(frontend): 后端数据桥(04b63b1)
+- 只换数据来源,不动渲染函数,`series` 仍同步读取 → 200+ 函数零改动
+- 开关:`?api=off` 强制本地(行为与升级前完全一致)/ 不带参数同源自动探测 / `file://` 默认本地 / `?api=on` 强制连后端
+- 同步 31 只 × 1300 根、并发 4;过半失败标 `degraded` 而非装作成功;同步过的标的打 `_src='api'` 以区分来源
+
+### 验证(实测)
+| 项 | 结果 |
+|---|---|
+| 序列一致性(`test_parity.py`) | 4 标的 × 1300 根,最大相对误差 **7.8e-15**,日期 100% 对齐 |
+| K 线一致性(`test_parity_api.py`) | **30/30** 用例(3 标的 × 10 组区间/周期),含 `1W/周K=1 根`、`1M/月K=2 根` 边界,最大 **5.3e-15** |
+| 前端接入(`verify-api-bridge.js`) | **18/18**(同源接入 / `?api=off` / `file://` 三场景) |
+| 全量回归 | 17 探针全 exit=0、selftest **46/46**、对比度亮/暗 **0 违规** |
+
+一致性基准由前端**真实源码**产出(从 `index.html` 抽函数在 node 里跑),不是凭记忆重写。表述只说「一致到 1e-12」,不宣称「逐字节相同」——`math.*` 与 JS `Math.*` 有浮点末位差异。
+
+### 踩到的两个坑(已写入注释与测试)
+1. **时区**:后端返回本地口径 `YYYY-MM-DD`;前端 `new Date('2026-11-17')` 会按 UTC 解释并在 +08:00 倒退一天,必须 `new Date('2026/11/17')`。
+2. **假绿**:第一版探针在 `QF_API.synced` 写入前就断言"数值一致",而本地生成的数值同样对得上,于是"通过了"却证明不了数据走了后端 → 加 `_src` 标记后才能真断言。
+
 ## 未发布 · QA 验收返修(2026-11-24,质量门神 3 个 P1)
 
 首次验收结论 🔴 No-Go。回归本身全绿(16 探针 236 断言、selftest 46/46、对比度 0 违规),但自设计攻击打出 3 个 P1,均已在三个独立 commit 修掉。
