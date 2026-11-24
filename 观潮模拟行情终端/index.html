@@ -1149,7 +1149,8 @@ button:disabled,.btn:disabled,.icon-btn:disabled{opacity:.45;cursor:not-allowed}
 .corr-grid{display:grid;gap:2px;font-family:var(--mono);font-size:9px;margin-top:10px;max-width:420px}
 .corr-grid b{display:flex;align-items:center;justify-content:center;height:26px;color:var(--ink);font-weight:500}
 .corr-grid i{display:flex;align-items:center;justify-content:center;height:26px;color:var(--ink-2);font-style:normal}
-.corr-head{display:grid;grid-template-columns:repeat(var(--cn),1fr);gap:2px;font-family:var(--mono);font-size:9px;color:var(--mute);margin-top:10px;max-width:420px}
+/* 表头与网格必须同列宽:首列留 64px 给行标签,否则列名整体错位一格、末位换行(QA 2026-11-24) */
+.corr-head{display:grid;grid-template-columns:64px repeat(var(--cn),1fr);gap:2px;font-family:var(--mono);font-size:9px;color:var(--mute);margin-top:10px;max-width:420px}
 .corr-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
 .diver-kpis{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
 .diver-kpis div{font-size:11px;color:var(--mute)}
@@ -4555,7 +4556,7 @@ function renderPortfolio() {
     : `<div class="pf-empty"><b>暂无成交</b>从任意个股的“交易”标签开始</div>`;
 
   renderDiscipline(holdings);
-  renderDiversification(holdings, m);
+  renderDiversification(holdings);
 }
 
 /* ============ 分散度诊断(借鉴 QuantFlow Pro loadPortfolioDiversification) ============
@@ -4592,14 +4593,16 @@ function computeDiversification(holdings) {
   const weights = sorted.map((h) => h.mv / total);
   const hhi = weights.reduce((a, w) => a + w * w, 0);
   const eff = 1 / hhi;
+  /* 必须真切到窗口长度:此前 DIVER_CORR_WINDOW 只用在文案里,pearson 收的是全量序列,
+     UI 说「近 120 根」而实际算 1300 根(AAPL×MSFT 实测 -0.005 vs -0.105),属口径不实 */
   const closes = sorted.map((h) => {
     ensureSeries(h.s);
-    return h.s.series.map((d) => d.c);
+    return h.s.series.slice(-DIVER_CORR_WINDOW).map((d) => d.c);
   });
   const corr = closes.map((ca, i) => closes.map((cb, j) => (i === j ? 1 : pearson(ca, cb))));
   return { names: sorted.map((h) => h.s.name), codes: sorted.map((h) => h.code), weights, hhi, eff, corr };
 }
-function renderDiversification(holdings, m) {
+function renderDiversification(holdings) {
   const host = $('#pfDivers');
   if (!host) return;
   const d = computeDiversification(holdings);
@@ -4637,7 +4640,6 @@ function renderDiversification(holdings, m) {
 const DISCIPLINE_SAMPLE_MIN = 5;
 function computeDiscipline(holdings) {
   const buys = account.trades.filter((t) => t.side === 'buy');
-  const sells = account.trades.filter((t) => t.side === 'sell');
   const rules = [];
   /* R1 追高:买入笔成交时当日 |涨幅|≥3% 占比;旧记录缺 chg 字段 → 缺失态 */
   const withChg = buys.filter((t) => typeof t.chg === 'number');
@@ -4683,7 +4685,6 @@ function computeDiscipline(holdings) {
     rules.push({ name: '单票 ≤40%', val: null, pass: null, hint: '空仓' });
     rules.push({ name: '单行业 ≤50%', val: null, pass: null, hint: '空仓' });
   }
-  void sells;
   const judged = rules.filter((r) => r.pass !== null);
   const hit = judged.filter((r) => r.pass).length;
   const grade = account.trades.length < DISCIPLINE_SAMPLE_MIN
