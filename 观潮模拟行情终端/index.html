@@ -7479,6 +7479,79 @@ function runSelfTests() {
     if (w && w.classList.contains('synth-line')) check(w.hidden === true, 'wrapper 未收起');
     return true;
   });
+  /* ---- 借鉴升级(QuantFlow Pro):K线聚合 / 温度计 / 分散度 / 纪律面板 ---- */
+  t('aggBars 周K聚合:10 根日线 → 2 根,OHLC/V 字段全对', () => {
+    const bars = [];
+    for (let i = 0; i < 10; i++) bars.push({ t: new Date(2026, 0, i + 1), o: 10 + i, c: 10.5 + i, h: 11 + i, l: 9.5 + i, v: 100 + i });
+    const g = aggBars(bars, 5);
+    check(g.length === 2, `应为 2 根,实际 ${g.length}`);
+    check(g[0].o === 10 && g[0].c === 10.5 + 4, '组首 o / 组尾 c 不对');
+    check(g[0].h === 15 && g[0].l === 9.5, '组内极值不对');
+    check(g[0].v === 100 + 101 + 102 + 103 + 104, '成交量和不 对');
+    check(g[1].c === bars[9].c, '末根 c 必须等于末日线 c');
+    check(g[0].t.getTime() === bars[0].t.getTime(), 't 用组首');
+    return true;
+  });
+  t('drawerBars 残行过滤:O/H/L/C 非正剔除', () => {
+    const prevRange = drawerRange, prevPeriod = drawerPeriod;
+    drawerRange = '1M'; drawerPeriod = 'W';
+    const fake = { code: 'T1', series: [{ t: new Date(), o: 10, c: 10.5, h: 11, l: 9.5, v: 1 }, { t: new Date(), o: 0, c: 0, h: 0, l: 0, v: 0 }, { t: new Date(), o: 10, c: 10.2, h: 10.8, l: 9.8, v: 2 }] };
+    const out = drawerBars(fake);
+    drawerRange = prevRange; drawerPeriod = prevPeriod;
+    check(out.length === 1, `残行应被滤除后聚合为 1 根,实际 ${out.length}`);
+    return true;
+  });
+  t('大盘温度:两次调用全等 + 值域 + level 自洽', () => {
+    const a = computeThermo(), b = computeThermo();
+    check(a.composite === b.composite, '确定性失败:两次结果不等');
+    check(a.composite >= 4 && a.composite <= 97, `分值越界 ${a.composite}`);
+    const expect = a.composite >= 80 ? '过热' : a.composite >= 60 ? '偏热' : a.composite >= 40 ? '中性' : a.composite >= 20 ? '偏冷' : '过冷';
+    check(a.level === expect, `level ${a.level} 与分数 ${a.composite} 不自洽`);
+    check(Object.values(a.dims).every((v) => v >= 4 && v <= 97), '维度分越界');
+    return true;
+  });
+  t('温度计诚实标注:静态假文案已清剿', () => {
+    /* 用 innerText:innerHTML 会把测试自身源码也算进去(自命中) */
+    const txt = document.body.innerText;
+    check(!txt.includes('2.31 万亿'), '硬编码成交额残留');
+    check(!txt.includes('北向净流入'), '编造的北向资金残留');
+    check(txt.includes('四维复合评分'), '方法学角标缺失');
+    check(!txt.includes('风险偏好 · 中性偏积极'), '硬编码 gauge 文案残留');
+    return true;
+  });
+  t('pearson:常数序列 null / 对称 / 对角恒 1', () => {
+    const up = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+    const wob = up.map((v, i) => v + (i % 2 ? 1 : -1));
+    const r = pearson(up, wob);
+    check(r !== null && Math.abs(r) <= 1, `相关系数越界 ${r}`);
+    const c = computeDiversification([
+      { s: { name: '甲', code: 'A1', series: up.map((v) => ({ c: v, o: v, h: v, l: v, t: 0 })) }, mv: 25 },
+      { s: { name: '乙', code: 'B2', series: wob.map((v) => ({ c: v, o: v, h: v, l: v, t: 0 })) }, mv: 25 },
+      { s: { name: '丙', code: 'C3', series: up.map((v) => ({ c: v * 2, o: v * 2, h: v * 2, l: v * 2, t: 0 })) }, mv: 25 },
+      { s: { name: '丁', code: 'D4', series: wob.map((v) => ({ c: v * 2, o: v * 2, h: v * 2, l: v * 2, t: 0 })) }, mv: 25 },
+    ]);
+    check(Math.abs(c.hhi - 0.25) < 1e-9, `等权 HHI 应 0.25,实际 ${c.hhi}`);
+    check(Math.abs(c.eff - 4) < 0.01, `有效持仓应 ≈4,实际 ${c.eff}`);
+    check(c.corr[0][0] === 1 && c.corr[1][1] === 1, '对角必须恒 1');
+    check(Math.abs(c.corr[0][1] - c.corr[1][0]) < 1e-12, '矩阵不对称');
+    return true;
+  });
+  t('纪律面板:空仓全缺失态 + 样本不足不硬判 + 追高统计', () => {
+    const savedTrades = account.trades;
+    account.trades = [];
+    const e1 = computeDiscipline([]);
+    check(e1.grade.txt === '样本不足', '空成交应判样本不足');
+    check(e1.rules.every((r) => r.pass === null), '空仓应全缺失态');
+    const mk = (chg) => ({ t: Date.now(), code: 'AAPL', side: 'buy', qty: 100, price: 10, fee: 1, amount: 1000, chg });
+    account.trades = [mk(1), mk(2), mk(5), mk(-1), mk(0.5), mk(3.5), mk(0.2), mk(4.2)]; // 8 笔,3 笔 |chg|>=3
+    const e2 = computeDiscipline([]);
+    check(e2.grade.txt !== '样本不足', '8 笔应过样本线');
+    const r1 = e2.rules.find((r) => r.name === '不追高');
+    check(r1 && r1.val === '3/8 笔追高' && r1.pass === true, `追高统计不对:${r1 && r1.val}`);
+    account.trades = savedTrades;
+    return true;
+  });
+
   t('原型键防护: BY_CODE 不命中 constructor/__proto__', () => {
     check(!BY_CODE['constructor'], 'constructor 命中');
     check(!BY_CODE['toString'], 'toString 命中');
