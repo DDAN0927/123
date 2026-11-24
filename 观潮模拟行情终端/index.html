@@ -7857,6 +7857,90 @@ function runSelfTests() {
     return true;
   });
 
+  /* 持仓掉出股票池(同步 A 股快照/导入 CSV 都会整体替换 STOCKS)后,
+     旧实现把它从持仓表和总资产里静默删掉,纪律面板还对剩下的那只打绿灯。
+     这里锁死「不静默」这条:要计成本、报只数、进质量行。 */
+  t('持仓无法定价: 不从总资产里静默蒸发, 计成本并报只数', () => {
+    const snap = JSON.stringify(account);
+    try {
+      const s1 = STOCKS.find((x) => x.market === 'US');
+      const s2 = STOCKS.find((x) => x.market === 'CN');
+      check(s1 && s2, '当前全市场缺 US 或 CN 标的');
+      account = { cash: 100000, positions: { [s1.code]: { qty: 10, cost: 5 }, [s2.code]: { qty: 10, cost: s2.last } },
+        trades: [], realized: 0, dayRealized: 0, dayStamp: dayStamp() };
+      const r = resolveHoldings();
+      check(r.priced.length === 2 && r.orphan.length === 0, `基线应 2 只可定价,实际 ${r.priced.length}/${r.orphan.length}`);
+      const keep = BY_CODE;
+      try {
+        BY_CODE = {}; /* 模拟整体替换后的股票池 */
+        const r2 = resolveHoldings();
+        check(r2.priced.length === 0 && r2.orphan.length === 2, `替换后应 2 只孤儿,实际 ${r2.priced.length}/${r2.orphan.length}`);
+        const m = accountMetrics();
+        check(Math.abs(m.total - 100000) < 1e-6, `总资产不应含不可定价市值,实际 ${m.total}`);
+        check(m.orphan.length === 2 && m.orphan.every((o) => o.costAmt > 0), '无法定价持仓应带成本');
+        renderPortfolio();
+        const txt = document.querySelector('[data-dq="orphan"]').textContent;
+        check(/无法定价/.test(txt) && /成本/.test(txt), `质量行缺关键信息:${txt}`);
+        check(document.querySelectorAll('#pfHoldBody tr').length === 2, '持仓表应仍列出 2 行');
+        /* 纪律面板不得对「没查过的持仓」打绿灯 */
+        const d = computeDiscipline([], m.orphan);
+        const stop = d.rules.find((x) => x.name === '止损在位');
+        check(stop.pass === null, `未验证的持仓不应判通过:${stop.val}`);
+        check(d.grade.cls !== 'is-pass', `评级不应是 is-pass:${d.grade.cls}`);
+      } finally {
+        BY_CODE = keep;
+      }
+    } finally {
+      account = JSON.parse(snap);
+      saveAccount();
+      renderPortfolio(); /* 上面临时清空过 BY_CODE,把面板刷回真实状态 */
+    }
+    return true;
+  });
+
+  /* 命中率的分母:5 条规则只判得出 3 条时,「3/3 守住」不是满分而是一半信息 */
+  t('纪律评级: 有规则缺失时不算满分', () => {
+    const snap = JSON.stringify(account);
+    try {
+      const s = STOCKS.find((x) => x.market === 'CN');
+      check(s, '当前全市场缺 CN 标的');
+      const mk = (chg) => ({ t: Date.now(), code: s.code, side: 'buy', qty: 100, price: 10, fee: 1, amount: 1000, chg });
+      /* 6 笔成交过样本线;空仓 -> R2/R4/R5 三条缺失,只剩 R1/R3 可判 */
+      account = { cash: 100000, positions: {}, trades: [mk(1), mk(1), mk(1), mk(1), mk(1), mk(1)], realized: 0, dayRealized: 0, dayStamp: dayStamp() };
+      const d = computeDiscipline([]);
+      check(d.grade.txt.includes('缺失'), `部分缺失时应标出缺失项数:${d.grade.txt}`);
+      check(d.grade.pct === null, `非全项可判时不应给百分比:${d.grade.pct}`);
+      check(d.grade.cls !== 'is-pass', `非全项可判时不应是 is-pass:${d.grade.cls}`);
+      check(d.quality.degraded === true && d.quality.available === 2 && d.quality.total === 5, `信封不对:${JSON.stringify(d.quality)}`);
+    } finally {
+      account = JSON.parse(snap);
+      saveAccount();
+    }
+    return true;
+  });
+
+  /* 追高统计:一笔旧记录缺 chg 不该把整条规则废掉,但可用样本不足 5 笔也不能硬判 */
+  t('追高统计: 部分笔缺涨幅按可用子集, 不足样本判缺失', () => {
+    const savedTrades = account.trades;
+    try {
+      const mk = (chg) => ({ t: Date.now(), code: 'AAPL', side: 'buy', qty: 100, price: 10, fee: 1, amount: 1000, chg });
+      const noChg = { t: Date.now(), code: 'AAPL', side: 'buy', qty: 100, price: 10, fee: 1, amount: 1000 };
+      account.trades = [mk(1), mk(2), mk(4), mk(0.5), mk(1), mk(-2), noChg, noChg];
+      const d = computeDiscipline([]);
+      const r1 = d.rules.find((r) => r.name === '不追高');
+      check(r1 && r1.val === '1/6 笔追高', `应按 6 笔可用样本统计:${r1 && r1.val}`);
+      check(r1 && r1.pass === true, '追高 1/6 应通过');
+      check(/6\/8/.test(r1.hint), `覆盖率应写进 hint:${r1.hint}`);
+      account.trades = [mk(1), mk(4), noChg];
+      const d2 = computeDiscipline([]);
+      const r2 = d2.rules.find((r) => r.name === '不追高');
+      check(r2 && r2.pass === null, `仅 2 笔可用样本不应硬判:${r2 && r2.val}`);
+    } finally {
+      account.trades = savedTrades;
+    }
+    return true;
+  });
+
   t('原型键防护: BY_CODE 不命中 constructor/__proto__', () => {
     check(!BY_CODE['constructor'], 'constructor 命中');
     check(!BY_CODE['toString'], 'toString 命中');
