@@ -1,0 +1,19 @@
+# 行尾策略。
+#
+# 仓库默认 core.autocrlf=true（Windows 上 checkout 成 CRLF），这对 HTML/JS 是
+# 既定约定（见 CONVENTIONS 的行尾纪律），但它对下面这些文件是**部署事故**：
+#
+# - Procfile：`\r` 可能被平台当成命令行的一部分，报 "command not found" 且看不出原因
+# - Dockerfile：`RUN`/`CMD` 行尾的 ^M 会让 shell 收到奇怪参数
+# - *.sh：CRLF 的脚本在 sh 下报 `$'\r': command not found`
+#
+# 所以这几个只钉 LF，其余文件维持原状（不动全局策略）。
+Procfile text eol=lf
+Dockerfile text eol=lf
+backend/Dockerfile text eol=lf
+*.dockerignore text eol=lf
+.dockerignore text eol=lf
+render.yaml text eol=lf
+backend/requirements.txt text eol=lf
+backend/.env.example text eol=lf
+*.sh text eol=lf

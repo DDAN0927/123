@@ -1,0 +1,7 @@
+# 后端依赖（唯一事实来源：版本与 backend/tests 实测环境一致）
+# 校验：python -m pip install --dry-run -r backend/requirements.txt
+# 升级任何一项都必须重跑 backend/tests/test_parity.py 与 test_parity_api.py
+# —— 前后端数值一致性依赖 Python 与 JS 的浮点行为，换版本要重新证明。
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.4

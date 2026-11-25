@@ -1,0 +1,64 @@
+# 依赖
+node_modules/
+
+# 临时文件与日志
+_tmp/
+*.log
+npm-debug.log*
+
+# 测试产物
+test-results/
+playwright-report/
+coverage/
+
+# 本地密钥（wrangler 本地开发用，绝不可提交）
+.dev.vars
+.env
+.env.*
+# 示例文件不含真实值，必须入库（否则新人不知道要配哪些变量）
+!backend/.env.example
+.wrangler/
+
+# 评估交付物:报告与回归探针入库(换机器要能自证),截图/本地依赖/临时脚本不入库
+deliverables/**
+!deliverables/gstack/
+!deliverables/gstack/*.md
+!deliverables/gstack/_stage3/
+# 只收「当前回归集」:verify-* / probe-* / contrast.js。
+# qa-*.js 与 shot-*.js 是一次性排查与截图脚本,不纳入回归,也不入库(见 _stage3/README.md)
+!deliverables/gstack/_stage3/verify-*.js
+!deliverables/gstack/_stage3/probe-*.js
+!deliverables/gstack/_stage3/contrast.js
+!deliverables/gstack/_stage3/_qa_run.sh
+!deliverables/gstack/_stage3/README.md
+deliverables/gstack/_stage3/_qa_logs/
+deliverables/gstack/_stage3/_tmp/
+
+# 工作区元数据
+.workbuddy-ai/
+.workbuddy/
+
+# 发布镜像与部署标记(site-release 与 index.html 内容重复,部署时由脚本生成)
+site-release/
+.wbapp_*.genie
+
+# 系统文件
+Thumbs.db
+desktop.ini
+.DS_Store
+
+
+# 删除前的备份包（含旧后端代码，勿提交）
+_backup/
+
+# Python（后端）
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# 后端一致性基准（体积大且可由脚本重生成：node backend/tests/parity_gen.js）
+backend/tests/parity_*.json
+
+# 外部平台发布制品（HF Space 等）,由脚本从源码重新组装,不入库
+_deploy/

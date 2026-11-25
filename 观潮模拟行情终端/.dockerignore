@@ -1,0 +1,13 @@
+# 构建上下文瘦身：镜像只需要 index.html + backend/。
+# deliverables/ 里有 40+ 探针与截图（含 node_modules 之外的基准文件），
+# 一并打进镜像既慢又毫无用处。
+.git
+.gitignore
+_backup
+deliverables
+site-release
+.workbuddy
+.workbuddy-ai
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
