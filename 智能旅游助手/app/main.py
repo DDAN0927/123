@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, auth, chat, favorites, knowledge, notes, trips
+from app.api import admin, ai, auth, chat, favorites, knowledge, notes, trips
 from app.config import settings
 from app.rag import retriever
 from app.store import ensure_default_admin
@@ -69,14 +69,20 @@ async def lifespan(app: FastAPI):
 
 
 def _ensure_index():
-    """索引缺失或已落后于知识库时重建。
+    """索引缺失或已落后于知识库时重建 —— **在后台线程里做，不阻塞启动**。
 
     「文件在」不等于「内容是新的」：容器把攻略库放在持久化卷上，镜像里的
     `knowledge_base/` 更新后，旧索引仍然指向旧正文。只判断 `index_ready()`
     会让线上一直用旧攻略回答，而本地测试一切正常 —— 这类问题最难发现。
+
+    为什么必须放后台：重建是 CPU 密集的（1042 块，2 核容器 3~5 分钟），而
+    uvicorn 要等 lifespan 跑完才 bind 端口。同步重建时端口迟迟不开，部署平台
+    会判定「starting studio failed」——它的超时比我们自己的 420 秒更短，且不给
+    日志，看起来像代码坏了。放后台后端口几秒就开，重建期间 `/health` 报
+    `rag_state=warming`，检索降级为纯模型回答，建完自动恢复。
     """
     try:
-        from app.rag.indexer import build_index, index_stale, load_documents
+        from app.rag.indexer import index_stale
     except Exception as e:  # 重型依赖缺失时不影响站点启动
         logger.warning(f"索引检查跳过（{e}）")
         return
@@ -88,16 +94,31 @@ def _ensure_index():
     else:
         return
 
+    threading.Thread(target=_rebuild_index, args=(reason,), name="index-rebuild", daemon=True).start()
+
+
+_rebuild_lock = threading.Lock()
+
+
+def _rebuild_index(reason: str):
+    """后台重建索引。并发触发只跑一次（管理员点「重建索引」也可能同时发生）。"""
+    if not _rebuild_lock.acquire(blocking=False):
+        return
     try:
+        from app.rag.indexer import build_index, load_documents
+
         if not load_documents():
             logger.warning("知识库目录为空，跳过索引构建")
             return
-        logger.info("%s，开始构建（首次需下载 BGE 模型，请耐心等待）...", reason)
+        logger.info("%s，后台开始构建（服务已对外可用，期间检索降级）...", reason)
         stats = build_index()
         retriever.reset()
         logger.info(f"知识库索引构建完成: {stats}")
+        retriever.warmup()
     except Exception as e:
-        logger.warning(f"索引自动构建失败（可稍后运行 python scripts/build_kb.py）: {e}")
+        logger.warning(f"索引后台构建失败（可稍后运行 python scripts/build_kb.py）: {e}")
+    finally:
+        _rebuild_lock.release()
 
 
 app = FastAPI(title="旅游智能助手 Travel Copilot", version="1.0.0", lifespan=lifespan)
@@ -124,6 +145,7 @@ app.include_router(knowledge.router)
 app.include_router(favorites.router)
 app.include_router(notes.router)
 app.include_router(trips.router)
+app.include_router(ai.router)
 app.include_router(auth.router)
 
 
@@ -152,7 +174,26 @@ def health():
     # 只在坏了的时候才真 import 一遍，把根因挖出来（正常路径不付这个代价）
     if payload["rag_state"] == "failed":
         payload["rag_imports"] = retriever.probe_imports()
+    payload["boot_tail"] = _boot_tail()
     return payload
+
+
+def _boot_tail(limit: int = 12) -> list[str]:
+    """最近一次启动的阶段标记（`start.sh` 写在 `$DATA_DIR/boot.log`）。
+
+    为什么放在公开的 /health 里：部署平台在启动失败时只回一句
+    「starting studio failed」，不提供日志接口。容器一挂，现场就没了 ——
+    唯一的办法是让启动过程自己把「走到哪一步」记在持久化卷上，再让还活着的
+    进程把它读出来。内容只有阶段名与计数，不含路径以外的敏感信息。
+    """
+    try:
+        p = Path(settings.data_dir) / "boot.log"
+        if not p.exists():
+            return []
+        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+        return lines[-limit:]
+    except OSError:
+        return []
 
 
 def _index_stale() -> bool:

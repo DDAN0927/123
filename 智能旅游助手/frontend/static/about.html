@@ -5,8 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>关于我们 · 旅游智能助手</title>
 <meta name="description" content="我们相信旅行应该更简单——用多智能体 AI 做你的旅行智囊团。">
-<link rel="stylesheet" href="assets/css/style.css">
-<link rel="stylesheet" href="assets/css/app.css">
+<!-- 字体本地托管 + latin preload，理由与 FOUT 数据见 assets/vendor/fonts/fonts.css 头注释 -->
+<link rel="preload" href="assets/vendor/fonts/758b8670-6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/vendor/fonts/51dc226e-V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/style.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/app.css?v=2026-11-25a">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF5436' d='M2 21l20-8L2 3v7l14 2-14 2z'/></svg>">
 </head>
 <body>
@@ -44,7 +49,7 @@
 <section id="story" style="padding-top:0">
   <div class="container split">
     <div class="split-media reveal" data-dir="left">
-      <div class="img" style="background-image:url('assets/img/story-summit-travelers.jpg')"></div>
+      <div class="img" data-bg="assets/img/story-summit-travelers.jpg"></div>
     </div>
     <div class="split-copy reveal" data-dir="right">
       <span class="eyebrow">OUR STORY</span>
@@ -59,7 +64,7 @@
   <div class="container">
     <div class="section-head reveal">
       <span class="eyebrow">OUR VALUES</span>
-      <h2 class="display">我们坚持的 <em>三件事</em></h2>
+      <h2 class="display">我们坚持的<em>三件事</em></h2>
     </div>
     <div class="values">
       <div class="value reveal">
@@ -85,7 +90,7 @@
   <div class="container">
     <div class="section-head reveal">
       <span class="eyebrow">TECH STACK</span>
-      <h2 class="display">背后的 <em>技术实力</em></h2>
+      <h2 class="display">背后的<em>技术实力</em></h2>
     </div>
     <div class="tech-list reveal">
       <span class="tech-chip">多智能体协作 · LangGraph</span>
@@ -153,12 +158,13 @@
     </div>
     <div class="footer-bottom">
       <span>© 2026 旅游智能助手 Travel Copilot. 保留所有权利。</span>
+      <span>基于 SpringBoot 的个人智能旅游行程规划系统</span>
       <span>用 ❤ 与 AI 打造 · 旅途自有答案</span>
     </div>
   </div>
 </footer>
 
-<script src="assets/js/app.js"></script>
-<script src="assets/js/main.js"></script>
+<script src="assets/js/app.js?v=2026-11-25a"></script>
+<script src="assets/js/main.js?v=2026-11-25a"></script>
 </body>
 </html>

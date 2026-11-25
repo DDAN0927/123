@@ -11,6 +11,19 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# 覆盖范围与本地 `bash scripts/check_all.sh`（11 组）对齐说明：
+#   pytest        → backend job
+#   smoke         → backend job
+#   db_check      → backend job
+#   city_check    → frontend job
+#   map_check     → frontend job
+#   md_render     → frontend job
+#   dom_check     → frontend job
+#   trips_check   → frontend job   ← 之前漏了
+#   copy_check    → frontend job
+#   server_check  → java job       ← 之前漏了
+#   eval_rag      → **只在本地跑**，原因见 backend job 末尾注释
+
 jobs:
   backend:
     name: 后端 · lint + 测试
@@ -26,26 +39,57 @@ jobs:
             requirements.txt
             requirements-dev.txt
 
-      # 只装跑测试必需的依赖。
-      # 完整 requirements.txt 里的 faiss / sentence-transformers / torch 有几百 MB，
-      # CI 里没必要装：pytest 用的是 mock 模型，RAG 路径不在覆盖范围内。
+      # 装什么、为什么只装这些：
+      # - requirements-dev.txt 提供 pytest / pytest-cov / **ruff（钉死版本）**。
+      #   以前这里写的是裸 `ruff`：ruff 的默认规则集会随小版本扩张，同一次提交
+      #   就变成「今天绿、两周后重跑变红」，门禁不可复现。
+      # - langgraph / langchain-* 必须装：app/main.py → app/api/chat.py →
+      #   app/agents/graph.py 是**模块级** import，缺了连 pytest 都收集不起来。
+      # - faiss / sentence-transformers / torch 不装：indexer.py / retriever.py
+      #   把重型依赖延迟到函数内部 import，pytest 用 mock 模型，走不到那条路径。
       - name: 安装测试依赖
         run: |
           python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
           pip install fastapi "uvicorn[standard]" pydantic pydantic-settings \
-                      python-dotenv requests httpx pytest pytest-cov ruff
+                      python-dotenv requests httpx \
+                      langgraph "langchain-core" langchain-openai langchain-text-splitters
 
       - name: 静态检查
         run: |
           ruff check app scripts tests
           ruff format --check app scripts tests
 
+      # 覆盖率门槛：78%，不是实测值 81%。
+      # 留 3 个点缓冲的理由——这个数字是「防止倒退」的下限，不是「当前水位」的记录：
+      # 换一台机器、换一个 patch 版本的依赖，未覆盖行数会小幅浮动（例如某个
+      # 异常分支被 mock 库内部实现变化触发/绕过）。门槛贴着实测值设，结果就是
+      # 与本次改动无关的 PR 被偶发卡住，然后有人去把门槛调低——门禁反而失效。
+      # 改这个数字时请连带更新本注释里的实测值。
       - name: 运行测试
-        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=55
+        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=78
+
+      # 冒烟与存储层：两个脚本都用 fastapi TestClient 在进程内跑，不需要起服务
+      - name: 接口冒烟 (smoke)
+        run: python scripts/smoke_test.py
+
+      - name: 存储层 (db_check)
+        run: python scripts/db_check.py
+
+      # RAG 检索质量 (eval_rag) **不在 CI 跑**：它要下载 bge-small-zh（约 90MB）
+      # 并现场建 FAISS 索引，CI 里既慢又依赖外网稳定性。本地跑全量时由
+      # `bash scripts/check_all.sh` 覆盖（11 组里的第 4 组）。
+      # 这行注释是故意留的：静默省略会让人以为「有门禁」，实际没有。
 
   frontend:
     name: 前端 · DOM 与数据校验
     runs-on: ubuntu-latest
+    # 与本地 check_all.sh:25-32 对齐：它会把 NODE_PATH 指到「有 jsdom 的那个
+    # node_modules」（本地优先 $PWD/node_modules，找不到才回退托管 workspace）。
+    # CI 里 npm install --no-save 落在 $GITHUB_WORKSPACE/node_modules，
+    # 显式设成同一个值，保证 CI 与本地解析到的是同一份 jsdom。
+    env:
+      NODE_PATH: ${{ github.workspace }}/node_modules
     steps:
       - uses: actions/checkout@v4
 
@@ -68,5 +112,34 @@ jobs:
       - name: 应用页 DOM 行为
         run: node scripts/dom_check.js
 
+      - name: 行程工作台
+        run: node scripts/trips_check.js
+
       - name: 文案数字与真实数据一致性
         run: node scripts/copy_check.js
+
+  java:
+    name: 主后端 · Java 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      # 本地这一组跑的是 `bash scripts/server_check.sh`，CI 里换成 `mvn -B test`。
+      # 不能直接复用脚本的两个硬原因：
+      #   1) 脚本用 `-o`（离线）——CI 的 ~/.m2 是空的，离线模式会直接报
+      #      "Cannot access central in offline mode"，变成假红；
+      #   2) 脚本自动带 `-s .tools/maven/settings.xml`，那份配置的 localRepository
+      #      是 `C:/Users/Administrator/...` 的 Windows 绝对路径，在 ubuntu 上会被
+      #      当成相对路径新建一个怪目录。
+      # 语义是等价的：都是跑 server/ 下全部 JUnit 用例（本地 96 项），
+      # JAVA_HOME 由 actions/setup-java 提供，server_check.sh 里那段解析逻辑
+      # 本来就是「没设 JAVA_HOME 才去找 .tools」。
+      - name: 单元 / 集成测试
+        working-directory: server
+        run: mvn -B test

@@ -47,10 +47,14 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-EMPTY}
       - LLM_MODEL=${LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
-      # 高德地图（可选）：留空则地图页显示配置提示；这两个值本就下发到浏览器
-      - AMAP_KEY=${AMAP_KEY:-}
-      - AMAP_SECURITY_JS_CODE=${AMAP_SECURITY_JS_CODE:-}
+      # 不设默认口令：为空时不会创建管理员（Spring 侧打 ERROR 说明原因）。
+      # 之前默认 admin123，等于「什么都不配」的部署自带一个可爆破的后台账号。
+      - ADMIN_PASSWORD
+      # 高德地图（可选）：这两个值本就下发到浏览器，application.yml 里有项目默认值。
+      # 这里用「只透传」写法（不写 =${VAR:-}），否则没在 .env 里配的时候会把**空串**
+      # 塞进容器 —— 环境变量存在就会覆盖 yml 默认值，等于把默认值废掉。
+      - AMAP_KEY
+      - AMAP_SECURITY_JS_CODE
       - HF_ENDPOINT=https://hf-mirror.com
     volumes:
       - ./knowledge_base:/app/knowledge_base

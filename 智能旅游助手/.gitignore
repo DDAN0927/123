@@ -25,3 +25,12 @@ deploy/
 .coverage.*
 htmlcov/
 coverage.xml
+.pytest-junit.xml
+
+# 质量评估截图（163 张 jpg，约 25MB，可随时重跑 harness 生成）
+deliverables/gstack/shots/
+
+# SpringBoot 构建产物（jar 55MB，且每次构建都变，提交它只会让 diff 失真）
+server/target/
+*.class
+deploy.bak/

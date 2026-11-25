@@ -5,8 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>我的行程 — 旅游智能助手</title>
 <meta name="description" content="把攻略变成可执行的行程：倒计时、每日安排、行前装备清单，逐项打勾。">
-<link rel="stylesheet" href="assets/css/style.css">
-<link rel="stylesheet" href="assets/css/app.css">
+<!-- 字体本地托管 + latin preload，理由与 FOUT 数据见 assets/vendor/fonts/fonts.css 头注释 -->
+<link rel="preload" href="assets/vendor/fonts/758b8670-6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/vendor/fonts/51dc226e-V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/style.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/app.css?v=2026-11-25a">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF5436' d='M2 21l20-8L2 3v7l14 2-14 2z'/></svg>">
 </head>
 <body>
@@ -27,8 +32,9 @@
     <div id="trips-app"></div>
   </div>
 </main>
-<script src="assets/js/geo-data.js"></script>
-<script src="assets/js/app.js"></script>
-<script src="assets/js/main.js"></script>
+<script src="assets/js/geo-data.js?v=2026-11-25a"></script>
+<script src="assets/vendor/echarts.min.js"></script>
+<script src="assets/js/app.js?v=2026-11-25a"></script>
+<script src="assets/js/main.js?v=2026-11-25a"></script>
 </body>
 </html>

@@ -29,6 +29,9 @@ os.environ.update(
     ALLOW_REGISTRATION="true",
     RATE_LIMIT_ENABLED="false",  # 用例之间不应互相触发 429
     TOKEN_TTL_SECONDS="604800",
+    # 内部信任头密钥：不显式给就会退化成「读 .env」，
+    # 结果是用例结果取决于本机 .env 写了什么，换台机器就红。
+    AI_INTERNAL_SECRET="test-internal-secret",
 )
 
 # 注意：这两行必须写在上面 os.environ.update() 之后。
@@ -36,6 +39,22 @@ os.environ.update(
 from fastapi.testclient import TestClient
 
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """用例必须真离线：让 weather.requests.get 直接抛异常。
+
+    不这么做的话，`generate_packing()` 会真的去打 open-meteo：
+    网络好时走预报分支、网络差时走季节估算分支，同一份代码两条路径，
+    用例结果取决于当天的网络。断网后固定走季节估算，顺带每次都覆盖这条兜底路径。
+    """
+    import app.tools.weather as weather
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("network disabled in tests")
+
+    monkeypatch.setattr(weather.requests, "get", _boom)
 
 
 @pytest.fixture(scope="session")

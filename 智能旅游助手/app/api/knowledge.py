@@ -41,7 +41,19 @@ def _safe_name(name: str) -> str:
 
 @router.get("/documents", response_model=list[DocumentInfo])
 def list_documents(_admin: str = Depends(require_admin)):
-    """知识库文档列表（仅管理员）"""
+    """知识库文档列表（仅管理员）
+
+    只列根目录的**精编攻略档**。另外两档都是脚本生成的派生物，手改会在下次重跑
+    脚本时被覆盖，列出来只会诱导人去改它：
+
+    * `spots/`（349 篇 → 生效 184 城）由 `scripts/gen_city_spots.py` 生成，
+      要改景点清单，改 `datasets/` 快照或 `geo-data.js` 后重跑脚本；
+    * `guides/`（171 篇 → 生效 165 城）由 `scripts/gen_city_guides.py` 从维基导游
+      dump 生成，要改内容得重抓 dump，改文档本身没有意义。
+
+    管理员页会把这两档的城数单独标出来（走 `/api/knowledge/coverage`），
+    免得标题上的「精编 N 篇」被误读成「整个攻略库只有 N 篇」。
+    """
     kb = Path(settings.kb_dir)
     kb.mkdir(parents=True, exist_ok=True)
     files = sorted([*kb.glob("*.md"), *kb.glob("*.txt")], key=lambda p: p.name)

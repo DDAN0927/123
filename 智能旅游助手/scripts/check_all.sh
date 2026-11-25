@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# 一键全量回归：后端 pytest + 接口冒烟 + 存储层 + 前端 jsdom 脚本
+# 一键全量回归：Java 主后端 + Python AI 服务 + 接口冒烟 + 存储层 + 前端 jsdom
 #
-#   bash scripts/check_all.sh          # 全量
-#   bash scripts/check_all.sh --fast   # 跳过最慢的 db_check / smoke
+#   bash scripts/check_all.sh          # 全量（含 Java 与 RAG 评估）
+#   bash scripts/check_all.sh --fast   # 跳过最慢的 db_check / smoke / eval_rag / Java
 #
 # 退出码：0 全部通过，1 有任一失败。CI 与本地用同一份入口。
+# 环境缺件（没装 JDK/Maven）记为 SKIP，不算失败也不算通过 —— 免得「没装环境」被当成「代码有 bug」。
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
@@ -52,6 +53,11 @@ run() {
     # 抓最后一行作为摘要（各脚本都会打印 "xx/xx 通过" 之类的收尾行）
     DETAILS+=("$(printf '%s\n' "$out" | tail -n 1)")
     printf '  \033[32m✓ 通过\033[0m  %s\n\n' "$(printf '%s\n' "$out" | tail -n 1)"
+  elif [ $rc -eq 2 ]; then
+    # 2 = 环境缺件（如没装 JDK），跳过但要说清原因，不能算通过
+    RESULTS+=("SKIP")
+    DETAILS+=("$(printf '%s\n' "$out" | tail -n 1)")
+    printf '  \033[33m– 跳过\033[0m  %s\n\n' "$(printf '%s\n' "$out" | tail -n 1)"
   else
     RESULTS+=("FAIL")
     DETAILS+=("exit=$rc")
@@ -61,7 +67,29 @@ run() {
   fi
 }
 
-run "后端单元/接口测试 (pytest)" "$PY" -m pytest -q
+# pytest 单独包一层：**以 junit 报告为准，不以进程退出码为准**。
+#
+# 为什么要这样：pytest 收尾时会清理 %TEMP%\pytest-of-<user>\ 下超过 3 个的历史目录。
+# 在装了「批量删除保护」的环境里（某些 IDE / 安全软件的 agent），这一步会被拦下来，
+# 整个进程带着 exit=1 退出，但用例其实全过了 —— 表现就是「第一次跑绿、之后一直红」，
+# 排查方向会被彻底带偏。报告里有 <failure> / <error> 才算真失败。
+run_pytest() {
+  local xml="./.pytest-junit.xml" rc n
+  rm -f "$xml"
+  "$PY" -m pytest -q --junitxml="$xml"
+  rc=$?
+  if [ -s "$xml" ]; then
+    n=$(grep -oE 'tests="[0-9]+"' "$xml" | head -1 | grep -oE '[0-9]+')
+  fi
+  if [ $rc -ne 0 ] && [ -s "$xml" ] && ! grep -qE "<(failure|error)" "$xml"; then
+    echo "通过 ${n:-?} 项（退出码 $rc 是环境干扰，例如临时目录清理被拦截，不是用例失败）"
+    return 0
+  fi
+  [ $rc -eq 0 ] && echo "通过 ${n:-?} 项"
+  return $rc
+}
+
+run "后端单元/接口测试 (pytest)" run_pytest
 run "接口冒烟 (smoke)"           "$PY" scripts/smoke_test.py
 if [ $FAST -eq 0 ]; then
   run "存储层 (db_check)"        "$PY" scripts/db_check.py
@@ -74,6 +102,10 @@ run "Markdown 渲染 (md_render)"  "$NODE_BIN" scripts/md_render_check.js
 run "前端 DOM (dom_check)"       "$NODE_BIN" scripts/dom_check.js
 run "行程工作台 (trips_check)"    "$NODE_BIN" scripts/trips_check.js
 run "文案数字一致性 (copy_check)" "$NODE_BIN" scripts/copy_check.js
+# Java 侧（SpringBoot 主后端）：没装 JDK/Maven 时脚本以 2 退出 → 记为跳过
+if [ $FAST -eq 0 ]; then
+  run "主后端 Java (server_check)"  bash scripts/server_check.sh
+fi
 
 # ---------- 汇总 ----------
 echo "══════════════════════════════════════════"
@@ -82,6 +114,8 @@ echo "────────────────────────�
 for i in "${!NAMES[@]}"; do
   if [ "${RESULTS[$i]}" = "PASS" ]; then
     printf '%-32s \033[32m%s\033[0m\n' "${NAMES[$i]}" "PASS"
+  elif [ "${RESULTS[$i]}" = "SKIP" ]; then
+    printf '%-32s \033[33m%s\033[0m\n' "${NAMES[$i]}" "SKIP"
   else
     printf '%-32s \033[31m%s\033[0m\n' "${NAMES[$i]}" "FAIL"
   fi
@@ -92,4 +126,10 @@ if [ $FAILED -gt 0 ]; then
   echo "有 $FAILED 组用例失败"
   exit 1
 fi
-echo "全部通过"
+SKIPPED=0
+for r in "${RESULTS[@]}"; do [ "$r" = "SKIP" ] && SKIPPED=$((SKIPPED + 1)); done
+if [ $SKIPPED -gt 0 ]; then
+  echo "全部通过（$SKIPPED 组因环境缺件跳过，见上）"
+else
+  echo "全部通过"
+fi

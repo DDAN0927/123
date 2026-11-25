@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>行程分享 · 个人智能旅游行程规划系统</title>
+<meta name="description" content="一份只读的行程单：每日安排、行前清单与预算执行情况。">
+<meta name="robots" content="noindex">
+<!-- 必须用绝对路径：这个页面会经 /s/{token} forward 过来，相对路径会被解析成
+     /s/assets/css/... 而命中 /s/{token} 路由，样式直接 404（页面变裸 HTML）。 -->
+<!-- 字体本地托管 + latin preload，理由与 FOUT 数据见 assets/vendor/fonts/fonts.css 头注释 -->
+<link rel="preload" href="/assets/vendor/fonts/758b8670-6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/vendor/fonts/51dc226e-V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="/assets/css/tokens.css?v=2026-11-25a">
+<link rel="stylesheet" href="/assets/css/style.css?v=2026-11-25a">
+<link rel="stylesheet" href="/assets/css/app.css?v=2026-11-25a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF5436' d='M2 21l20-8L2 3v7l14 2-14 2z'/></svg>">
+<style>
+  /* 分享页不依赖登录态，所以导航只留品牌与「自己做一个」 */
+  .share-nav { display: flex; align-items: center; justify-content: space-between; }
+  .share-cta { font-size: var(--fs-sm); }
+</style>
+</head>
+<body class="app-page">
+<header class="site-header">
+  <div class="container nav share-nav">
+    <a class="brand" href="/index.html"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M2 21l20-8L2 3v7l14 2-14 2z" fill="#fff"/></svg></span>旅游智能助手</a>
+    <a class="btn btn-primary share-cta" href="/trips.html">做一个自己的行程</a>
+  </div>
+</header>
+<main>
+  <div class="share-wrap" id="share-root">
+    <div class="app-empty" style="padding:var(--sp-48)"><p>正在加载行程…</p></div>
+  </div>
+</main>
+<script>
+/* 只读分享页：token 从 /s/{token} 取，服务端不渲染，避免两套模板 */
+(function () {
+  "use strict";
+  var root = document.getElementById("share-root");
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function money(n) {
+    var v = Number(n || 0);
+    return v.toFixed(2).replace(/\.00$/, "");
+  }
+  function token() {
+    var m = location.pathname.match(/\/s\/([A-Za-z0-9]+)/);
+    if (m) return m[1];
+    var q = new URLSearchParams(location.search);
+    return q.get("token") || "";
+  }
+  function fail(msg) {
+    root.innerHTML = '<div class="app-empty" style="padding:48px"><h2>打不开这份行程</h2><p>' + esc(msg) + "</p></div>";
+  }
+
+  var t = token();
+  if (!t) { fail("链接不完整，请向分享者要一份新的链接"); return; }
+
+  fetch("/api/share/" + encodeURIComponent(t), { headers: { "Accept": "application/json" } })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok || !res.d.trip) { fail((res.d && res.d.detail) || "分享链接可能已失效"); return; }
+      render(res.d.trip);
+    })
+    .catch(function () { fail("网络异常，请稍后重试"); });
+
+  function render(trip) {
+    var prep = trip.prep || [];
+    var days = trip.itinerary || [];
+    var e = trip.expenses || { budget: 0, spent: 0, remaining: 0 };
+
+    var groups = [];
+    var index = {};
+    prep.forEach(function (it) {
+      var key = it.slot || "其他";
+      if (!(key in index)) { index[key] = groups.length; groups.push({ name: key, items: [] }); }
+      groups[index[key]].items.push(it);
+    });
+
+    var html = '<div class="share-head">'
+      + '<span class="share-badge">🔗 只读分享 · 无法编辑</span>'
+      + "<h1>" + esc(trip.title) + "</h1>"
+      + '<div class="share-meta">' + esc(trip.city)
+      + (trip.start_date ? " · " + esc(trip.start_date) : " · 日期待定")
+      + " · " + trip.days + " 天"
+      + (trip.budget ? " · 预算 ¥" + money(trip.budget) : "")
+      + "</div></div>";
+
+    if (e.budget > 0) {
+      html += '<div class="app-panel trip-budget"><div class="trip-sec-head"><h3>预算执行</h3>'
+        + '<span class="trip-meta">已花 ¥' + money(e.spent) + " · 剩余 ¥" + money(e.remaining) + "</span></div>"
+        + '<div class="budget-bar"><i style="width:' + Math.min(100, Number(e.percent) || 0) + '%"'
+        + (Number(e.spent) > e.budget ? ' class="over"' : "") + "></i></div></div>";
+    }
+
+    if (groups.length) {
+      html += '<div class="app-panel"><div class="trip-sec-head"><h3>行前清单</h3>'
+        + '<span class="trip-meta">' + prep.length + " 项</span></div>";
+      groups.forEach(function (g) {
+        html += '<div class="trip-group"><div class="trip-group-name">' + esc(g.name) + "</div>";
+        g.items.forEach(function (it) {
+          html += '<div class="trip-item' + (it.done ? " done" : "") + '">'
+            + '<span class="trip-item-title">' + (it.done ? "✅ " : "⬜ ") + esc(it.title) + "</span></div>";
+        });
+        html += "</div>";
+      });
+      html += "</div>";
+    }
+
+    if (days.length) {
+      html += '<div class="app-panel"><div class="trip-sec-head"><h3>每日行程</h3>'
+        + '<span class="trip-meta">' + days.length + " 天</span></div>";
+      days.forEach(function (d) {
+        html += '<div class="trip-day"><div class="trip-day-name">第 ' + d.day + " 天</div>";
+        (d.items || []).forEach(function (it) {
+          html += '<div class="trip-item' + (it.done ? " done" : "") + '">'
+            + '<span class="trip-item-title">'
+            + (it.slot ? '<b style="color:var(--muted);font-weight: var(--fw-medium);margin-right:6px">' + esc(it.slot) + "</b>" : "")
+            + esc(it.title) + "</span>"
+            + (it.note ? '<span class="trip-item-note">' + esc(it.note) + "</span>" : "")
+            + "</div>";
+        });
+        html += "</div>";
+      });
+      html += "</div>";
+    }
+
+    if (!prep.length && !days.length) {
+      html += '<div class="app-empty" style="padding:36px"><p>这份行程还是空的。</p></div>';
+    }
+    html += '<p class="trip-hint" style="margin-top:20px">由「旅游智能助手」生成 · '
+      + "分享者可以随时关闭这个链接</p>";
+
+    root.innerHTML = html;
+    document.title = trip.title + " · 行程分享";
+  }
+})();
+</script>
+</body>
+</html>

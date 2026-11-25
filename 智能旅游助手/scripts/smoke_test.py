@@ -60,8 +60,8 @@ def main():
         check("Agent 团队接口可用", r.status_code == 200 and len(r.json().get("experts", [])) == 5)
 
         # ---------- 知识库覆盖边界 ----------
-        # 地图 355 城（只有坐标）与攻略库 6 城（有门票/开放时间）不是一回事，
-        # 接口必须能把「哪些城市有资料」单独讲清楚，且无需登录即可查。
+        # 资料分两档：6 城有精编攻略（门票/开放时间），其余城市只有景点清单（景点名+类型）。
+        # 接口必须把两档分开讲清楚，且无需登录即可查。
         r = c.get("/api/knowledge/coverage")
         cv = r.json() if r.status_code == 200 else {}
         check(
@@ -73,6 +73,21 @@ def main():
             "覆盖接口带出地图规模（355 城 / 1558 景点）",
             cv.get("map_cities") == 355 and cv.get("map_spots") == 1558,
             cv,
+        )
+        # 三档的**契约**：字段齐全、计数自洽、full_cities 是 cities 的子集。
+        # 这里不断言「6 城 / 171 城 / 184 城」—— 本脚本故意把 KB_DIR 指向空目录
+        # （避免触发向量模型下载），真实数字由 pytest 针对仓库里的 knowledge_base 断言。
+        check(
+            "覆盖接口把「精编攻略 / 景点导览 / 景点清单」分成三档",
+            {"full_cities", "full_count", "guided_count", "list_count"} <= set(cv)
+            and cv["count"] == cv["full_count"] + cv["guided_count"] + cv["list_count"]
+            and len(cv["cities"]) == cv["count"],
+            {k: cv.get(k) for k in ("count", "full_count", "guided_count", "list_count")},
+        )
+        check(
+            "完整攻略城市一定是已收录城市的子集",
+            set(cv.get("full_cities") or []) <= set(cv.get("cities") or []),
+            {k: cv.get(k) for k in ("count", "full_count", "guided_count", "list_count")},
         )
 
         from app.rag import coverage as cov_mod

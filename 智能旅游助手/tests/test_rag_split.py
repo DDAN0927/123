@@ -134,3 +134,66 @@ def test_index_goes_stale_after_doc_edit(tmp_path, monkeypatch):
     doc.write_text("## 住宿建议\n王府井一带\n", encoding="utf-8")
     os.utime(doc, (1, 1))  # 显式改 mtime，避免文件系统时间精度导致漏判
     assert index_stale() is True
+
+
+def test_index_stays_fresh_when_only_mtime_changes(tmp_path, monkeypatch):
+    """内容没变、只是 mtime 变了 → 索引仍算新鲜，不许重建。
+
+    容器启动时 `start.sh` 把镜像里的文档 `cp` 到持久化卷上，拷出来的文件 mtime
+    是「拷贝那一刻」，跟构建索引时记下的必然不同。签名曾经用 mtime，于是**每次
+    冷启动都判定索引过期**，同步重建 1042 块（1~2 分钟），端口要等建完才 bind：
+    魔搭靠 420 秒等待还能兜住，沙箱发布只等 60 秒，直接报「启动失败」。
+
+    改成内容哈希之后这条必须成立 —— 它是「启动快」这件事的地基。
+    """
+    from app.config import settings
+
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    doc = kb / "北京.md"
+    doc.write_text("## 必游景点\n故宫\n", encoding="utf-8")
+    monkeypatch.setattr(settings, "kb_dir", str(kb))
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+
+    idx = settings.index_dir
+    idx.mkdir(parents=True, exist_ok=True)
+    (idx / "meta.json").write_text(json.dumps({"docs": doc_signature()}), encoding="utf-8")
+
+    os.utime(doc, (1, 1))  # 模拟「刚被 cp 出来」：内容不变，时间戳全变
+    assert index_stale() is False, "只有 mtime 变化不该触发重建"
+
+
+def test_spots_doc_dropped_when_full_guide_exists(tmp_path, monkeypatch):
+    """同一城市两档都在时只索引精编攻略，清单档必须让位。
+
+    管理员给清单档城市补了攻略后，旧的 `spots/哈尔滨.md` 不会自动消失。
+    两份都进索引的话，清单档措辞与其余 348 城高度雷同，会在 top-k 里挤掉
+    真正有门票和开放时间的那一份 —— 检索看起来正常，答案却是薄的。
+    """
+    from app.config import settings
+    from app.rag.indexer import load_documents
+
+    kb = tmp_path / "kb"
+    (kb / "spots").mkdir(parents=True)
+    (kb / "北京.md").write_text("## 故宫\n门票 60 元\n", encoding="utf-8")
+    (kb / "spots" / "北京.md").write_text("## 北京景点清单\n故宫（古迹）\n", encoding="utf-8")
+    (kb / "spots" / "哈尔滨.md").write_text("## 哈尔滨景点清单\n中央大街（街区）\n", encoding="utf-8")
+    monkeypatch.setattr(settings, "kb_dir", str(kb))
+
+    names = [n for n, _ in load_documents()]
+    assert "北京.md" in names
+    assert "spots/北京.md" not in names, "有精编攻略时清单档不应进索引"
+    assert "spots/哈尔滨.md" in names, "没有精编攻略的城市，清单档必须保留"
+
+
+def test_doc_names_are_relative_paths(tmp_path, monkeypatch):
+    """两档同名城市文档必须能区分开，否则 chunks 里的 doc 会撞成同一个。"""
+    from app.config import settings
+    from app.rag.indexer import doc_signature
+
+    kb = tmp_path / "kb"
+    (kb / "spots").mkdir(parents=True)
+    (kb / "上海.md").write_text("# 上海\n", encoding="utf-8")
+    (kb / "spots" / "上海.md").write_text("# 上海清单\n", encoding="utf-8")
+    monkeypatch.setattr(settings, "kb_dir", str(kb))
+    assert set(doc_signature()) == {"上海.md", "spots/上海.md"}

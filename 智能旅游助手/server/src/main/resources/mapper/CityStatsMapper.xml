@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  跨表统计（MyBatis-Plus）。
+  两条查询都是「行程表 + 费用表 + 明细表」的关联聚合，用 SQL 表达比 JPQL 清楚。
+
+  注意第一条里两个子查询不能直接 join 明细表：费用和条目各是一对多，
+  同时 join 会让行数相乘，sum 出来的金额会翻倍——这类错误不会报错，只是数字变大。
+-->
+<mapper namespace="com.travel.stats.CityStatsMapper">
+
+  <resultMap id="cityStatMap" type="com.travel.stats.CityStatsMapper$CityStat">
+    <constructor>
+      <arg column="city" javaType="java.lang.String"/>
+      <arg column="trip_count" javaType="java.lang.Integer"/>
+      <arg column="day_count" javaType="java.lang.Integer"/>
+      <arg column="total_amount" javaType="java.math.BigDecimal"/>
+      <arg column="item_count" javaType="java.lang.Integer"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="categoryStatMap" type="com.travel.stats.CityStatsMapper$CategoryStat">
+    <constructor>
+      <arg column="city" javaType="java.lang.String"/>
+      <arg column="category" javaType="java.lang.String"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+      <arg column="trip_count" javaType="java.lang.Integer"/>
+    </constructor>
+  </resultMap>
+
+  <select id="statsByCity" resultMap="cityStatMap">
+    select t.city                                        as city,
+           count(*)                                      as trip_count,
+           coalesce(sum(t.days), 0)                      as day_count,
+           coalesce(sum(ex.amt), 0)                      as total_amount,
+           coalesce(sum(it.cnt), 0)                      as item_count
+    from trips t
+    left join (select trip_id, sum(amount) as amt from trip_expenses group by trip_id) ex
+           on ex.trip_id = t.id
+    left join (select trip_id, count(*) as cnt from trip_items where day_index &gt;= 1 group by trip_id) it
+           on it.trip_id = t.id
+    where t.username = #{username}
+    group by t.city
+    order by total_amount desc, t.city
+  </select>
+
+  <select id="statsByCategory" resultMap="categoryStatMap">
+    select t.city           as city,
+           e.category       as category,
+           sum(e.amount)    as amount,
+           count(distinct t.id) as trip_count
+    from trips t
+    join trip_expenses e on e.trip_id = t.id
+    where t.username = #{username}
+    group by t.city, e.category
+    order by amount desc
+  </select>
+
+</mapper>

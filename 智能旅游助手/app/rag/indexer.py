@@ -5,6 +5,7 @@
 最多只影响索引构建这一条链路。
 """
 
+import hashlib
 import json
 import re
 import time
@@ -17,16 +18,42 @@ _SECTION_RE = re.compile(r"(?m)^(?=#{1,4} )")
 
 
 def load_documents() -> list[tuple[str, str]]:
-    """加载知识库目录下全部 .md/.txt 文档，返回 (文件名, 正文) 列表"""
+    """加载知识库目录下全部 .md/.txt 文档，返回 (文档名, 正文) 列表
+
+    文档名用**相对知识库根目录的路径**（`北京.md` / `guides/绍兴.md` /
+    `spots/哈尔滨.md`），不是裸文件名。攻略库现在分三档放不同子目录，三档都可能
+    有同名城市文档；用裸文件名会让它们变成同一个 `doc`，检索结果分不清是精编攻略、
+    景点导览还是景点清单。
+
+    同一城市有多档文档时按 **根目录 > guides/ > spots/** 的优先级只留一份：
+    管理员给某个城市补了精编攻略之后，导览档和清单档就成了冗余噪声（措辞高度
+    雷同，还会在 top-k 里挤掉真正的攻略）。靠这一条，升档只需要丢一个文件进来，
+    不必记得回头删低档的那份。
+    """
     kb = Path(settings.kb_dir)
-    docs = []
+    docs: list[tuple[str, str]] = []
     for f in sorted(kb.glob("**/*")):
         if f.suffix.lower() not in (".md", ".txt"):
             continue
         text = f.read_text(encoding="utf-8", errors="ignore").strip()
         if text:
-            docs.append((f.name, text))
-    return docs
+            docs.append((f.relative_to(kb).as_posix(), text))
+
+    # 根目录（无子目录）的文档视为精编攻略档
+    root_stems = {Path(name).stem for name, _ in docs if "/" not in name}
+    guided_stems = {Path(name).stem for name, _ in docs if name.startswith("guides/")}
+
+    def keep(name: str) -> bool:
+        if "/" not in name:
+            return True
+        stem = Path(name).stem
+        if stem in root_stems:
+            return False
+        if name.startswith("guides/"):
+            return True
+        return stem not in guided_stems  # spots/ 只在没有导览档时保留
+
+    return [(name, text) for name, text in docs if keep(name)]
 
 
 def _heading_of(section: str) -> str:
@@ -70,20 +97,27 @@ def split_document(name: str, text: str) -> list[dict]:
     return chunks
 
 
-def doc_signature() -> dict[str, float]:
-    """知识库文档签名：{文件名: mtime}。
+def doc_signature() -> dict[str, str]:
+    """知识库文档签名：{文档相对路径: 内容哈希}。
 
     用它判断「索引是不是旧的」比比对文件数可靠得多 —— 改内容不改文件名
-    （这次给 6 城补「住宿建议」「特色体验项目」就是这种情况）文件数不变，
-    但 mtime 一定变。
+    （给 6 城补「住宿建议」「特色体验项目」就是这种情况）文件数不变，
+    但内容哈希一定变。键用相对路径而非裸文件名：多档目录下会有同名城市文档，
+    裸名会在字典里互相覆盖，签名看起来「没变」。
+
+    **为什么是内容哈希而不是 mtime**：容器启动时 `start.sh` 要把镜像里的文档
+    同步到持久化卷上，拷出来的文件 mtime 是「拷贝那一刻」，与构建索引时记下的
+    必然不同。于是每次冷启动都判定「索引落后」→ 同步重建 1042 块（1~2 分钟）→
+    端口要等建完才 bind。魔搭那边靠 420 秒等待还能兜住，沙箱发布只等 60 秒，
+    直接报「启动失败」。内容哈希与拷贝无关：内容一样就认为索引有效。
     """
     kb = Path(settings.kb_dir)
-    sig: dict[str, float] = {}
+    sig: dict[str, str] = {}
     for f in sorted(kb.glob("**/*")):
         if f.suffix.lower() not in (".md", ".txt"):
             continue
         try:
-            sig[f.name] = round(f.stat().st_mtime, 3)
+            sig[f.relative_to(kb).as_posix()] = hashlib.sha1(f.read_bytes()).hexdigest()[:16]
         except OSError:
             continue
     return sig

@@ -112,8 +112,25 @@ def auth_rate_limit(request: Request):
 
 
 def _resolve_username(request: Request) -> str | None:
-    """尽力解析当前登录用户（失败不影响限流，退化为匿名阈值）。"""
+    """尽力解析当前登录用户（失败不影响限流，退化为匿名阈值）。
+
+    身份来源必须与 `app/api/deps.py` 一致：**内部信任头优先**，token 兜底。
+    只认 token 会让「经 Spring 反代进来的登录用户」全部落进匿名桶——
+    因为 `AiProxyController` 转发前有意剥掉了 `Authorization` / `X-Auth-Token`，
+    外部只有 Spring 一个入口，Python 自己的 token 库在真实链路上永远是空的。
+    这里复用 deps 的 `_internal_identity`，不再写第三份解析逻辑。
+    """
     try:
+        from app.api.deps import _internal_identity
+
+        internal = _internal_identity(
+            request.headers.get("x-internal-secret"),
+            request.headers.get("x-user-name"),
+            request.headers.get("x-user-role"),
+        )
+        if internal:
+            return internal[0]
+
         from app.api.auth import optional_username
 
         # 两种鉴权头都试：部分平台（如魔搭创空间）的边缘 WAF 会拦掉

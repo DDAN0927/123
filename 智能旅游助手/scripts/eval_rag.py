@@ -82,11 +82,13 @@ CASES: list[tuple[str, str, str]] = [
 RECALL_K = (1, 3)
 THRESHOLDS = {"recall@3": 0.90, "mrr": 0.75, "city@1": 0.90}
 
-# 知识库只覆盖 6 城。其余城市必须**返回空**，而不是拿别的城市的段落顶包。
-# 升级前的真实表现：问「哈尔滨有什么好玩的」，向量被「有什么好玩的」这种通用短语
-# 带偏，北京段落能过 0.55 阈值，于是模型拿北京资料回答哈尔滨 —— 比答不上来更糟。
-# 这条是「宁可说不知道」的底线，允许的泄漏条数为 0。
-OUT_OF_SCOPE: list[str] = [
+# 349 城补了「景点清单」基础档之后，「越界查询必须返回空」这条门禁换了语义：
+# 这些城市现在**有**资料（景点清单），但只有清单。真正的风险从「拿北京的资料
+# 回答哈尔滨」变成了「拿三亚的清单回答哈尔滨」—— 349 篇清单档的措辞高度相似
+# （都是「共收录 N 个景点」「不含门票」），向量距离天然很近，跨城串味是有可能的。
+# 所以门禁改成：检索可以返回空（清单太薄、答不上来是允许的），
+# 但只要返回了内容，**必须是这个城市自己的文档**。
+LIST_ONLY: list[str] = [
     "哈尔滨有什么好玩的",
     "三亚适合几月去",
     "拉萨布达拉宫门票",
@@ -94,11 +96,24 @@ OUT_OF_SCOPE: list[str] = [
     "长沙茶颜悦色在哪买",
     "张家界几天能玩完",
 ]
+
+# 点名景点时必须命中该城市自己的清单档 —— 这是「清单档真的进了索引、
+# 而且城市归属正确」的正向证据。上面那组只证明「没串城」，可能是全空。
+LIST_ONLY_SPOT: list[tuple[str, str]] = [
+    ("哈尔滨中央大街值得去吗", "哈尔滨"),
+    ("三亚亚龙湾怎么玩", "三亚"),
+    ("青岛栈桥和八大关", "青岛"),
+    ("长沙橘子洲头", "长沙"),
+    ("拉萨大昭寺", "拉萨"),
+    ("张家界天门山玻璃栈道", "张家界"),
+]
+
 MAX_OOB_LEAKS = 0
+MIN_LIST_HITS = 6  # 6 条点名景点的查询必须全部命中本城
 
 
 def evaluate(verbose: bool = False) -> dict:
-    from app.rag import retriever
+    from app.rag import coverage, retriever
 
     if not retriever.index_ready():
         print("知识库索引不存在，请先运行 python scripts/build_kb.py")
@@ -146,19 +161,39 @@ def evaluate(verbose: bool = False) -> dict:
         "cases": n,
     }
 
-    # 越界查询：知识库没有这个城市，检索必须返回空
+    # 清单档城市：允许返回空，但不许拿别的城市顶包
     leaks = []
-    for query in OUT_OF_SCOPE:
+    for query in LIST_ONLY:
         results = retriever.search(query, 3)
-        if results:
+        if not results:
+            continue
+        top = Path(results[0]["doc"]).stem
+        city = coverage.detect(query).asked
+        if city and top not in city:
             leaks.append({"query": query, "top1": f"{results[0]['doc']}｜{results[0]['text'][:30]}"})
-    metrics["oob_cases"] = len(OUT_OF_SCOPE)
+    metrics["oob_cases"] = len(LIST_ONLY)
     metrics["oob_leaks"] = len(leaks)
     if verbose:
         for item in leaks:
-            print(f"✗ 越界泄漏  {item['query']}  got {item['top1']}")
+            print(f"✗ 越界串城  {item['query']}  got {item['top1']}")
 
-    return {"metrics": metrics, "details": details, "leaks": leaks}
+    # 点名景点：必须命中该城市自己的清单档
+    list_hits = 0
+    list_misses = []
+    for query, want_city in LIST_ONLY_SPOT:
+        results = retriever.search(query, 3)
+        top = Path(results[0]["doc"]).stem if results else ""
+        if top == want_city:
+            list_hits += 1
+        else:
+            list_misses.append({"query": query, "want": want_city, "top1": top or "(空)"})
+    metrics["list_cases"] = len(LIST_ONLY_SPOT)
+    metrics["list_hits"] = list_hits
+    if verbose:
+        for item in list_misses:
+            print(f"✗ 清单档未命中  {item['query']}  want {item['want']}  got {item['top1']}")
+
+    return {"metrics": metrics, "details": details, "leaks": leaks, "list_misses": list_misses}
 
 
 def main() -> int:
@@ -178,7 +213,8 @@ def main() -> int:
         print("-" * 20)
         for key in ("recall@1", "recall@3", "mrr", "city@1"):
             print(f"{key:<12}{m[key]:>8.3f}")
-        print(f"{'越界泄漏':<10}{m['oob_leaks']:>6}/{m['oob_cases']}")
+        print(f"{'越界串城':<10}{m['oob_leaks']:>6}/{m['oob_cases']}")
+        print(f"{'清单档命中':<8}{m['list_hits']:>6}/{m['list_cases']}")
 
     failed = [k for k, th in THRESHOLDS.items() if m[k] < th]
     if failed:
@@ -187,10 +223,16 @@ def main() -> int:
             print(f"✗ {k} = {m[k]:.3f}，低于门禁 {THRESHOLDS[k]:.2f}")
     if m["oob_leaks"] > MAX_OOB_LEAKS:
         print()
-        print(f"✗ 越界泄漏 {m['oob_leaks']} 条：知识库没有该城市，却返回了别的城市的内容")
+        print(f"✗ 越界串城 {m['oob_leaks']} 条：点名了 A 城市，却返回 B 城市的段落")
         for item in report["leaks"]:
             print(f"    {item['query']}  →  {item['top1']}")
         failed.append("oob_leaks")
+    if m["list_hits"] < MIN_LIST_HITS:
+        print()
+        print(f"✗ 清单档命中 {m['list_hits']}/{m['list_cases']}，低于门禁 {MIN_LIST_HITS}")
+        for item in report["list_misses"]:
+            print(f"    {item['query']}  want {item['want']}  got {item['top1']}")
+        failed.append("list_hits")
 
     if failed:
         print(f"\nRAG 评估未通过：{len(failed)} 项指标低于阈值")
@@ -198,7 +240,7 @@ def main() -> int:
 
     print(
         f"\nRAG 评估通过：{m['cases']} 条 query，Recall@3 {m['recall@3']:.0%}，MRR {m['mrr']:.3f}，"
-        f"越界泄漏 {m['oob_leaks']}/{m['oob_cases']}"
+        f"越界串城 {m['oob_leaks']}/{m['oob_cases']}，清单档命中 {m['list_hits']}/{m['list_cases']}"
     )
     return 0
 

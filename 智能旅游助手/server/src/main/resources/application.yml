@@ -1,0 +1,69 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: travel-server
+  profiles:
+    # 演示/容器默认 H2 文件库；接 MySQL 用 --spring.profiles.active=mysql
+    active: ${SPRING_PROFILES_ACTIVE:h2}
+  jackson:
+    # 前端一直用 snake_case（day_index / start_date），统一在这里对齐，
+    # 不要在 DTO 上零散加 @JsonProperty，否则漏一个就是前端 undefined。
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+  mvc:
+    problemdetails:
+      enabled: false
+  web:
+    resources:
+      # 官网与功能页仍由 SpringBoot 直接托管（frontend/static 是唯一前端源）
+      static-locations: file:./frontend/static/,classpath:/static/
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+app:
+  # 图片上传目录（游记配图）。默认跟数据库一起放在持久化目录下，容器重建不丢。
+  upload-dir: ${UPLOAD_DIR:${DATA_DIR:./data}/uploads}
+  jwt:
+    # 生产必须用环境变量提供；**故意不设内置默认值**——仓库里的默认值等于公开密钥，
+    # 任何人 clone 后都能自签一个 role=admin 的 token。留空时启动会直接失败（SecretGuard），
+    # 用 scripts/start_all.sh / start.sh 启动会自动生成并落盘复用。
+    secret: ${JWT_SECRET:}
+    ttl-seconds: ${TOKEN_TTL_SECONDS:604800}
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    # 同理：不设默认口令。为空时不创建管理员账号（SeedDataConfig 会打 ERROR 说明原因），
+    # 避免「什么都没配」的部署变成 admin/admin123。
+    password: ${ADMIN_PASSWORD:}
+  # 公网部署默认关闭开放注册（与 Python 侧 app/config.py 的默认值对齐）：
+  # 新账号由管理员开通，否则任何人都能注册后消耗共享的 LLM 额度。
+  allow-registration: ${ALLOW_REGISTRATION:false}
+  ai:
+    # Python AI 服务（RAG + 多 Agent）。SpringBoot 作为统一入口，转发时带上内部信任头。
+    base-url: ${AI_BASE_URL:http://127.0.0.1:7861}
+    # 两侧必须一致；留空同样启动失败（否则所有经反代的 AI 接口都会 403，且极难定位）
+    internal-secret: ${AI_INTERNAL_SECRET:}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:180}
+  weather:
+    base-url: https://api.open-meteo.com/v1/forecast
+    # 超时 3s：实测 open-meteo 慢/超时一次，装备清单要白等 8s 才走季节估算
+    #（ux-report P2#5：S2 全程 25s 里它占 38%）。3s 足够正常请求返回，
+    # 失败照样降级季节估算，等待感从 9.5s 降到 ~4.5s。可按部署环境覆盖。
+    timeout-seconds: ${WEATHER_TIMEOUT_SECONDS:3}
+
+logging:
+  level:
+    com.travel: INFO
+    org.hibernate.SQL: WARN
+
+# MyBatis-Plus 只接管 com.travel.stats 下的跨表统计，其余实体仍由 JPA 管理。
+# mapper-locations 必须显式写：默认值在打成可执行 jar 后有时扫不到 BOOT-INF/classes/mapper。
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true

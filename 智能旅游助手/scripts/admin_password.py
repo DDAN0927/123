@@ -21,6 +21,7 @@
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -37,6 +38,11 @@ _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def _deploy_env() -> dict:
+    """旧密码的兜底来源：环境变量 ADMIN_PASSWORD，其次历史遗留的 deploy/.env。
+
+    沙箱/部署包这条线已下线，仓库里不再有 deploy/；线上改密建议直接传第 3 个参数，
+    或用 `ADMIN_PASSWORD=<旧密码> python scripts/admin_password.py --remote ...`。
+    """
     env = ROOT / "deploy" / ".env"
     out = {}
     if env.exists():
@@ -44,6 +50,8 @@ def _deploy_env() -> dict:
             if "=" in line and not line.strip().startswith("#"):
                 k, v = line.split("=", 1)
                 out[k.strip()] = v.strip()
+    if os.environ.get("ADMIN_PASSWORD"):
+        out.setdefault("ADMIN_PASSWORD", os.environ["ADMIN_PASSWORD"])
     return out
 
 

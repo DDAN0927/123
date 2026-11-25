@@ -214,13 +214,21 @@ def synthesize_node(state: AgentState) -> dict:
     # 回答正文之外的覆盖声明：专家已经按提示词在正文里标了「通用建议」，
     # 但汇总阶段可能被压缩掉，所以这里再补一条固定脚注 —— 用户和答辩老师
     # 都需要一个「这段到底经没经过攻略库校验」的明确答案。
-    uncovered = (state.get("coverage") or {}).get("uncovered") or []
-    if uncovered:
-        kb = "、".join((state.get("coverage") or {}).get("kb_cities") or [])
+    cov = state.get("coverage") or {}
+    listed = cov.get("listed") or []
+    uncovered = cov.get("uncovered") or []
+    if listed or uncovered:
+        parts = []
+        if listed:
+            parts.append(
+                f"「{'、'.join(listed)}」只有景点清单（景点名与类型），门票、开放时间、交通耗时未经攻略库校验"
+            )
+        if uncovered:
+            parts.append(f"「{'、'.join(uncovered)}」未收录，内容来自通用知识")
         answer += (
-            f"\n\n---\n\n> 📍 **知识库覆盖提示**：本地攻略库目前覆盖 {kb}。"
-            f"本次回答中涉及「{'、'.join(uncovered)}」的部分来自通用知识，"
-            "未经攻略库校验，门票、开放时间、预约政策等易变信息请以官方渠道为准。"
+            "\n\n---\n\n> 📍 **知识库覆盖提示**：本次回答中，"
+            + "；".join(parts)
+            + "。易变信息请以官方渠道为准。"
         )
 
     return {

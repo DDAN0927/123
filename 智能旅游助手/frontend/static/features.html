@@ -5,8 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>产品功能 · 旅游智能助手</title>
 <meta name="description" content="AI 旅行咨询、智能行程规划、城市地图、交通路线——旅游智能助手的核心能力。">
-<link rel="stylesheet" href="assets/css/style.css">
-<link rel="stylesheet" href="assets/css/app.css">
+<!-- 字体本地托管 + latin preload，理由与 FOUT 数据见 assets/vendor/fonts/fonts.css 头注释 -->
+<link rel="preload" href="assets/vendor/fonts/758b8670-6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/vendor/fonts/51dc226e-V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/style.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/app.css?v=2026-11-25a">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF5436' d='M2 21l20-8L2 3v7l14 2-14 2z'/></svg>">
 </head>
 <body>
@@ -36,7 +41,7 @@
   <div class="wash"></div>
   <div class="container">
     <span class="eyebrow">FEATURES</span>
-    <h1 class="reveal">一处平台，<br>装下整段 <em>旅程</em></h1>
+    <h1 class="reveal">一处平台，<br>装下整段<em>旅程</em></h1>
     <p class="lead reveal" data-delay="1" style="max-width:560px;margin-top:22px">每一个功能都围绕“让你省心省力”而设计，协同工作，覆盖从规划到出发的每一步。</p>
   </div>
 </section>
@@ -45,7 +50,7 @@
 <section id="chat" style="padding-top:0">
   <div class="container split">
     <div class="split-media reveal" data-dir="left">
-      <div class="img" style="background-image:url('assets/img/feature-chat-cafe.jpg')"></div>
+      <div class="img" data-bg="assets/img/feature-chat-cafe.jpg"></div>
     </div>
     <div class="split-copy reveal" data-dir="right">
       <span class="eyebrow">01 · CHAT</span>
@@ -65,7 +70,7 @@
 <section id="plan">
   <div class="container split reverse">
     <div class="split-media reveal" data-dir="right">
-      <div class="img" style="background-image:url('assets/img/feature-itinerary-desk.jpg')"></div>
+      <div class="img" data-bg="assets/img/feature-itinerary-desk.jpg"></div>
     </div>
     <div class="split-copy reveal" data-dir="left">
       <span class="eyebrow">02 · PLAN</span>
@@ -85,7 +90,7 @@
 <section id="map">
   <div class="container split">
     <div class="split-media reveal" data-dir="left">
-      <div class="img" style="background-image:url('assets/img/feature-city-aerial.jpg')"></div>
+      <div class="img" data-bg="assets/img/feature-city-aerial.jpg"></div>
     </div>
     <div class="split-copy reveal" data-dir="right">
       <span class="eyebrow">03 · MAP</span>
@@ -104,7 +109,7 @@
 <section id="transit">
   <div class="container split reverse">
     <div class="split-media reveal" data-dir="right">
-      <div class="img" style="background-image:url('assets/img/feature-bullet-train.jpg')"></div>
+      <div class="img" data-bg="assets/img/feature-bullet-train.jpg"></div>
     </div>
     <div class="split-copy reveal" data-dir="left">
       <span class="eyebrow">04 · TRANSIT</span>
@@ -123,7 +128,7 @@
 <section id="save">
   <div class="container split">
     <div class="split-media reveal" data-dir="left">
-      <div class="img" style="background-image:url('assets/img/feature-wishlist-journal.jpg')"></div>
+      <div class="img" data-bg="assets/img/feature-wishlist-journal.jpg"></div>
       <span class="caption">WISHLIST</span>
     </div>
     <div class="split-copy reveal" data-dir="right">
@@ -143,7 +148,7 @@
 <section id="kb">
   <div class="container split reverse">
     <div class="split-media reveal" data-dir="right">
-      <div class="img" style="background-image:url('assets/img/feature-guidebooks.jpg')"></div>
+      <div class="img" data-bg="assets/img/feature-guidebooks.jpg"></div>
       <span class="caption">KNOWLEDGE</span>
     </div>
     <div class="split-copy reveal" data-dir="left">
@@ -152,7 +157,8 @@
       <p>基于 RAG 检索增强技术，把真实城市攻略装进 AI 的大脑，回答有据可查。</p>
       <ul class="feature-list">
         <li>真实攻略库，秒级语义检索</li>
-        <li>目前精编 6 城，超出范围会明确标注「通用建议」而非假装有据</li>
+        <li>攻略库覆盖 355 城，分三档：6 城精编攻略（门票、开放时间、交通），165 城景点导览（介绍与部分门票），其余为景点清单</li>
+        <li>三档在回答里分别标注，绝不把景点清单说成完整攻略，导览档门票一律注明以景区公告为准</li>
         <li>管理员可在线更新维护，新增城市只需放一份攻略并重建索引</li>
         <li>持续扩充，越用越聪明</li>
       </ul>
@@ -164,7 +170,7 @@
 <section id="ops">
   <div class="container split">
     <div class="split-media reveal" data-dir="left">
-      <div class="img" style="background-image:url('assets/img/feature-analytics.jpg')"></div>
+      <div class="img" data-bg="assets/img/feature-analytics.jpg"></div>
       <span class="caption">OPERATIONS</span>
     </div>
     <div class="split-copy reveal" data-dir="right">
@@ -246,12 +252,13 @@
     </div>
     <div class="footer-bottom">
       <span>© 2026 旅游智能助手 Travel Copilot. 保留所有权利。</span>
+      <span>基于 SpringBoot 的个人智能旅游行程规划系统</span>
       <span>用 ❤ 与 AI 打造 · 旅途自有答案</span>
     </div>
   </div>
 </footer>
 
-<script src="assets/js/app.js"></script>
-<script src="assets/js/main.js"></script>
+<script src="assets/js/app.js?v=2026-11-25a"></script>
+<script src="assets/js/main.js?v=2026-11-25a"></script>
 </body>
 </html>

@@ -37,6 +37,16 @@ def _chunks_path() -> Path:
     return settings.index_dir / "chunks.json"
 
 
+def _doc_stem(doc: str) -> str:
+    """文档名 → 城市名。`spots/哈尔滨.md` → `哈尔滨`。
+
+    不能用 `rsplit(".", 1)[0]`：攻略库分两档放不同子目录后，路径会带斜杠，
+    切出来的「spots/哈尔滨」既匹配不上用户 query 里的城市名，也不在地图城市
+    清单里，城市硬约束就静默失效了。
+    """
+    return Path(doc).stem
+
+
 def _legacy_chunks_path() -> Path:
     return settings.index_dir / "chunks.pkl"
 
@@ -262,7 +272,7 @@ def _search_cached(query: str, k: int) -> tuple[tuple[str, str, float], ...]:
     # 但「通用文档」（行前装备、证件、通用避坑）不是任何城市，必须放行：
     # 问「北京要带什么」时，装备知识在《行前准备与装备》里，而 北京.md 里没有 ——
     # 按城市一刀切会把它滤掉，等于城市约束把正确答案挡在门外。
-    stems = {c["doc"].rsplit(".", 1)[0] for c in _chunks}
+    stems = {_doc_stem(c["doc"]) for c in _chunks}
     mentioned = {s for s in stems if s in query}
     city_docs = set(coverage.map_cities())
 
@@ -277,13 +287,28 @@ def _search_cached(query: str, k: int) -> tuple[tuple[str, str, float], ...]:
             continue
         item = (chunk["doc"], chunk["text"], fused)
         fallback.append(item)
-        stem = chunk["doc"].rsplit(".", 1)[0]
+        stem = _doc_stem(chunk["doc"])
         if not mentioned or stem in mentioned or stem not in city_docs:
             matched.append(item)
 
     chosen = matched if mentioned else fallback
-    chosen.sort(key=lambda x: -x[2])
+    # 排序时给「景点清单档」一点折扣（不是阈值折扣，阈值已经过了）。
+    # 为什么需要：「上海去苏州怎么走」两个城市都被点名，苏州的清单档因为
+    # 通篇都是「苏州」而拿到 0.713，上海.md 的交通指南只有 0.695 —— 可清单档
+    # 里根本没有交通信息。清单档只有景点名，证据强度天然低于精编攻略，
+    # 在同分竞争时让它退一位是合理的；折扣 5% 不足以影响「只有清单档的城市」
+    # （那种查询里没有竞争者），但足以把真正能回答问题的攻略顶上来。
+    chosen.sort(key=lambda x: -(x[2] * _tier_weight(x[0])))
     return tuple(chosen[:k])
+
+
+# 景点清单档（放在子目录里）的排序折扣系数
+_SPOTS_WEIGHT = 0.95
+
+
+def _tier_weight(doc: str) -> float:
+    """精编攻略 1.0，景点清单档 < 1.0。判断依据：文档名是否带目录。"""
+    return _SPOTS_WEIGHT if "/" in doc else 1.0
 
 
 def _bigram_coverage(query: str, text: str) -> float:
@@ -319,8 +344,11 @@ def search(query: str, top_k: int | None = None) -> list[dict]:
     # 别的城市的内容顶包。此前问「哈尔滨有什么好玩的」会返回北京的段落，
     # 分数还能过 0.55 的门槛（「有什么好玩的」这种通用短语贡献了大部分相似度），
     # 模型于是拿北京的资料回答哈尔滨 —— 比答不上来更糟。
+    #
+    # 注意这里的 `covered` 只算**完整攻略档**。只有景点清单档的城市（349 城）
+    # 要照常检索：清单档虽然薄，但景点名是真的，比模型凭印象报景点可靠。
     cov = coverage.detect(query)
     if cov.uncovered and not cov.covered:
-        logger.info("查询城市无攻略库覆盖，跳过检索: %s", "、".join(cov.uncovered))
+        logger.info("查询城市无任何收录，跳过检索: %s", "、".join(cov.uncovered))
         return []
     return [{"doc": d, "text": t, "score": s} for d, t, s in _search_cached(query, k)]

@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    # 文件库放在持久化目录里，容器重建不丢数据；AUTO_SERVER 允许本地再用工具连上去看
+    url: jdbc:h2:file:${DATA_DIR:./data}/travel-server;AUTO_SERVER=TRUE;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+  h2:
+    console:
+      enabled: false

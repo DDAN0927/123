@@ -1,19 +1,28 @@
-"""知识库覆盖范围：用户问的城市，到底有没有本地攻略可查。
+"""知识库覆盖范围：用户问的城市，到底有多少本地资料可查。
 
 系统里有两套城市数据，覆盖面差两个数量级，这个边界必须显式暴露给用户：
 
 - **地图**（`frontend/static/assets/js/geo-data.js`）：355 城 / 1558 个景点，
-  只有坐标与分类，**没有攻略内容**，用于地图页定位与路线规划；
-- **知识库**（`knowledge_base/*.md`）：目前 6 城，有门票、开放时间、交通、玩法，
-  是 RAG 检索的唯一事实来源。
+  只有坐标与分类，没有门票与开放时间，用于地图页定位与路线规划；
+- **知识库**：分三档
+  * **完整攻略档** `knowledge_base/*.md` —— 6 城，有门票、开放时间、交通、
+    行程、美食，是 RAG 检索的权威事实来源；
+  * **景点导览档** `knowledge_base/guides/*.md` —— 171 城，由
+    `scripts/gen_city_guides.py` 从中文维基导游 + 高德生成，有景点介绍与
+    **部分**门票、开放时间，但非人工精编，可能过时；
+  * **景点清单档** `knowledge_base/spots/*.md` —— 其余城市，由
+    `scripts/gen_city_spots.py` 从地图数据生成，只有景点名与类型。
 
-不区分这两者的后果很具体：用户问「哈尔滨有什么好玩的」，检索拿不到资料，
-模型退回通用知识作答，而用户以为自己看到的是攻略库里的内容 —— 一旦门票价格
-或开放时间过时，责任全在系统。所以这里把「问了哪些城市、其中哪些没覆盖」
-算清楚，交给提示词层去显式声明。
+为什么必须分档而不是「有/没有」
+------------------------------
+一档化会制造一种更隐蔽的错误：用户看到「哈尔滨有中央大街、太阳岛」，就以为
+门票和开放时间也是攻略库给的，而实际是模型自己补的。分档之后，提示词层可以
+精确要求「导览档城市可以引用介绍与门票区间，但要注明以景区公告为准；清单档
+城市只能介绍有哪些景点，易变信息必须写约值」，回答末尾的脚注也能说清楚
+「这一段依据的是哪一档」。
 
-扩展方式：把 `哈尔滨.md` 放进 `knowledge_base/` 再重建索引，本模块会自动把它
-算进覆盖城市，无需改代码。
+扩展方式：把 `哈尔滨.md` 放进 `knowledge_base/` 再重建索引，它就自动升级成
+完整攻略档（导览档与清单档的同名文件都会被忽略），无需改代码。
 """
 
 import re
@@ -123,7 +132,7 @@ def city_center(name: str) -> tuple[float, float] | None:
     return None
 
 
-_kb_cache: tuple[tuple, tuple[str, ...]] | None = None
+_kb_cache: tuple[tuple, tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] | None = None
 
 
 def _index_cities() -> set[str]:
@@ -131,46 +140,108 @@ def _index_cities() -> set[str]:
 
     为什么不能只看 `kb_dir`：索引才是检索真正用的数据源。测试里 `KB_DIR` 指向
     临时空目录、而索引由夹具直接注入，只看目录就会得出「一个城市都没覆盖」的
-    错误结论，把所有查询都判成越界。生产环境两者一致，这里取并集不影响结果。
+    错误结论，把所有查询都判成越界。生产环境两者一致，这里只在目录里一个文档
+    都没有时兜底使用。
     """
     try:
         from app.rag import retriever
     except Exception:  # 索引模块不可用（极端情况），退化为只看目录
         return set()
     chunks = getattr(retriever, "_chunks", None) or []
-    return {str(c.get("doc", "")).rsplit(".", 1)[0] for c in chunks}
+    return {Path(str(c.get("doc", ""))).stem for c in chunks if c.get("doc")}
 
 
-def kb_cities() -> tuple[str, ...]:
-    """知识库真正覆盖的城市。
+def _kb_files() -> tuple[list[Path], list[Path], list[Path]]:
+    """(完整攻略档文件, 景点导览档文件, 景点清单档文件)。
 
-    判定标准：`knowledge_base/` 下存在以城市名命名的 `.md`/`.txt`，或索引里
-    有该城市的文本块。「外部攻略-小红书.md」这类非城市命名的文档会参与检索，
-    但不算作某个城市的覆盖 —— 否则文案会声称覆盖了实际没有攻略的城市。
+    分档靠**目录**而不是文件名后缀：索引器用 `Path(doc).stem` 作城市名、检索器
+    拿它做城市硬约束，文件名里塞「-景点清单」会把城市名变成
+    「哈尔滨-景点清单」，城市识别直接失效。
+    """
+    directory = Path(settings.kb_dir)
+    if not directory.is_dir():
+        return [], [], []
+    exts = (".md", ".txt")
 
-    缓存键含「文件数 + 最新 mtime + 索引对象标识」：管理员上传/删除文档、
-    重建索引后无需重启即可生效，又不必每次请求都遍历一遍目录。
+    def pick(d: Path) -> list[Path]:
+        return [p for p in sorted(d.glob("*")) if p.is_file() and p.suffix.lower() in exts]
+
+    guides_dir = directory / "guides"
+    spots_dir = directory / "spots"
+    return (
+        pick(directory),
+        pick(guides_dir) if guides_dir.is_dir() else [],
+        pick(spots_dir) if spots_dir.is_dir() else [],
+    )
+
+
+def _tiers() -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """(完整攻略档城市, 景点导览档城市, 景点清单档城市)，均已按地图城市名过滤。
+
+    缓存键含「文件数 + 最新 mtime」：管理员上传/删除文档、脚本重新生成清单档后
+    无需重启即可生效，又不必每次请求都遍历 500 多个文件。
     """
     global _kb_cache
-    directory = Path(settings.kb_dir)
-    files = []
-    if directory.is_dir():
-        files = [p for p in (*directory.glob("*.md"), *directory.glob("*.txt")) if p.is_file()]
-    chunks = _index_cities()
-    signature = (
-        len(files),
-        max((p.stat().st_mtime for p in files), default=0.0),
-        len(chunks),
-        ",".join(sorted(chunks))[:200],
+    guides, guided, spots = _kb_files()
+    signature: tuple = (
+        len(guides),
+        len(guided),
+        len(spots),
+        max((p.stat().st_mtime for p in (*guides, *guided, *spots)), default=0.0),
     )
+    if not guides and not guided and not spots:
+        # 目录为空时结果来自索引兜底，签名必须把索引规模也算进去，
+        # 否则夹具换了一批块、缓存还认为「没变化」。
+        signature += (len(_index_cities()),)
     if _kb_cache and _kb_cache[0] == signature:
         return _kb_cache[1]
 
     known = set(map_cities())
-    names = {p.stem for p in files} | chunks
-    result = tuple(sorted(n for n in names if n in known))
+    full = tuple(sorted(p.stem for p in guides if p.stem in known))
+    full_set = set(full)
+    guide_tier = tuple(sorted(p.stem for p in guided if p.stem in known and p.stem not in full_set))
+    guide_set = set(guide_tier)
+    listed = tuple(
+        sorted(
+            p.stem for p in spots if p.stem in known and p.stem not in full_set and p.stem not in guide_set
+        )
+    )
+    if not full and not guide_tier and not listed:
+        # 目录里一个文档都没有，但索引里有块（测试夹具会这样注入）：
+        # 无法判断档位，按「完整攻略」处理 —— 否则所有查询都会被判成越界。
+        full = tuple(sorted(_index_cities() & known))
+    result = (full, guide_tier, listed)
     _kb_cache = (signature, result)
     return result
+
+
+def kb_cities() -> tuple[str, ...]:
+    """知识库有收录的城市（三档合计）。
+
+    「外部攻略-小红书.md」这类非城市命名的文档会参与检索，但不算作某个城市的
+    覆盖 —— 否则文案会声称覆盖了实际没有攻略的城市。
+    """
+    full, guided, listed = _tiers()
+    return tuple(sorted((*full, *guided, *listed)))
+
+
+def full_cities() -> tuple[str, ...]:
+    """有完整攻略（门票/开放时间/交通/行程）的城市。"""
+    return _tiers()[0]
+
+
+def guided_cities() -> tuple[str, ...]:
+    """有景点导览（介绍 + 部分门票/开放时间）的城市。
+
+    来自中文维基导游，比清单档多出景点介绍与部分门票，但**不是**人工精编，
+    数据可能过时，措辞上要与完整攻略档区分开。
+    """
+    return _tiers()[1]
+
+
+def list_cities() -> tuple[str, ...]:
+    """只有景点清单（景点名 + 类型）的城市。"""
+    return _tiers()[2]
 
 
 def reset_cache() -> None:
@@ -187,26 +258,37 @@ class Coverage:
     """一次查询的城市覆盖判定结果。"""
 
     asked: tuple[str, ...] = ()  # 用户提到、且我们有地图数据的城市
-    covered: tuple[str, ...] = ()  # 其中有本地攻略库的
-    uncovered: tuple[str, ...] = ()  # 其中没有的
+    covered: tuple[str, ...] = ()  # 其中有完整攻略的
+    guided: tuple[str, ...] = ()  # 其中有景点导览（介绍 + 部分门票）的
+    listed: tuple[str, ...] = ()  # 其中只有景点清单的
+    uncovered: tuple[str, ...] = ()  # 其中连清单都没有的
 
     @property
     def has_gap(self) -> bool:
-        """是否需要向用户声明「这部分不是攻略库内容」。"""
-        return bool(self.uncovered)
+        """是否需要向用户声明「这部分资料不完整」。
+
+        导览档不算缺口：它有景点介绍与部分门票，只是不是人工精编。
+        """
+        return bool(self.listed or self.uncovered)
 
     def to_dict(self) -> dict:
+        full, guided_all, listed_all = _tiers()
         return {
             "asked": list(self.asked),
             "covered": list(self.covered),
+            "guided": list(self.guided),
+            "listed": list(self.listed),
             "uncovered": list(self.uncovered),
-            "kb_cities": list(kb_cities()),
+            "kb_cities": sorted((*full, *guided_all, *listed_all)),
+            "full_cities": list(full),
+            "guided_count": len(guided_all),
+            "list_count": len(listed_all),
             "map_cities": len(map_cities()),
         }
 
 
 def detect(text: str) -> Coverage:
-    """识别文本里提到的城市，并区分「有攻略库」与「只有地图数据」。
+    """识别文本里提到的城市，并区分「完整攻略 / 仅景点清单 / 未收录」。
 
     按**最长优先**匹配并就地挖除：先命中的长名会占位成 `\\u0000`，
     短名不会在它的位置上二次命中（否则「马鞍山」会被同时算成「鞍山」）。
@@ -232,26 +314,32 @@ def detect(text: str) -> Coverage:
             hit.append(city)
         masked = masked.replace(name, _MASK * len(name))
 
-    covered_set = set(kb_cities())
+    full, guided, listed = (set(x) for x in _tiers())
     asked = tuple(c for c in hit if c in known)
-    if not covered_set:
-        # 一个城市都没覆盖，说明是**整个知识库不可用**（索引缺失或文档被清空），
+    if not full and not guided and not listed:
+        # 一个城市都没收录，说明是**整个知识库不可用**（索引缺失或文档被清空），
         # `/health` 的 rag_state 已经会报这件事。此时给用户「XX 暂无攻略库」
         # 属于甩错锅：真实原因是检索没起来，不是这个城市没收录。
         return Coverage(asked=asked)
     return Coverage(
         asked=asked,
-        covered=tuple(c for c in asked if c in covered_set),
-        uncovered=tuple(c for c in asked if c not in covered_set),
+        covered=tuple(c for c in asked if c in full),
+        guided=tuple(c for c in asked if c in guided and c not in full),
+        listed=tuple(c for c in asked if c in listed and c not in full and c not in guided),
+        uncovered=tuple(c for c in asked if c not in full and c not in guided and c not in listed),
     )
 
 
 def summary() -> dict:
     """给接口用的覆盖概况（公开信息，不含任何内部路径）。"""
-    cities = kb_cities()
+    full, guided, listed = _tiers()
     return {
-        "cities": list(cities),
-        "count": len(cities),
+        "cities": sorted((*full, *guided, *listed)),
+        "count": len(full) + len(guided) + len(listed),
+        "full_cities": list(full),
+        "full_count": len(full),
+        "guided_count": len(guided),
+        "list_count": len(listed),
         "map_cities": len(map_cities()),
         "map_spots": map_spot_count(),
     }

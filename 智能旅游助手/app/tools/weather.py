@@ -127,18 +127,26 @@ def _query_real(key: str, days: int) -> str | None:
         return None
 
     lines = [f"📍 {key} 未来 {days} 天天气预报（open-meteo 实时数据）:"]
-    for i, date_str in enumerate(d["time"]):
-        code = d["weather_code"][i]
-        cond, advice = _WMO.get(code, ("未知天气", ""))
-        t_lo = round(d["temperature_2m_min"][i])
-        t_hi = round(d["temperature_2m_max"][i])
-        wind = round(d["wind_speed_10m_max"][i])
-        pop = d["precipitation_probability_max"][i]
+    for i, date_str in enumerate(d.get("time") or []):
+        t_lo, t_hi = _at(d.get("temperature_2m_min"), i), _at(d.get("temperature_2m_max"), i)
+        # open-meteo 对超出预报范围或数据缺失的那几天会给 null。
+        # 以前这里直接 round() → TypeError 逃出工具函数，analyst 专家整条失败
+        # （用户少一整块回答）。一个远端字段的缺失不该让用户什么都拿不到，
+        # 所以跳过该天 —— 与下面 forecast() 的处理保持一致。
+        if t_lo is None or t_hi is None:
+            continue
+        code = _at(d.get("weather_code"), i)
+        cond, tip = _WMO.get(code, ("未知天气", ""))
+        wind = round(_at(d.get("wind_speed_10m_max"), i) or 0)
+        pop = _at(d.get("precipitation_probability_max"), i)
         pop_str = f"，降水概率 {pop}%" if pop is not None else ""
         date = datetime.date.fromisoformat(date_str)
         lines.append(
-            f"  {date.month}月{date.day}日: {cond}，{t_lo}~{t_hi}℃，最大风速 {wind}km/h{pop_str}。{advice}"
+            f"  {date.month}月{date.day}日: {cond}，{t_lo}~{t_hi}℃，最大风速 {wind}km/h{pop_str}。{tip}"
         )
+    if len(lines) == 1:
+        # 一天都取不到（全 null）→ 交给 _query_mock 兜底，而不是只回一个标题
+        return None
     return "\n".join(lines)
 
 
@@ -158,6 +166,14 @@ def _query_mock(key: str, days: int) -> str:
         lines.append(f"  {d.month}月{d.day}日: {cond}, {t_lo}~{t_hi}℃, {wind}。{advice}")
     lines.append("提示: 实时天气服务暂时不可用，以上为演示数据")
     return "\n".join(lines)
+
+
+def _at(seq, i):
+    """安全取数组第 i 项：字段缺失或长度不齐时返回 None，不抛 IndexError。"""
+    try:
+        return seq[i]
+    except (IndexError, KeyError, TypeError):
+        return None
 
 
 def forecast(city: str, days: int = 7, start_date: str = "") -> list[dict] | None:
@@ -193,17 +209,23 @@ def forecast(city: str, days: int = 7, start_date: str = "") -> list[dict] | Non
 
     rows: list[dict] = []
     for i, date_str in enumerate(d.get("time") or []):
-        code = d["weather_code"][i]
+        tmin, tmax = _at(d.get("temperature_2m_min"), i), _at(d.get("temperature_2m_max"), i)
+        # open-meteo 对超出预报范围或数据缺失的那几天会给 null。
+        # 以前直接 round() 会抛 TypeError，把整个「生成装备清单」变成 500 ——
+        # 一个远端字段的缺失不该让用户什么都拿不到，所以这里跳过该天。
+        if tmin is None or tmax is None:
+            continue
+        code = _at(d.get("weather_code"), i)
         cond, _ = _WMO.get(code, ("未知天气", ""))
         rows.append(
             {
                 "date": date_str,
-                "tmin": round(d["temperature_2m_min"][i]),
-                "tmax": round(d["temperature_2m_max"][i]),
+                "tmin": round(tmin),
+                "tmax": round(tmax),
                 "code": code,
                 "cond": cond,
-                "precip": d["precipitation_probability_max"][i],
-                "wind": round(d["wind_speed_10m_max"][i]),
+                "precip": _at(d.get("precipitation_probability_max"), i),
+                "wind": round(_at(d.get("wind_speed_10m_max"), i) or 0),
             }
         )
     if start_date:

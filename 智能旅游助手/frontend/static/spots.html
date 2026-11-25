@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>景点库 — 旅游智能助手</title>
+<meta name="description" content="按城市、分类、标签、门票与建议时长筛选景点，按你的偏好标签匹配推荐。">
+<!-- 字体本地托管 + latin preload，理由与 FOUT 数据见 assets/vendor/fonts/fonts.css 头注释 -->
+<link rel="preload" href="assets/vendor/fonts/758b8670-6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/vendor/fonts/51dc226e-V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/css/tokens.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/style.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/css/app.css?v=2026-11-25a">
+<link rel="stylesheet" href="assets/vendor/element-plus.min.css">
+<style>
+  /* Element Plus 接入站点设计令牌：主色换成品牌珊瑚色，圆角与站点保持一致。
+     只覆盖 CSS 变量，不改组件内部样式——升级 Element Plus 时不会打架。 */
+  :root {
+    --el-color-primary: var(--coral);
+    --el-color-primary-light-3: #FF8168;
+    --el-color-primary-light-5: #FFA491;
+    --el-color-primary-light-7: #FFC7BA;
+    --el-color-primary-light-8: #FFD9CF;
+    --el-color-primary-light-9: #FFEDE8;
+    --el-color-primary-dark-2: var(--coral-ink);
+    --el-border-radius-base: var(--r-sm);
+    --el-font-family: var(--font-sans);
+    --el-text-color-primary: var(--ink);
+    --el-text-color-regular: var(--ink-soft);
+    /* 占位符默认 #a8abb2，纸底上只有 2.3:1（spots 一页 104 处）。改指 --muted。 */
+    --el-text-color-placeholder: var(--muted);
+    /* 危险按钮：默认 #f56c6c 字配 #fef0f0 底 = 2.61:1。字压到 coral-ink，底跟着调浅一点。 */
+    --el-color-danger: var(--coral-ink);
+    --el-color-danger-light-3: #D9694F;
+    --el-color-danger-light-5: #E89A86;
+    --el-color-danger-light-7: #F3C3B7;
+    --el-color-danger-light-8: #F8D8CF;
+    --el-color-danger-light-9: #FCEDE9;
+    /* 偏好标签用的是 info 色（默认 #909399 字 + #f4f4f5 底 = 2.8:1）。改成 muted + 纸色阶。 */
+    --el-color-info: var(--muted);
+    --el-color-info-light-9: #F1EBDD;
+    --el-color-info-light-8: #EDE6D8;
+    --el-color-info-light-7: #E9E2D2;
+    /* 触摸目标：Element Plus 默认 32px。先改 --el-component-size 让组件自己算，
+       再显式钉住 .el-button / .el-input__inner——部分组件内部写死 height，绕过变量。 */
+    --el-component-size: 44px;
+    --el-component-size-large: 44px;
+    --el-component-size-small: 44px;
+  }
+  .el-button { height: 44px; padding-inline: var(--sp-16); }
+  .el-input__inner { height: 44px; }
+  /* 2.8 之后 select 的壳是 .el-select__wrapper（不是 .el-input__wrapper），
+     它自己钉死 32px，不吃 --el-component-size，必须单独补。 */
+  .el-select__wrapper, .el-select .el-input__wrapper { min-height: 44px; }
+  /* 偏好标签也是可点目标，默认 32，补到 44 */
+  .el-check-tag { min-height: 44px; padding-block: 0; display: inline-flex; align-items: center; }
+  /* Element Plus 的 --el-color-primary 同时干三件事：实心底、正文色、描边。
+     站点规则是「珊瑚只做面、承载文字时用 ink 变体」，这里按用途拆开：
+       · 实心主按钮：ink 变体做底 + --paper 做字（亮色 5.0:1 / 暗色 7.4:1，原来白字压珊瑚 3.19）
+       · 主色文字（标签、选中态）：直接 ink 变体
+     只改这三类，不动 --el-color-primary 本身——它还喂着 light-* 阶梯和 focus ring，
+     改它会连带重算整套色阶，那是另一件事。 */
+  .el-button--primary { background-color: var(--coral-ink); border-color: var(--coral-ink); color: var(--paper); }
+  .el-button--primary:not(.is-plain):hover, .el-button--primary:not(.is-plain):focus-visible {
+    background-color: var(--coral-ink); border-color: var(--coral-ink); filter: brightness(1.08); }
+  /* plain 形态是「浅底 + 主色字」，不该跟实心按钮共用一套：浅底用 light-9，字用 ink 变体。 */
+  .el-button--primary.is-plain { background-color: var(--el-color-primary-light-9); border-color: var(--coral-ink); color: var(--coral-ink); }
+  .el-button--primary.is-plain:hover, .el-button--primary.is-plain:focus-visible {
+    background-color: var(--el-color-primary-light-8); border-color: var(--coral-ink); color: var(--coral-ink); }
+  /* Element Plus 把按钮文字包在 <span> 里并单独给了颜色，按钮本体的 color 管不到它 */
+  .el-button--primary > span { color: inherit; }
+  .el-check-tag.is-checked.el-check-tag--primary,
+  .el-tag--primary, .el-tag--primary .el-tag__content { color: var(--coral-ink); }
+  /* Element Plus 的暗色是「加 class」方案，不跟 prefers-color-scheme 走 → 系统切暗色时
+     它的输入框仍是纯白（实测 7 块白板 + 占位符 2.3:1）。只覆盖颜色令牌，不动组件结构。 */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --el-bg-color: var(--surface-card);
+      --el-bg-color-overlay: var(--surface-card);
+      --el-fill-color-blank: var(--surface-card);
+      --el-fill-color-light: var(--paper-2);
+      --el-fill-color: var(--paper-3);
+      --el-text-color-primary: var(--ink);
+      --el-text-color-regular: var(--ink-soft);
+      --el-text-color-secondary: var(--ink-soft);
+      --el-text-color-placeholder: var(--muted);
+      --el-border-color: var(--line-strong);
+      --el-border-color-light: var(--line);
+      --el-border-color-lighter: var(--line);
+      /* 危险色：默认 #f56c6c 字 + #fef0f0 底=2.61:1，暗色下也没跟着变。
+         字用 coral-ink 的暗色档，底色用深红 tint。 */
+      --el-color-danger: #FF8A6E;
+      --el-color-danger-light-3: #8A4030;
+      --el-color-danger-light-5: #6B2E22;
+      --el-color-danger-light-7: #4A2318;
+      --el-color-danger-light-8: #3F1E14;
+      --el-color-danger-light-9: #3A1611;
+      /* 主色的 light-* 是 plain/hover 的底色，默认是浅粉（#FFEDE8）。
+         暗色下不换就是一排浅粉胶囊压在深色页面上（实测 28 处 2.75:1）。 */
+      --el-color-primary-light-3: #7A2E1E;
+      --el-color-primary-light-5: #5C2418;
+      --el-color-primary-light-7: #40201A;
+      --el-color-primary-light-8: #35201C;
+      --el-color-primary-light-9: #2A1A16;
+      --el-color-info: var(--ink-soft);
+      --el-color-info-light-9: #2A241C;
+      --el-color-info-light-8: #322B22;
+      --el-color-info-light-7: #3A3228;
+    }
+  }
+  /* 分页按钮 32×32 不够点，且 375 下溢出 10px：允许换行后放大不挤爆，两个问题一起解决。
+     注意换行要加在 .el-pager（ul，8 个按钮 44 宽 = 416）上，只给外层 .el-pagination 加
+     flex-wrap 没用——内层 ul 自己 nowrap。 */
+  .el-pagination, .el-pagination .el-pager { flex-wrap: wrap; justify-content: center; row-gap: var(--sp-8); max-width: 100%; }
+  .el-pagination.is-background .btn-next,
+  .el-pagination.is-background .btn-prev,
+  .el-pagination.is-background .el-pager li { min-width: 44px; height: 44px; line-height: 44px; }
+  /* 当前页是珊瑚实底 + 白字（3.19:1），跟实心主按钮同一套：ink 变体做底、--paper 做字 */
+  .el-pagination.is-background .el-pager li.is-active { background-color: var(--coral-ink); color: var(--paper); }
+  .spots-toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-12); margin-bottom: var(--sp-16); }
+  .spots-toolbar .el-select, .spots-toolbar .el-input { width: 100%; }
+  .spots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: var(--sp-16); }
+  .spot-card {
+    background: var(--surface-card); border: 1.5px solid var(--line); border-radius: var(--r-md);
+    padding: var(--sp-16) var(--sp-16) var(--sp-12); display: flex; flex-direction: column; gap: var(--sp-8);
+    transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s;
+  }
+  .spot-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); border-color: var(--line-strong); }
+  .spot-card h3 { font-family: var(--font-display); font-size: var(--fs-lg); line-height: 1.35; color: var(--ink); }
+  .spot-meta { font-size: var(--fs-sm); color: var(--muted); display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+  .spot-meta b { color: var(--ink-soft); font-weight: var(--fw-medium); }
+  /* 「门票 未录入」是空值，不是信息 —— 用 muted 弱化，别和「¥60」「免费」同样响。 */
+  .spot-meta b.is-empty { color: var(--muted); font-weight: var(--fw-medium); }
+  .spot-tags { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+  .spot-actions { margin-top: auto; display: flex; gap: var(--sp-8); padding-top: 6px; }
+  .spot-match { font-size: var(--fs-xs); color: var(--coral-ink); font-weight: var(--fw-medium); }
+  .pref-row { display: flex; flex-wrap: wrap; gap: var(--sp-12); align-items: center; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-12); margin: 0 0 var(--sp-12); flex-wrap: wrap; }
+  .sec-head h2 { font-family: var(--font-display); font-size: var(--fs-xl); color: var(--ink); }
+  .sec-head span { font-size: var(--fs-sm); color: var(--muted); }
+  .spots-empty { text-align: center; padding: var(--sp-48) var(--sp-8); color: var(--muted); }
+  .pager { display: flex; justify-content: center; margin-top: var(--sp-24); }
+  .el-check-tag { margin: 0; }
+  .edit-form { display: flex; flex-direction: column; gap: var(--sp-12); }
+  .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-12); }
+  /* Vue 挂载前先藏住模板，避免首屏闪一下未渲染的 {{ }} */
+  [v-cloak] { display: none; }
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23FF5436' d='M2 21l20-8L2 3v7l14 2-14 2z'/></svg>">
+</head>
+<body>
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="index.html"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M2 21l20-8L2 3v7l14 2-14 2z" fill="#fff"/></svg></span>旅游智能助手</a>
+    <nav class="nav-links" aria-label="主导航"></nav>
+    <div class="nav-cta"></div>
+  </div>
+</header>
+
+<main class="app-main">
+  <div class="container">
+    <div class="app-hero">
+      <span class="eyebrow">SPOT LIBRARY</span>
+      <h1 class="display">景点<em>库</em></h1>
+      <p class="lead">按城市、分类、标签、门票和建议时长筛，再按你的偏好标签算命中数——「智能」在这里就是一件算得清的事。</p>
+    </div>
+
+    <div id="spots-app" v-cloak>
+      <!-- 偏好 -->
+      <section class="app-panel" style="margin-bottom:18px">
+        <div class="sec-head">
+          <h2>我的偏好</h2>
+          <span>最多选 8 个，保存后推荐立刻按新偏好重排</span>
+        </div>
+        <div class="pref-row">
+          <el-check-tag
+            v-for="t in meta.tags" :key="t"
+            :checked="prefs.includes(t)"
+            @change="togglePref(t)">{{ t }}</el-check-tag>
+          <el-button type="primary" :disabled="!prefDirty" :loading="savingPrefs" @click="savePrefs">保存偏好</el-button>
+          <span v-if="!prefs.length" class="spot-meta">还没选偏好，推荐会退回按评分排序</span>
+        </div>
+      </section>
+
+      <!-- 条件检索 -->
+      <section class="app-panel" style="margin-bottom:18px">
+        <div class="sec-head">
+          <h2>条件检索</h2>
+          <span v-if="total">共 {{ total }} 个结果</span>
+        </div>
+        <div class="spots-toolbar">
+          <el-select v-model="filters.city" placeholder="城市（全部）" clearable filterable @change="search(1)">
+            <el-option label="全部城市" value=""></el-option>
+            <el-option v-for="c in meta.cities" :key="c" :label="c" :value="c"></el-option>
+          </el-select>
+          <el-input v-model="filters.q" placeholder="搜景点名或城市" clearable @keyup.enter="search(1)" @clear="search(1)"></el-input>
+          <el-select v-model="filters.category" placeholder="分类" clearable @change="search(1)">
+            <el-option label="全部分类" value=""></el-option>
+            <el-option v-for="c in meta.categories" :key="c" :label="c" :value="c"></el-option>
+          </el-select>
+          <el-select v-model="filters.tag" placeholder="标签" clearable @change="search(1)">
+            <el-option label="全部标签" value=""></el-option>
+            <el-option v-for="t in meta.tags" :key="t" :label="t" :value="t"></el-option>
+          </el-select>
+          <el-select v-model="filters.free" placeholder="门票" @change="search(1)">
+            <el-option label="不限门票" :value="''"></el-option>
+            <el-option label="只看免费" value="free"></el-option>
+            <el-option label="只看收费" value="paid"></el-option>
+          </el-select>
+          <el-select v-model="filters.maxMinutes" placeholder="建议时长" @change="search(1)">
+            <el-option label="不限时长" :value="0"></el-option>
+            <el-option label="1 小时内" :value="60"></el-option>
+            <el-option label="2 小时内" :value="120"></el-option>
+            <el-option label="3 小时内" :value="180"></el-option>
+          </el-select>
+          <el-button @click="reset">重置</el-button>
+        </div>
+      </section>
+
+      <!-- 推荐 -->
+      <section class="app-panel" style="margin-bottom:18px" v-if="recommend.length">
+        <div class="sec-head">
+          <h2>按偏好推荐</h2>
+          <span>命中 {{ recommend[0].match_count }} 个偏好标签的排在前面</span>
+        </div>
+        <div class="spots-grid">
+          <article class="spot-card" v-for="s in recommend" :key="'r'+s.id">
+            <span class="spot-match">命中 {{ s.match_count }} 项</span>
+            <h3>{{ s.name }}</h3>
+            <div class="spot-meta">
+              <span>{{ s.city }}</span><span>{{ s.category }}</span>
+              <span>门票 <b :class="{ 'is-empty': s.ticket_price === null || s.ticket_price === undefined }">{{ priceText(s.ticket_price) }}</b></span>
+              <span>建议 <b>{{ timeText(s.suggest_minutes) }}</b></span>
+            </div>
+            <div class="spot-tags">
+              <el-tag v-for="t in s.tags" :key="t" size="small" effect="plain">{{ t }}</el-tag>
+            </div>
+            <div class="spot-actions">
+              <el-button size="small" type="primary" @click="openAdd(s)">加入行程</el-button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- 列表 -->
+      <section class="app-panel">
+        <div class="sec-head">
+          <h2>检索结果</h2>
+          <span v-if="loading">加载中…</span>
+          <el-button v-if="isAdmin" size="small" type="primary" plain @click="openCreate">+ 新增景点</el-button>
+        </div>
+        <div class="spots-grid" v-if="list.length">
+          <article class="spot-card" v-for="s in list" :key="s.id">
+            <h3>{{ s.name }}</h3>
+            <div class="spot-meta">
+              <span>{{ s.city }}</span><span>{{ s.category }}</span>
+              <span v-if="s.rating">评分 <b>{{ s.rating }}</b></span>
+            </div>
+            <div class="spot-meta">
+              <span>门票 <b :class="{ 'is-empty': s.ticket_price === null || s.ticket_price === undefined }">{{ priceText(s.ticket_price) }}</b></span>
+              <span>建议 <b>{{ timeText(s.suggest_minutes) }}</b></span>
+              <span v-if="s.open_time">{{ s.open_time }}</span>
+            </div>
+            <div class="spot-tags">
+              <el-tag v-for="t in s.tags" :key="t" size="small" effect="plain">{{ t }}</el-tag>
+            </div>
+            <div class="spot-meta" v-if="s.address">{{ s.address }}</div>
+            <div class="spot-actions">
+              <el-button size="small" type="primary" @click="openAdd(s)">加入行程</el-button>
+              <el-button v-if="isAdmin" size="small" plain @click="openEdit(s)">编辑</el-button>
+              <el-button v-if="isAdmin" size="small" type="danger" plain @click="removeSpot(s)">删除</el-button>
+            </div>
+          </article>
+        </div>
+        <div class="spots-empty" v-else-if="!loading">
+          <p>这个条件下没有景点。换个城市，或者把「免费」「时长」放宽一点。</p>
+        </div>
+        <div class="pager" v-if="total > size">
+          <el-pagination
+            background layout="prev, pager, next"
+            :total="total" :page-size="size" :current-page="page"
+            @current-change="search"></el-pagination>
+        </div>
+      </section>
+
+      <!-- 加入行程 -->
+      <el-dialog v-model="dialog.visible" title="加入行程" width="420px">        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="spot-meta">景点：<b>{{ dialog.spotName }}</b></div>
+          <el-select v-model="dialog.tripId" placeholder="选择行程" style="width:100%">
+            <el-option v-for="t in trips" :key="t.id" :label="t.title + ' · ' + t.city" :value="t.id"></el-option>
+          </el-select>
+          <el-select v-model="dialog.day" placeholder="安排到第几天" style="width:100%">
+            <el-option v-for="d in dialogDays" :key="d" :label="'第 ' + d + ' 天'" :value="d"></el-option>
+          </el-select>
+          <el-select v-model="dialog.slot" placeholder="时段" style="width:100%">
+            <el-option label="上午" value="上午"></el-option>
+            <el-option label="下午" value="下午"></el-option>
+            <el-option label="晚上" value="晚上"></el-option>
+          </el-select>
+          <p class="spot-meta">同一时段放两项时，行程详情页会给出冲突提示。</p>
+        </div>
+        <template #footer>
+          <el-button @click="dialog.visible = false">取消</el-button>
+          <el-button type="primary" :loading="dialog.saving" @click="confirmAdd">加入</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 景点维护（管理员） -->
+      <el-dialog v-model="edit.visible" :title="edit.id ? '编辑景点' : '新增景点'" width="520px">
+        <div class="edit-form">
+          <el-input v-model="edit.form.city" placeholder="城市，如 杭州" maxlength="40"></el-input>
+          <el-input v-model="edit.form.name" placeholder="景点名，如 灵隐寺" maxlength="120"></el-input>
+          <el-select v-model="edit.form.category" placeholder="分类" style="width:100%">
+            <el-option v-for="c in meta.categories" :key="c" :label="c" :value="c"></el-option>
+          </el-select>
+          <el-select v-model="edit.form.tags" multiple placeholder="标签（不选则按分类与名称自动推导）" style="width:100%">
+            <el-option v-for="t in meta.tags" :key="t" :label="t" :value="t"></el-option>
+          </el-select>
+          <div class="edit-row">
+            <el-input v-model.number="edit.form.ticket_price" type="number" placeholder="门票（元），0=免费，留空=未录入"></el-input>
+            <el-input v-model.number="edit.form.suggest_minutes" type="number" placeholder="建议时长（分钟）"></el-input>
+          </div>
+          <div class="edit-row">
+            <el-input v-model="edit.form.rating" placeholder="评分，如 4.6" maxlength="10"></el-input>
+            <el-input v-model="edit.form.open_time" placeholder="开放时间，如 08:30-17:00" maxlength="40"></el-input>
+          </div>
+          <el-input v-model="edit.form.address" placeholder="地址" maxlength="200"></el-input>
+        </div>
+        <template #footer>
+          <el-button @click="edit.visible = false">取消</el-button>
+          <el-button type="primary" :loading="edit.saving" @click="saveSpot">保存</el-button>
+        </template>
+      </el-dialog>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/app.js?v=2026-11-25a"></script>
+<script src="assets/js/main.js?v=2026-11-25a"></script>
+<script src="assets/vendor/vue.global.prod.js"></script>
+<script src="assets/vendor/element-plus.full.min.js"></script>
+<script src="assets/js/spots.js?v=2026-11-25a"></script>
+</body>
+</html>

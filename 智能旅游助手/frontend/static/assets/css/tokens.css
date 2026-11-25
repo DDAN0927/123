@@ -1,0 +1,174 @@
+/* ==========================================================================
+   tokens.css — 设计令牌单一来源（Single Source of Truth）
+   --------------------------------------------------------------------------
+   这是全站唯一允许出现「原始色值 / 阶梯值」的文件。style.css / app.css 只引用
+   变量，不再自定义令牌；组件级一次性微调值（≤3px 发丝线、外部平台品牌色）
+   在使用处注释豁免理由。
+
+   接入方式：各页 <head> 用 <link> 引入（先于 style.css / app.css），不用 @import。
+   理由：
+   · @import 是串行的 —— 浏览器必须先下载 style.css、解析到 @import 才能发现
+     tokens.css，白白多一个往返；<link> 让 tokens/style/app 三份 CSS 并行下载。
+   · tokens.css 仅 ~4KB，单独成文件可被 13 页共享缓存：改组件样式不会使
+     令牌缓存失效（改 style.css 的提交不影响 tokens.css 的命中）。
+   · 字体 CSS 同理上移到 <link> + preconnect：原来 fonts.googleapis 的样式表
+     藏在 style.css 的 @import 里，等于「下载 style.css → 解析 → 再请求字体表 →
+     再请求字体文件」三级串行，fonts.ready 实测 2.3~3.3s，期间品牌字一直用
+     回退字体（FOUT）。上移后字体表与站点 CSS 并行，配合 css2 的 font-display:swap。
+   ========================================================================== */
+
+:root {
+  /* ---------- 色彩 · 纸面与墨（亮色）---------- */
+  --paper:        #F6F3EC;   /* 页面底 */
+  --paper-2:      #EFE9DC;   /* 次级底（工具栏/代码块/斑马纹）*/
+  --paper-3:      #E9E2D2;   /* 三级底（徽章/骨架）*/
+  --ink:          #17130F;   /* 主文字/标题 */
+  /* —— 灰阶语义（两个名字，分工固定，不再「靠约定」）——
+     --ink-soft  ：次级正文。出现在「读」的场景：段落正文、气泡、预览文本。
+     --muted     ：辅助信息。出现在「扫」的场景：meta、时间戳、占位、标签。
+     两者都 ≥4.5:1（AA），但层级不同：先读 ink-soft，再扫 muted。 */
+  --ink-soft:     #3E382F;
+  --muted:        #6A6253;
+  --line:         #E1D8C5;   /* 常规描边 */
+  --line-strong:  #CFC4AC;   /* 强描边（输入框/描边按钮）*/
+  /* 反色对：不随主题翻转。--surface-invert 永远深底，--on-invert 永远纸色。 */
+  --on-invert:      #F6F3EC;
+  --surface-invert: #17130F;
+  /* 抬起来的面：亮色下比纸底白，暗色下比页底亮一档。 */
+  --surface-card:   #FFFFFF;
+  /* 品牌渐变/强调底上的字（渐变不随主题翻转，故恒为白）。 */
+  --on-accent:      #FFFFFF;
+
+  /* ---------- 色彩 · 品牌 ---------- */
+  --coral:  #FF5436;         /* 只做「面」：填充/描边/选中底 */
+  --amber:  #FFA53D;
+  --teal:   #0E9E94;
+  --violet: #6C4DF6;
+  /* 文字用的品牌色：原始亮度只够当「面」，当正文色对比度只有 2.8~3.2。
+     压深后的可读版本，色相不变。 */
+  --coral-ink: #C4321A;
+  --teal-ink:  #0A7368;
+
+  /* ---------- 色彩 · 状态 ---------- */
+  /* 危险（删除行程/超预算） */
+  --danger:        #b42318;
+  --danger-strong: #d9534f;
+  --danger-bg:     #fef3f2;
+  --danger-line:   #fda29b;
+  /* 提醒（排期冲突）：黄，不是红——是提醒不是错误 */
+  --warn-bg:       #FFF9EC;
+  --warn-line:     #F0C36D;
+  --warn-ink:      #8A5B00;
+  --warn-ink-soft: #6B4A00;
+  /* 知识库覆盖提示 */
+  --tip-bg:   #fff7ed;
+  --tip-line: #fed7aa;
+  --tip-ink:  #9a3412;
+  /* 景点编辑黄（沿用阶段一确立的编辑态专用黄，区别于品牌 amber） */
+  --spot-bg:  #FFD21E;
+  --spot-ink: #7a2b0e;
+  --spot-err: #c0392b;
+  /* 外部平台品牌色（小红书 #C8102E / 抖音 #161823）不收敛：徽章必须与
+     平台官方色一致，属「识别」用途而非「体系」用途。 */
+
+  /* ---------- 渐变 ---------- */
+  --grad-sunset: linear-gradient(115deg, #FF5436 0%, #FF8A3D 55%, #FFB020 100%);
+  --grad-ocean:  linear-gradient(115deg, #0E9E94 0%, #2EBDa8 55%, #6CD5C8 100%);
+  --grad-aurora: linear-gradient(115deg, #FF5436 0%, #FFB020 38%, #0E9E94 100%);
+  --grad-ink:    linear-gradient(115deg, #17130F 0%, #3E3A32 100%);
+  /* 标题「被上色」的词：纸底用压深版（原 sunset 2.82:1 不过大字 AA），
+     深底由暗色主题覆盖为提亮版。 */
+  --grad-coral-text: linear-gradient(115deg, #C4321A 0%, #C93F17 100%);
+
+  /* ---------- 字体 ---------- */
+  --font-display: "Fraunces", "Songti SC", "STSong", serif;
+  --font-sans:    "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* ---------- 字号阶梯（6 档，改前 33 种离散值收敛于此）----------
+     xs  .78rem  角标/眉标/徽标/时间戳/错误小字
+     sm  .88rem  meta/次要说明/应用页导航
+     md  1rem    正文/控件/气泡（body 基准）
+     lg  1.2rem  卡内小标题/lead/强调数字
+     xl  1.5rem  卡片标题/弹窗标题/品牌字/页内中号数字
+     display      页面级大标题/数据大数字（fluid，见下）            */
+  --fs-xs: .78rem;
+  --fs-sm: .88rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.2rem;
+  --fs-xl: 1.5rem;
+  /* display 档是唯一 fluid 档：clamp(下限, 斜率, 上限)，三个旋钮在
+     使用处按场景覆盖（hero / 页头 / 引用 / 大数字），档位仍是一档。 */
+  --fs-display: clamp(var(--display-min, 2.2rem), var(--display-slope, 5.4vw), var(--display-max, 4.4rem));
+
+  /* ---------- 字重（3 档；改前 5 种离散值收敛于此）----------
+     regular 400 正文 / medium 600 标题与次强调 / strong 700 强调与粗体 */
+  --fw-regular: 400;
+  --fw-medium:  600;
+  --fw-strong:  700;
+
+  /* ---------- 间距（4/8 网格；1~3px 仅限发丝线微调，不算档位）---------- */
+  --sp-4: 4px;   --sp-8: 8px;   --sp-12: 12px; --sp-16: 16px; --sp-20: 20px;
+  --sp-24: 24px; --sp-28: 28px; --sp-32: 32px; --sp-36: 36px; --sp-40: 40px;
+  --sp-44: 44px; --sp-48: 48px; --sp-52: 52px; --sp-56: 56px; --sp-60: 60px;
+  --sp-64: 64px; --sp-72: 72px; --sp-88: 88px; --sp-96: 96px;
+
+  /* ---------- 触摸目标下限 ----------
+     任务书要求「移动端可点元素 ≥48px」，严于 WCAG 2.5.5 建议的 44px，
+     故取严：44 只作桌面视觉尺寸，手指可达的下限统一走 --tap。
+     使用处：app.css 触摸目标块（≤900px）、.spot-del、.nav-burger、页脚链接。 */
+  --tap: 48px;
+
+  /* ---------- 圆角 ---------- */
+  --r-xs: 6px;     /* 徽章/小图标 */
+  --r-sm: 12px;    /* 输入框/卡片内嵌块 */
+  --r-md: 20px;    /* 面板/气泡 */
+  --r-lg: 32px;    /* 大面板/首屏卡 */
+  --r-pill: 999px; /* 胶囊 */
+
+  /* ---------- 动效 ----------
+     交互过渡三档 150/250/400ms；--dur-press 是按压即时反馈的豁免档
+     （70ms：按压必须有「即刻」感，150ms 起会有延迟感，Material Motion
+     同类反馈 50~100ms）。环境循环（跑马灯/浮动光斑/骨架/打字指示）不是
+     过渡，不适用 150-400 规则，时长留在组件处并已在报告单列。 */
+  --dur-press: 70ms;
+  --dur-fast:  150ms;
+  --dur-base:  250ms;
+  --dur-slow:  400ms;
+  --ease:        cubic-bezier(.22,.61,.36,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+
+  /* ---------- 阴影 ---------- */
+  --shadow-soft: 0 20px 60px -30px rgba(23,19,15,.28);
+  --shadow-lift: 0 34px 80px -34px rgba(23,19,15,.42);
+
+  /* ---------- 布局 ---------- */
+  --nav-h: 76px;
+  --maxw: 1280px;
+  --gap: clamp(20px, 4vw, 52px); /* 栅格间距，随视口 fluid，不算固定档 */
+}
+
+/* ---------- 暗色主题：只改令牌，组件零改动 ----------
+   变量级覆盖整套表面与描边；--ink-soft / --surface-card 必须补，
+   否则正文 1.45:1、卡片变白板。--surface-invert 保持深色，
+   三条反色带（跑马灯/团队带/页脚）才不会翻白。 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:        #141210;
+    --paper-2:      #1A1713;
+    --paper-3:      #1d1a15;
+    --surface-card: #1E1A16;
+    --ink:          #F6F3EC;
+    --ink-soft:     #C9C2B4;
+    --muted:        #9a9182;
+    --line:         rgba(255,255,255,.12);
+    --line-strong:  rgba(255,255,255,.22);
+    --surface-invert: #0B0A09;
+    /* 文字用品牌色在深底上反过来「提亮」：压深版对 #141210 只有 3.06。 */
+    --coral-ink: #FF8A6E;
+    --teal-ink:  #5FD3C6;
+    /* 深底上原始 sunset 够亮，换更亮两档，实测 6.6 / 7.9。 */
+    --grad-coral-text: linear-gradient(115deg, #FF7A5C 0%, #FFB020 100%);
+    --shadow-soft: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 60px -30px rgba(0,0,0,.75);
+    --shadow-lift: inset 0 1px 0 rgba(255,255,255,.07), 0 34px 80px -34px rgba(0,0,0,.85);
+  }
+}

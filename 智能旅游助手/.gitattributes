@@ -1,2 +1,11 @@
 # bash 脚本必须保持 LF（容器内运行），避免 CRLF 导致的解析错误
 *.sh text eol=lf
+
+# Dockerfile 同理：行尾的 CR 会被当成命令的一部分，报错信息还看不出来
+Dockerfile text eol=lf
+
+# 攻略库正文由 scripts/gen_city_spots.py 生成，脚本写的是 LF。
+# 不钉住的话，Windows 上 checkout 成 CRLF、镜像里是 LF，start.sh 的 cmp
+# 会认为「内容不同」而每次启动都覆盖一遍（不致命，但把「有无更新」这条
+# 排查线索彻底弄脏了）。
+knowledge_base/** text eol=lf

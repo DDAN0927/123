@@ -24,6 +24,14 @@ const mainjs = read("assets/js/main.js");
 // 内联注入时需转义源码里的 </script>，否则会被 HTML 解析器提前截断
 const inline = (s) => s.replace(/<\/script>/gi, "<\\/script>");
 
+// HTML 里的资源引用带 ?v=<build>（scripts/stamp_assets.py 打的版本号），
+// 这里必须容忍版本参数，否则字符串替换匹配不上、脚本根本没被内联，整页断言全红。
+const subScript = (html, src, code) =>
+  html.replace(
+    new RegExp(`<script src="${src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\?v=[\\w.-]+)?"></script>`),
+    () => `<script>${code}</script>`
+  );
+
 // 一段带 3 条助手消息的历史会话，用来验证反馈索引
 const HISTORY = {
   session_id: "s1",
@@ -75,9 +83,13 @@ window.fetch = function (url, opts) {
   } else if (u.indexOf("/api/chat/sessions") >= 0) {
     body = [];
   } else if (u.indexOf("/api/knowledge/coverage") >= 0) {
+    // 三档结构：前端提示条要分别说「几城精编」「几城导览」「其余是清单」，
+    // 只给一个 count 会让文案变成「覆盖 355 城」——听起来像 355 城都有门票信息。
     body = {
-      cities: ["上海", "北京", "成都", "杭州", "西安", "重庆"],
-      count: 6, map_cities: 355, map_spots: 1558,
+      cities: ["上海", "北京", "成都", "杭州", "西安", "重庆", "绍兴", "三门峡"],
+      count: 355, full_count: 6, guided_count: 165, list_count: 184,
+      full_cities: ["上海", "北京", "成都", "杭州", "西安", "重庆"],
+      map_cities: 355, map_spots: 1558,
     };
   } else if (u.indexOf("/api/auth/register") >= 0) {
     // 模拟 FastAPI 的 422：detail 是「数组」，前端必须压成人话
@@ -89,6 +101,33 @@ window.fetch = function (url, opts) {
       }] }, false, 422);
     }
     body = { token: "t", username: p.username, role: "user" };
+  } else if (u.indexOf("/api/chat/stream") >= 0) {
+    // SSE 桩：一次吐出完整的几帧。不真跑 fetch 的流式实现，而是给一个
+    // 只实现 getReader().read() 的最小 body —— 前端读的就是这两个方法。
+    var evts = [
+      { type: "session", session_id: "s9" },
+      { type: "route", agent: "planner", reason: "需要排行程" },
+      { type: "agent_done", agent: "planner" },
+      // 提示条按后端下发的 coverage 事件渲染，与本次问答的城市无关：
+      // 这里塞一个导览档城市，专门验证「导览档也要出提示条」这条分支。
+      { type: "coverage", asked: ["绍兴"], covered: [], guided: ["绍兴"], listed: [], uncovered: [] },
+      { type: "answer", content: "故宫需要提前 7 天预约，周一闭馆。" },
+      { type: "done", session_id: "s9", agent_calls: 2, elapsed_ms: 8400 }
+    ];
+    var sse = evts.map(function (e) { return "data: " + JSON.stringify(e) + "\\n\\n"; }).join("");
+    var sentOnce = false;
+    return Promise.resolve({
+      ok: true, status: 200,
+      body: { getReader: function () { return {
+        read: function () {
+          if (sentOnce) return Promise.resolve({ done: true });
+          sentOnce = true;
+          return Promise.resolve({ done: false, value: new TextEncoder().encode(sse) });
+        }
+      }; } },
+      text: function () { return Promise.resolve(""); },
+      json: function () { return Promise.resolve({}); },
+    });
   } else { body = {}; }
   return reply(body);
 };
@@ -97,11 +136,15 @@ window.fetch = function (url, opts) {
 // 注意：这里必须用「替换函数」而不是替换字符串。
 // String.replace 会把替换值里的 $' / $& / $1 当特殊记号解释 —— 桩代码里一旦出现 $'
 // （例如正则字面量后面的引号），整段脚本就会被替换成 HTML 的剩余部分，直接语法崩掉。
-const doc = html
-  .replace('<script src="assets/js/geo-data.js"></script>', () => `<script>${inline(geo)}</script>`)
-  .replace('<script src="assets/js/app.js"></script>', () => `<script>${inline(appjs)}</script>`)
-  .replace('<script src="assets/js/main.js"></script>', () => `<script>${inline(mainjs)}</script>`)
-  .replace("<body>", () => `<body><script>${stub}</script>`);
+const doc = subScript(
+  subScript(
+    subScript(html, "assets/js/geo-data.js", inline(geo)),
+    "assets/js/app.js",
+    inline(appjs)
+  ),
+  "assets/js/main.js",
+  inline(mainjs)
+).replace("<body>", () => `<body><script>${stub}</script>`);
 
 const dom = new JSDOM(doc, {
   url: "http://localhost/chat.html",
@@ -110,6 +153,9 @@ const dom = new JSDOM(doc, {
 });
 const { window } = dom;
 const document = window.document;
+// jsdom 不提供 TextEncoder/TextDecoder（Node 全局有），SSE 桩要用到 —— 补上
+if (typeof window.TextEncoder === "undefined") window.TextEncoder = TextEncoder;
+if (typeof window.TextDecoder === "undefined") window.TextDecoder = TextDecoder;
 
 const results = [];
 const check = (name, ok, extra) => {
@@ -118,6 +164,22 @@ const check = (name, ok, extra) => {
 };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// 轮询等待条件成立（默认最多 3s）：断言的是「最终状态」，不是「多久达成」。
+// 固定 sleep 在慢机器/负载高时会读到半成品 —— 同一份代码曾跑出 47/50，
+// 三条失败断言其实都在等同一个异步渲染结果。
+const waitFor = async (cond, timeout = 3000, interval = 50) => {
+  const t0 = Date.now();
+  for (;;) {
+    try {
+      if (cond()) return true;
+    } catch (e) {
+      // 元素还没出现，继续等
+    }
+    if (Date.now() - t0 >= timeout) return false;
+    await wait(interval);
+  }
+};
 
 (async () => {
   await wait(600);
@@ -150,10 +212,11 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check("会话历史区块存在", !!q("#cs-sessions"));
   check("消息区存在", !!q("#chat-msgs"));
   check("输入框与发送按钮存在", !!q("#chat-in") && !!q("#chat-send"));
-  // 地图 355 城 ≠ 攻略库 6 城，用户提问前就该看到这个边界
+  // 用户提问前就该看到这个边界，而且要能分清「精编攻略」与「景点清单」两档：
+  // 只说「覆盖 355 城」会让人以为每座城市都有门票和开放时间。
   check(
-    "输入框上方展示知识库覆盖范围",
-    (q("#chat-kb-hint") || {}).textContent?.includes("6 城"),
+    "输入框上方展示知识库覆盖范围（含两档计数）",
+    ["355 城", "6 城", "景点清单"].every((s) => (q("#chat-kb-hint") || {}).textContent?.includes(s)),
     (q("#chat-kb-hint") || {}).textContent
   );
   check("新建对话按钮存在", !!q("#chat-new"));
@@ -215,6 +278,31 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const errText = modal.querySelector("#mod-err").textContent || "";
     check("422 错误提示是人话（不是 [object Object]）",
       errText.indexOf("[object Object]") < 0 && errText.indexOf("pattern") >= 0, errText);
+  }
+
+  // ---- 协作统计：done 事件里的 agent_calls / elapsed_ms 必须真的显示出来 ----
+  // 后端一直在发这两个字段，前端从来没读过 —— 用户看不到「这条回答几个专家参与」，
+  // 答辩时也讲不了性能。耗时故意放 title（悬停可见）而不是铺在气泡里：
+  // 慢查询不该被当成卖点，但也不该藏起来。
+  const chatIn = q("#chat-in");
+  const sendBtn = q("#chat-send");
+  if (chatIn && sendBtn) {
+    chatIn.value = "故宫怎么预约";
+    sendBtn.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    // 等「协作统计」与「导览档提示」都渲染出来再断言（最多 3s），
+    // 不用固定 sleep：慢一点只是等久一点，不会假红。
+    await waitFor(() => q("#chat-msgs .chat-stats") && q("#chat-msgs .coverage-tip"));
+    const stats = q("#chat-msgs .chat-stats");
+    check("回答底部显示协作统计（几位顾问 / 几步）",
+      !!stats && stats.textContent.includes("2 位顾问"), stats && stats.textContent);
+    check("耗时放在 title 里而不是直接铺在气泡上",
+      !!stats && /本次耗时 8\.4 秒/.test(stats.getAttribute("title") || ""),
+      stats && stats.getAttribute("title"));
+    // 导览档的提示条：正文可能被汇总阶段压缩掉免责声明，UI 这条不能少。
+    const tip = q("#chat-msgs .coverage-tip");
+    check("导览档城市在回答底部补一条「数据可能过时」提示",
+      !!tip && tip.textContent.includes("绍兴") && tip.textContent.includes("景点导览档"),
+      tip && tip.textContent);
   }
 
   // ---- 页面其他组件未报错 ----
@@ -284,11 +372,15 @@ window.fetch = function (url, opts) {
   return mk({});
 };
 `;
-  const adminDoc = adminHtml
-    .replace('<script src="assets/js/geo-data.js"></script>', () => `<script>${inline(geo)}</script>`)
-    .replace('<script src="assets/js/app.js"></script>', () => `<script>${inline(appjs)}</script>`)
-    .replace('<script src="assets/js/main.js"></script>', () => `<script>${inline(mainjs)}</script>`)
-    .replace("<body>", () => `<body><script>${adminStub}</script>`);
+  const adminDoc = subScript(
+    subScript(
+      subScript(adminHtml, "assets/js/geo-data.js", inline(geo)),
+      "assets/js/app.js",
+      inline(appjs)
+    ),
+    "assets/js/main.js",
+    inline(mainjs)
+  ).replace("<body>", () => `<body><script>${adminStub}</script>`);
 
   const adminDom = new JSDOM(adminDoc, {
     url: "http://localhost/admin.html",

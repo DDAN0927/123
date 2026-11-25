@@ -21,6 +21,14 @@ const appjs = read("assets/js/app.js");
 const mainjs = read("assets/js/main.js");
 const inline = (s) => s.replace(/<\/script>/gi, "<\\/script>");
 
+// HTML 里的资源引用带 ?v=<build>（scripts/stamp_assets.py 打的版本号），
+// 这里必须容忍版本参数，否则字符串替换匹配不上、脚本根本没被内联。
+const subScript = (html, src, code) =>
+  html.replace(
+    new RegExp(`<script src="${src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\?v=[\\w.-]+)?"></script>`),
+    () => `<script>${code}</script>`
+  );
+
 const stub = `
 window.matchMedia = function () { return { matches: false, addEventListener: function(){}, removeEventListener: function(){} }; };
 window.IntersectionObserver = function () { this.observe=function(){}; this.unobserve=function(){}; this.disconnect=function(){}; };
@@ -42,11 +50,15 @@ window.fetch = function () {
 function build(page) {
   // 用替换函数而非替换字符串：String.replace 会把替换值里的 $' / $& 当特殊记号，
   // 一旦源码里出现这类序列，整段脚本会被吃掉。
-  const doc = read(page)
-    .replace('<script src="assets/js/geo-data.js"></script>', () => `<script>${inline(geo)}</script>`)
-    .replace('<script src="assets/js/app.js"></script>', () => `<script>${inline(appjs)}</script>`)
-    .replace('<script src="assets/js/main.js"></script>', () => `<script>${inline(mainjs)}</script>`)
-    .replace("<body>", () => `<body><script>${stub}</script>`);
+  const doc = subScript(
+    subScript(
+      subScript(read(page), "assets/js/geo-data.js", inline(geo)),
+      "assets/js/app.js",
+      inline(appjs)
+    ),
+    "assets/js/main.js",
+    inline(mainjs)
+  ).replace("<body>", () => `<body><script>${stub}</script>`);
   return new JSDOM(doc, {
     url: "http://localhost/" + page,
     runScripts: "dangerously",
@@ -99,6 +111,49 @@ setTimeout(async () => {
   ok("分组标签与城市首字母一致", mismatch.length === 0, mismatch.slice(0, 5).join(","));
 
   ok("默认选中北京", sel && sel.value === "北京", sel && sel.value);
+
+  /* ---------- 2.5 地图按需加载：点击前不建 iframe，点击后才建 ---------- */
+  // 高德 SDK 约 1MB，加载即创建会把首屏 TBT 顶到 6s+（见 map-tbt-options.md）。
+  // 新契约：首屏只渲染占位与景点列表；用户点「显示地图」后才注入 iframe。
+  // 这里用本地 settle，不依赖后面才声明的 waitFor（const 有 TDZ）。
+  const settle = (ms) => new Promise((r) => setTimeout(r, ms || 30));
+  const mapWrap = doc.querySelector("#amap-wrap");
+  const loadBtn = doc.querySelector("#map-load");
+
+  ok("地图页首屏不创建 iframe（按需加载）", !doc.querySelector("#amap-wrap iframe"));
+  ok("地图页首屏显示占位与「显示地图」按钮",
+     !!loadBtn && (mapWrap.textContent || "").indexOf("地图按需加载") >= 0);
+  ok("占位按钮满足移动端点击区（min-height 48px）",
+     !!loadBtn && (loadBtn.getAttribute("style") || "").indexOf("min-height:48px") >= 0,
+     loadBtn && loadBtn.getAttribute("style"));
+  ok("占位态下景点列表照常渲染（不能白屏）",
+     doc.querySelectorAll("#spot-list .spot-item").length > 0,
+     doc.querySelectorAll("#spot-list .spot-item").length);
+
+  if (loadBtn) loadBtn.dispatchEvent(new mapDom.window.MouseEvent("click", { bubbles: true }));
+  await settle(100);
+
+  const iframeAfterClick = doc.querySelector("#amap-wrap iframe");
+  ok("点击「显示地图」后才创建 iframe", !!iframeAfterClick);
+  ok("点击后 iframe 里引用了高德 JS API",
+     !!iframeAfterClick &&
+       (iframeAfterClick.getAttribute("srcdoc") || "").indexOf("webapi.amap.com/maps") >= 0);
+  ok("点击后占位按钮被移除", !doc.querySelector("#map-load"));
+  ok("点击后只有一个 iframe（不重复创建）",
+     doc.querySelectorAll("#amap-wrap iframe").length === 1,
+     doc.querySelectorAll("#amap-wrap iframe").length);
+
+  // 已加载后切城市：仍是同一个 iframe，且不应回退到占位态
+  const citySwitcher = doc.querySelector("#map-city");
+  citySwitcher.value = "上海";
+  citySwitcher.dispatchEvent(new mapDom.window.Event("change", { bubbles: true }));
+  await settle(100);
+  ok("切换城市后仍只有一个 iframe", doc.querySelectorAll("#amap-wrap iframe").length === 1);
+  ok("切换城市后不回退到占位态", !doc.querySelector("#map-load"));
+  // 复位到北京：后面的用例依赖这个初始态
+  citySwitcher.value = "北京";
+  citySwitcher.dispatchEvent(new mapDom.window.Event("change", { bubbles: true }));
+  await settle(100);
 
   /* ---------- 3. 最长匹配（本次修复重点） ---------- */
   function filterBy(text) {
@@ -167,13 +222,26 @@ setTimeout(async () => {
   ok("添加后出现「恢复默认」按钮", !!doc.querySelector('#spot-list [data-act="reset"]'));
   ok("添加已持久化到 localStorage",
      (w.localStorage.getItem("tc_spot_overrides") || "").indexOf("亮马河") >= 0);
-  // 地图改为异步渲染（要先 await /api/config 拿高德 Key），
-  // 断言 iframe 内容前必须让出几个事件循环，否则读到的是上一次的旧 srcdoc。
-  const tick = () => new Promise((r) => setTimeout(r, 30));
-  await tick();
+  // 地图自 025c213 起改为按需加载（首屏只渲染占位，点「显示地图」才创建 iframe），
+  // 而 iframe 的 srcdoc 是在异步链里写的（loadPublicConfig → /api/config → 注入）。
+  // 固定 sleep 30ms 在慢机器上会读到「地图加载中…」甚至还没有 iframe，属于竞态。
+  // 这里改成轮询到「条件成立」为止：断言的是最终状态，不是多久达成。
+  const waitFor = async (fn, ms = 3000) => {
+    const end = Date.now() + ms;
+    for (;;) {
+      const v = fn();
+      if (v) return v;
+      if (Date.now() > end) return null;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
 
-  ok("自定义景点也进了地图数据",
-     doc.querySelector("#amap-wrap iframe").getAttribute("srcdoc").indexOf("亮马河") >= 0);
+  const mapFrame = await waitFor(() => {
+    const f = doc.querySelector("#amap-wrap iframe");
+    return f && f.getAttribute("srcdoc").indexOf("亮马河") >= 0 ? f : null;
+  });
+  ok("自定义景点也进了地图数据", !!mapFrame,
+     mapFrame ? "" : "3s 内 iframe 的 srcdoc 里没有「亮马河」（地图可能仍停在占位态）");
 
   // ---- 重名 ----
   click(doc.querySelector('#spot-list [data-act="add"]'));
@@ -214,9 +282,13 @@ setTimeout(async () => {
   ok("含 </script> 的景点名被正常保存", spotNames().some((n) => n === evil), spotNames()[spotNames().length - 1]);
   ok("名字里的尖括号被转义（列表里没有真的 img 元素）",
      doc.querySelectorAll("#spot-list img").length === 0);
-  await tick();
-  ok("地图数据里的尖括号被转成 \\u003c（否则会截断 iframe 脚本）",
-     doc.querySelector("#amap-wrap iframe").getAttribute("srcdoc").indexOf("\\u003c") >= 0);
+  // 同上一处：srcdoc 是异步写入的，轮询到条件成立为止，不要固定 sleep。
+  const escapedFrame = await waitFor(() => {
+    const f = doc.querySelector("#amap-wrap iframe");
+    return f && f.getAttribute("srcdoc").indexOf("\\u003c") >= 0 ? f : null;
+  });
+  ok("地图数据里的尖括号被转成 \\u003c（否则会截断 iframe 脚本）", !!escapedFrame,
+     escapedFrame ? "" : "3s 内 srcdoc 里没出现转义后的 \\u003c");
 
   // ---- 删除 ----
   const beforeDel = spotNames().length;

@@ -71,13 +71,25 @@ class Settings(BaseSettings):
     # 否则任何人都能注册账号白嫖真实的 LLM 额度。本地开发可设为 true。
     allow_registration: bool = False
 
+    # ===== 与 SpringBoot 主后端的内部约定 =====
+    # SpringBoot 是系统入口，它验完 JWT 后带 X-Internal-Secret + X-User-Name 转发过来。
+    # 本服务只在密钥匹配时才信任这两个头，所以外部无法伪造身份。
+    # **留空 = 关闭内部信任**（默认安全）：不配就等价于「只能走自己的 token 体系」。
+    ai_internal_secret: str = ""
+
     # ===== 限流（保护已公开部署的 LLM 额度）=====
     rate_limit_enabled: bool = True
     rate_limit_anonymous_per_minute: int = 2  # 匿名访客：每个 IP 每分钟
     rate_limit_per_minute: int = 6  # 登录用户：每个 IP 每分钟
     rate_limit_global_per_minute: int = 20  # 全局硬上限（伪造 XFF 也绕不过）
     auth_rate_limit_per_minute: int = 10  # 登录/注册：每个 IP 每分钟
-    trust_proxy_headers: bool = True  # 反代后从 X-Forwarded-For 取真实 IP
+    # 反代后从 X-Forwarded-For 取真实 IP。
+    # **必须保持 True**：SpringBoot 是唯一公网入口，它在转发前丢弃客户端自带的
+    # X-Forwarded-For / X-Real-IP / Forwarded，再用 getRemoteAddr() 重写
+    # （见 AiProxyController 的 CLIENT_IP_HEADERS），所以这里读到的 XFF 是可信的。
+    # 改成 False 会退到 request.client.host —— 那恒为 127.0.0.1（Spring 的地址），
+    # 所有访客会共享同一个限流桶，等于把按 IP 限流整体关掉。
+    trust_proxy_headers: bool = True
 
     # ===== 高德地图（Web 端 JS API）=====
     # 这两个值**本来就会发送到浏览器**（JS API 2.0 要求在建图前把 jscode 注入

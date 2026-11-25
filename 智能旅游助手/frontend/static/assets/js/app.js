@@ -9,6 +9,12 @@
   const TOKEN_KEY = "tc_token";
   const USER_KEY = "tc_user";
 
+  // 构建标记：HTML 里的资源引用都带 ?v=<同一串>，线上排查「是不是旧版」用。
+  // 改前端静态资源时务必同步 bump（scripts/stamp_assets.py --stamp 会一起改 HTML）。
+  const BUILD = "2026-11-25a";
+  window.__TC_BUILD__ = BUILD;
+  try { console.info("[travel-copilot] build " + BUILD); } catch (e) { /* 老浏览器忽略 */ }
+
   // 高德地图 Web 端(JS API) Key 与安全密钥 —— 由后端 GET /api/config 下发，前端不硬编码。
   // 注意：JS API 2.0 必须在加载 amap 脚本「之前」注入 window._AMapSecurityConfig，
   // 否则地图会加载失败（INVALID_USER_SCODE），页面表现为一片空白。
@@ -39,6 +45,30 @@
     + '<span>④ 网络无法访问 webapi.amap.com</span></div>';
 
   /* ---------- 网络 ---------- */
+  /** 下载类请求（导出 .ics / 打印版）需要自己 fetch，这里复用同一套头。 */
+  function authHeaders() {
+    const t = localStorage.getItem(TOKEN_KEY);
+    return t ? { "X-Auth-Token": t } : {};
+  }
+
+  /**
+   * 非 JSON 响应的兜底文案。
+   * 后端没起、或请求被静态服务器（python -m http.server 之类）接管时，响应体是整段
+   * HTML —— 例如 `<!DOCTYPE HTML>…<p>Error code: 501</p>`，因为静态服务器不支持 POST。
+   * 以前直接把前 200 字塞进登录框，界面上就是一屏标签。这里只保留「人写的纯文本」，
+   * HTML 一律换成人话，原文丢给 console 排障。
+   */
+  function humanizeNonJson(r, text) {
+    const body = String(text || "").trim();
+    const looksHtml = /^<(!doctype|html|head|body)/i.test(body) || /<html[\s>]/i.test(body);
+    if (body && !looksHtml) return body.length > 200 ? body.slice(0, 200) + "…" : body;
+    console.warn("[api] 非 JSON 响应", r.status, r.url, body.slice(0, 500));
+    if (r.status === 501) return "后端未启动（501）：请求被静态文件服务器接管了";
+    if (r.status === 404) return "接口不存在（404），请确认后端已启动";
+    if (r.status >= 502 && r.status <= 504) return `后端服务暂不可用（${r.status}），请稍后重试`;
+    return `服务返回 ${r.status}，响应格式异常`;
+  }
+
   async function api(method, path, body) {
     const url = API_BASE + path;
     const opts = { method, headers: {} };
@@ -62,7 +92,7 @@
     let data = {};
     if (text) {
       try { data = JSON.parse(text); }
-      catch (e) { data = { detail: text.slice(0, 200) }; }  // 非 JSON（如 500 HTML）兜底
+      catch (e) { data = { detail: humanizeNonJson(r, text) }; }
     }
     // FastAPI 的 422 校验错误里 detail 是一个数组（Pydantic 逐字段报错），
     // 直接丢给 textContent / toast 会渲染成 "[object Object]"。在这里统一压成一句人话，
@@ -82,6 +112,17 @@
   const apiGet = (path) => api("GET", path);
   const apiPost = (path, body) => api("POST", path, body);
   const apiPut = (path, body) => api("PUT", path, body);
+
+  /* 断网时浏览器给的是 "Failed to fetch" / "NetworkError..." / "Load failed"，
+     用户读不懂也没法行动。统一压成一句人话；后端 detail 已经是人话，原样透出。 */
+  function netErrText(e) {
+    const m = String((e && e.message) || "");
+    if (!m) return "服务暂不可用，请稍后重试";
+    if (/Failed to fetch|NetworkError|Load failed|net::ERR_|network error/i.test(m)) {
+      return "网络异常，请稍后重试";
+    }
+    return m;
+  }
 
   /* ---------- 文本与 Markdown 渲染（自带 HTML 转义，防 XSS） ---------- */
   function escapeHtml(s) {
@@ -277,6 +318,7 @@
           <a href="index.html">首页</a>
           <a href="chat.html">AI旅行咨询</a>
           <a href="map.html">城市地图</a>
+          <a href="spots.html">景点库</a>
           <a href="transit.html">交通路线</a>
           <a href="trips.html">我的行程</a>
           <a href="favorites.html">我的收藏</a>
@@ -296,19 +338,156 @@
     const cta = header.querySelector(".nav-cta");
     if (cta) {
       if (user) {
+        // 账号区一律「平铺按钮」，不做下拉菜单。
+        // 演进史：①「👤 用户名」死胶囊（点了没反应，根本没有改密入口）
+        //        ②「用户名 ▾」下拉（要多点一步，还有人反馈菜单点不出来）
+        //        ③ 现在：点用户名/钥匙 = 直接开改密弹窗；退出单独一颗按钮。
+        // 没有展开状态，就不存在「点开又立刻被关掉」「菜单被裁掉」这类失败。
+        // ≥1201px 额外给一颗带文字的「修改密码」，窄屏靠长按/悬停提示与弹窗标题自解释。
         cta.innerHTML = `
-          <span class="btn btn-ghost" style="padding:12px 20px;font-size:.9rem">
-            👤 ${escapeHtml(user.username)}
-          </span>
-          <a href="#" class="btn btn-primary" id="app-logout">退出 <span class="fill"></span></a>
+          <div class="nav-account">
+            <button type="button" class="nav-account-btn" id="app-account"
+                    aria-haspopup="dialog" title="修改密码（当前账号 ${escapeHtml(user.username)}）"
+                    aria-label="修改密码，当前账号 ${escapeHtml(user.username)}">
+              <span class="nav-account-avatar" aria-hidden="true">👤</span>
+              <span class="nav-account-name">${escapeHtml(user.username)}</span>
+              <span class="nav-account-key" aria-hidden="true">🔑</span>
+            </button>
+            <button type="button" class="btn btn-ghost nav-pwd-btn" id="app-change-pwd">修改密码</button>
+            <a href="#" class="btn btn-primary nav-logout-btn" id="app-logout">退出 <span class="fill"></span></a>
+          </div>
           <button class="nav-burger" aria-label="菜单" aria-expanded="false"><span></span><span></span><span></span></button>`;
-        cta.querySelector("#app-logout").addEventListener("click", (e) => { e.preventDefault(); logout(); });
+        bindAccountActions();
       } else {
         cta.innerHTML = `
           <a href="index.html#login" class="btn btn-primary">登录 <span class="fill"></span></a>
           <button class="nav-burger" aria-label="菜单" aria-expanded="false"><span></span><span></span><span></span></button>`;
       }
     }
+  }
+
+  /* ---------- 账号区动作绑定（改密 / 退出） ---------- */
+  function bindAccountActions() {
+    ["app-account", "app-change-pwd"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("click", (e) => { e.preventDefault(); openPasswordModal(); });
+    });
+    const out = document.getElementById("app-logout");
+    if (out) out.addEventListener("click", (e) => { e.preventDefault(); logout(); });
+  }
+
+  /* ---------- 修改密码弹窗 ---------- */
+  // 后端 @NotBlank 的报错会带 Java 字段名（oldPassword 不能为空），对用户没意义。
+  // 这里翻成中文；万一又出现字段名对不上的情况，界面上至少读得懂。
+  function pwdErrText(raw) {
+    const s = String(raw == null ? "" : raw).trim();
+    if (!s) return "修改失败，请稍后重试";
+    const zh = s
+      .replace(/oldPassword/g, "原密码")
+      .replace(/newPassword/g, "新密码")
+      .replace(/username/g, "用户名");
+    return zh;
+  }
+  // 后端 /api/auth/change-password 会返回一枚新 token（旧 token 因会话世代 +1 全部失效），
+  // 所以成功后必须把本地 token 换成新的，否则用户一改完密码就把自己踢下线。
+  function openPasswordModal() {
+    const user = authState();
+    if (!user) { toast("登录状态已失效，请重新登录"); return; }
+    let modal = document.getElementById("pwd-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "pwd-modal";
+      modal.className = "modal";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.setAttribute("aria-labelledby", "pwd-title");
+      modal.innerHTML = `
+        <div class="modal-backdrop"></div>
+        <div class="modal-card">
+          <h3 id="pwd-title">修改密码</h3>
+          <p class="modal-sub">当前账号：<strong id="pwd-who"></strong></p>
+          <input id="pwd-old" class="app-input" type="password" placeholder="原密码"
+                 autocomplete="current-password" aria-label="原密码" />
+          <input id="pwd-new" class="app-input" type="password" placeholder="新密码（6~64 位）"
+                 autocomplete="new-password" aria-label="新密码" />
+          <input id="pwd-new2" class="app-input" type="password" placeholder="确认新密码"
+                 autocomplete="new-password" aria-label="确认新密码" />
+          <div class="modal-err" id="pwd-err" role="alert" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="pwd-submit" type="button"><span id="pwd-submit-label">保存</span> <span class="fill"></span></button>
+            <button class="btn btn-ghost" id="pwd-cancel" type="button">取消</button>
+          </div>
+          <p class="modal-hint">改完后其他设备上的登录会全部失效，当前设备自动续登；忘记密码请找管理员重置。
+            <span class="modal-ver">v${BUILD}</span></p>
+          <button class="modal-close" type="button" aria-label="关闭">&times;</button>
+        </div>`;
+      document.body.appendChild(modal);
+
+      const err = modal.querySelector("#pwd-err");
+      const btn = modal.querySelector("#pwd-submit");
+      const btnLabel = modal.querySelector("#pwd-submit-label");
+      const oldEl = modal.querySelector("#pwd-old");
+      const newEl = modal.querySelector("#pwd-new");
+      const newEl2 = modal.querySelector("#pwd-new2");
+
+      const close = () => {
+        modal.classList.remove("open");
+        err.textContent = "";
+        [oldEl, newEl, newEl2].forEach((el) => { el.value = ""; });
+        btn.disabled = false;
+        btnLabel.textContent = "保存";
+        const back = document.getElementById("app-account");
+        if (back) back.focus();
+      };
+      modal.querySelector(".modal-backdrop").addEventListener("click", close);
+      modal.querySelector(".modal-close").addEventListener("click", close);
+      modal.querySelector("#pwd-cancel").addEventListener("click", close);
+      modal.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { e.stopPropagation(); close(); }
+      });
+
+      const submit = async () => {
+        err.textContent = "";
+        const oldPw = oldEl.value;
+        const np = newEl.value;
+        const np2 = newEl2.value;
+        if (!oldPw) { err.textContent = "请填写原密码"; oldEl.focus(); return; }
+        if (np.length < 6) { err.textContent = "新密码至少 6 位"; newEl.focus(); return; }
+        if (np.length > 64) { err.textContent = "新密码最多 64 位"; newEl.focus(); return; }
+        if (np !== np2) { err.textContent = "两次输入的新密码不一致"; newEl2.focus(); return; }
+        if (np === oldPw) { err.textContent = "新密码不能与原密码相同"; newEl.focus(); return; }
+        btn.disabled = true;
+        btnLabel.textContent = "保存中…";
+        // 字段名必须是 snake_case：后端 application.yml 里
+        // spring.jackson.property-naming-strategy = SNAKE_CASE，全站契约都是 snake_case
+        // （day_index / start_date / session_id 同理）。写成 oldPassword 时 Jackson 解不出来，
+        // 服务端只会回「oldPassword 不能为空」，看起来像校验问题，其实是字段名对不上。
+        const r = await apiPost("/api/auth/change-password", { old_password: oldPw, new_password: np });
+        if (!r.ok) {
+          btn.disabled = false;
+          btnLabel.textContent = "保存";
+          err.textContent = pwdErrText(r.data.detail || r.data.message);
+          return;
+        }
+        setAuth(r.data.token, { username: r.data.username, role: r.data.role });
+        close();
+        toast("密码已修改，其他设备需重新登录");
+      };
+      btn.addEventListener("click", submit);
+      [oldEl, newEl, newEl2].forEach((el) => {
+        el.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } });
+      });
+    }
+    modal.querySelector("#pwd-who").textContent = user.username;
+    const errBox = modal.querySelector("#pwd-err");
+    if (errBox) errBox.textContent = "";
+    const submitBtn = modal.querySelector("#pwd-submit");
+    if (submitBtn) submitBtn.disabled = false;
+    const submitLabel = modal.querySelector("#pwd-submit-label");
+    if (submitLabel) submitLabel.textContent = "保存";
+    modal.classList.add("open");
+    const first = modal.querySelector("#pwd-old");
+    if (first) first.focus();
   }
 
   /* ---------- 高德坐标转换（WGS-84 → GCJ-02） ---------- */
@@ -355,14 +534,14 @@
 html,body{height:100%;margin:0;padding:0;font-family:"Yuanti SC","Microsoft YaHei",sans-serif}
 body{display:flex;flex-direction:column}
 #am-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;flex:0 0 auto}
-.amt{border:2px solid #2b2b2b;border-radius:10px;background:#fff;color:#2b1d0e;font-weight:800;font-size:.82rem;padding:7px 14px;cursor:pointer;box-shadow:3px 3px 0 #2b2b2b;transition:all .12s}
+.amt{border:2px solid #2b2b2b;border-radius:10px;background:#fff;color:#2b1d0e;font-weight: var(--fw-strong);font-size:.82rem;padding:7px 14px;cursor:pointer;box-shadow:3px 3px 0 #2b2b2b;transition:all .12s}
 .amt:hover{background:#ffd21e;transform:translate(-1px,-1px);box-shadow:4px 4px 0 #2b2b2b}
 .amt:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #2b2b2b}
 .amt.on{background:#ff4d4d;color:#fff}
 #am-map{width:100%;flex:1 1 auto;min-height:0;border:2.5px solid #2b2b2b;border-radius:16px;box-shadow:4px 4px 0 rgba(43,43,43,.9)}
-.am-tip{font-size:.75rem;color:#8a6a3b;margin-top:7px;font-weight:600;flex:0 0 auto}
-.amap-marker-label{border:2px solid #2b2b2b!important;border-radius:8px!important;padding:2px 7px!important;background:#fff9e0!important;color:#2b1d0e!important;font-weight:700!important;font-size:12px!important;box-shadow:2px 2px 0 rgba(43,43,43,.55)!important}
-.am-fail{margin:16px;padding:18px 20px;background:#fff9e0;border:2px solid #2b2b2b;border-radius:14px;box-shadow:4px 4px 0 rgba(43,43,43,.55);color:#7a2b0e;font-size:13px;line-height:2;font-weight:600}
+.am-tip{font-size:.75rem;color:#8a6a3b;margin-top:7px;font-weight: var(--fw-medium);flex:0 0 auto}
+.amap-marker-label{border:2px solid #2b2b2b!important;border-radius:8px!important;padding:2px 7px!important;background:#fff9e0!important;color:#2b1d0e!important;font-weight: var(--fw-strong)!important;font-size:12px!important;box-shadow:2px 2px 0 rgba(43,43,43,.55)!important}
+.am-fail{margin:16px;padding:18px 20px;background:#fff9e0;border:2px solid #2b2b2b;border-radius:14px;box-shadow:4px 4px 0 rgba(43,43,43,.55);color:#7a2b0e;font-size:13px;line-height:2;font-weight: var(--fw-medium)}
 .am-fail b{display:block;font-size:15px;margin-bottom:6px;color:#c0392b}
 .am-fail span{display:block}
 </style></head><body>
@@ -387,7 +566,7 @@ function esc(t){return String(t==null?"":t).replace(/[&<>"']/g,function(c){retur
 DATA.spots.forEach(function(s,i){
   const mk=new AMap.Marker({position:[s.lng,s.lat],label:{content:(i+1)+"."+esc(s.name),direction:"right",offset:new AMap.Pixel(12,-6)}});
   mk.on("click",function(){
-    const iw=new AMap.InfoWindow({content:'<div style="font-weight:800;font-size:14px">'+(i+1)+'. '+esc(s.name)+'</div><div style="color:#8a6a3b;font-size:12px;margin-top:3px">'+(CAT_ICON[s.cat]||"📍")+' '+esc(s.cat)+' · 推荐顺序第 '+(i+1)+' 站</div>',offset:new AMap.Pixel(0,-32)});
+    const iw=new AMap.InfoWindow({content:'<div style="font-weight: var(--fw-strong);font-size:14px">'+(i+1)+'. '+esc(s.name)+'</div><div style="color:#8a6a3b;font-size:12px;margin-top:3px">'+(CAT_ICON[s.cat]||"📍")+' '+esc(s.cat)+' · 推荐顺序第 '+(i+1)+' 站</div>',offset:new AMap.Pixel(0,-32)});
     iw.open(map,[s.lng,s.lat]);
   });
   map.add(mk);
@@ -400,6 +579,93 @@ document.querySelectorAll(".amt").forEach(function(btn){btn.addEventListener("cl
     const el = document.getElementById(containerId);
     if (el) {
       el.innerHTML = `<iframe srcdoc="${html.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" style="width:100%;height:100%;border:0;border-radius:16px" allow="fullscreen"></iframe>`;
+    }
+  }
+
+  /* ---------- 高德地图模板（行程路线：按天分色） ---------- */
+  // 与 renderAmapCity 的区别：那里是「一个城市的所有景点」，这里是「一份行程里
+  // 真正要去的地方，按天分色、按当天顺序编号并连线」。坐标仍取 geo-data.js，
+  // 所以行程条目必须能对上景点库里的名字（matchTripSpot 负责匹配）。
+  const TRIP_DAY_COLORS = ["#e53935", "#1e88e5", "#2e9e5b", "#f08c00", "#8e24aa", "#00897b", "#d81b60"];
+
+  async function renderAmapTripMap(containerId, info) {
+    await loadPublicConfig();
+    const el0 = document.getElementById(containerId);
+    if (!AMAP_KEY) { if (el0) el0.innerHTML = AMAP_FAIL_HTML; return; }
+    if (!info || !info.days || !info.days.length) {
+      if (el0) el0.innerHTML = `<div class="am-fail"><b>还没有可以上图的地点</b>
+        <span>先让 AI 生成每日行程，或手动把景点加进某一天。</span></div>`;
+      return;
+    }
+    const [cLat, cLng] = info.center;
+    const [gLng, gLat] = wgs84ToGcj02(cLng, cLat);
+    const days = info.days.map((d, di) => ({
+      day: d.day,
+      color: TRIP_DAY_COLORS[di % TRIP_DAY_COLORS.length],
+      stops: d.stops.map((s, si) => {
+        const [slng, slat] = wgs84ToGcj02(s.lng, s.lat);
+        return { name: s.name, lng: +slng.toFixed(6), lat: +slat.toFixed(6), seq: si + 1, note: s.note || "" };
+      })
+    }));
+    const payload = JSON.stringify({ city: info.city, center: { lng: +gLng.toFixed(6), lat: +gLat.toFixed(6) }, days })
+      .replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+    const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0;font-family:"Yuanti SC","Microsoft YaHei",sans-serif}
+#am-map{width:100%;height:100%;border:2.5px solid #2b2b2b;border-radius:16px;box-shadow:4px 4px 0 rgba(43,43,43,.9)}
+.pin{width:26px;height:26px;border-radius:50%;background:var(--c);color:#fff;border:2.5px solid #2b2b2b;
+  display:flex;align-items:center;justify-content:center;font-weight: var(--fw-strong);font-size:12px;
+  box-shadow:2px 2px 0 rgba(43,43,43,.55);line-height:1}
+.amap-marker-label{border:2px solid #2b2b2b!important;border-radius:8px!important;padding:2px 7px!important;
+  background:#fff9e0!important;color:#2b1d0e!important;font-weight: var(--fw-strong)!important;font-size:12px!important;
+  box-shadow:2px 2px 0 rgba(43,43,43,.55)!important;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.am-fail{margin:16px;padding:18px 20px;background:#fff9e0;border:2px solid #2b2b2b;border-radius:14px;
+  box-shadow:4px 4px 0 rgba(43,43,43,.55);color:#7a2b0e;font-size:13px;line-height:2;font-weight: var(--fw-medium)}
+.am-fail b{display:block;font-size:15px;margin-bottom:6px;color:#c0392b}
+.am-fail span{display:block}
+</style></head><body>
+<div id="am-map"></div>
+<script>window._AMapSecurityConfig={securityJsCode:"${AMAP_JS_CODE}"};</script>
+<script src="https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}"></script>
+<script>
+if(typeof AMap==="undefined"){document.body.innerHTML=${JSON.stringify(AMAP_FAIL_HTML)};throw new Error("AMap JS API 加载失败");}
+const DATA=${payload};
+const map=new AMap.Map("am-map",{center:[DATA.center.lng,DATA.center.lat],zoom:12,viewMode:"2D"});
+map.setStatus({scrollWheel:true});
+AMap.plugin(["AMap.Scale","AMap.ToolBar"],function(){try{map.addControl(new AMap.Scale());map.addControl(new AMap.ToolBar({position:"RT"}));}catch(e){}});
+function esc(t){return String(t==null?"":t).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+const all=[];
+DATA.days.forEach(function(d){
+  const path=[];
+  d.stops.forEach(function(s){
+    const mk=new AMap.Marker({
+      position:[s.lng,s.lat],
+      content:'<div class="pin" style="--c:'+d.color+'">'+s.seq+'</div>',
+      offset:new AMap.Pixel(-13,-13),
+      label:{content:"D"+d.day+"·"+esc(s.name),direction:"right",offset:new AMap.Pixel(14,-8)}
+    });
+    mk.on("click",function(){
+      const iw=new AMap.InfoWindow({offset:new AMap.Pixel(0,-18),content:
+        '<div style="font-weight: var(--fw-strong);font-size:14px">'+esc(s.name)+'</div>'+
+        '<div style="color:#8a6a3b;font-size:12px;margin-top:4px">第 '+d.day+' 天 · 第 '+s.seq+' 站</div>'+
+        (s.note?'<div style="color:#5b4636;font-size:12px;margin-top:4px">'+esc(s.note)+'</div>':'')});
+      iw.open(map,[s.lng,s.lat]);
+    });
+    map.add(mk); all.push(mk); path.push([s.lng,s.lat]);
+  });
+  // 一天只有一个点时不画线：单点折线在高德里会退化成一个看不见的小圈
+  if(path.length>1){
+    map.add(new AMap.Polyline({path:path,strokeColor:d.color,strokeWeight:4,strokeOpacity:.85,
+      showDir:true,lineJoin:"round",lineCap:"round"}));
+  }
+});
+if(all.length) map.setFitView(all,false,[70,70,70,70]);
+</script></body></html>`;
+    const el = document.getElementById(containerId);
+    if (el) {
+      el.innerHTML = `<iframe title="行程地图" srcdoc="${html.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" style="width:100%;height:100%;border:0;border-radius:16px" allow="fullscreen"></iframe>`;
     }
   }
 
@@ -421,9 +687,9 @@ document.querySelectorAll(".amt").forEach(function(btn){btn.addEventListener("cl
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <style>*{margin:0;padding:0;box-sizing:border-box}html,body{height:100%}
 #am-map{width:100%;height:100%}
-#am-bar{position:absolute;top:10px;left:10px;z-index:99;background:#fff9e0;border:2px solid #2b2b2b;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;color:#2b1d0e;box-shadow:3px 3px 0 rgba(43,43,43,.55);max-width:92%}
-.amap-marker-label{border:2px solid #2b2b2b!important;border-radius:8px!important;padding:2px 7px!important;background:#fff9e0!important;color:#2b1d0e!important;font-weight:700!important;font-size:12px!important;box-shadow:2px 2px 0 rgba(43,43,43,.55)!important}
-.am-fail{margin:16px;padding:18px 20px;background:#fff9e0;border:2px solid #2b2b2b;border-radius:14px;box-shadow:4px 4px 0 rgba(43,43,43,.55);color:#7a2b0e;font-size:13px;line-height:2;font-weight:600;position:relative;z-index:1}
+#am-bar{position:absolute;top:10px;left:10px;z-index:99;background:#fff9e0;border:2px solid #2b2b2b;border-radius:10px;padding:8px 12px;font-size:13px;font-weight: var(--fw-strong);color:#2b1d0e;box-shadow:3px 3px 0 rgba(43,43,43,.55);max-width:92%}
+.amap-marker-label{border:2px solid #2b2b2b!important;border-radius:8px!important;padding:2px 7px!important;background:#fff9e0!important;color:#2b1d0e!important;font-weight: var(--fw-strong)!important;font-size:12px!important;box-shadow:2px 2px 0 rgba(43,43,43,.55)!important}
+.am-fail{margin:16px;padding:18px 20px;background:#fff9e0;border:2px solid #2b2b2b;border-radius:14px;box-shadow:4px 4px 0 rgba(43,43,43,.55);color:#7a2b0e;font-size:13px;line-height:2;font-weight: var(--fw-medium);position:relative;z-index:1}
 .am-fail b{display:block;font-size:15px;margin-bottom:6px;color:#c0392b}
 .am-fail span{display:block}
 </style></head><body>
@@ -744,9 +1010,9 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       return;
     }
 
-    // 获取 agent 信息
-    let agents = [];
-    try { const r = await apiGet("/api/agents"); if (r.ok) agents = r.data.experts || []; } catch (e) {}
+    // 先渲壳、后填数据：原来 await 完 /api/agents 才写 innerHTML，弱网(800ms)时整页空白，
+    // 用户看到的是「点了导航没反应」。骨架 3 行，行高对齐 .cs-agent，回填不跳版。
+    const skelRows = Array.from({ length: 3 }, () => `<div class="skeleton cs-skel"></div>`).join("");
 
     container.innerHTML = `
       <div class="chat-wrap">
@@ -758,7 +1024,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           </div>
           <div class="cs-block">
             <div class="cs-head">AI 旅行顾问团</div>
-            <div class="cs-list">${agents.map(a => `<div class="cs-agent">${escapeHtml(a.icon)} ${escapeHtml(a.title)}</div>`).join("")}</div>
+            <div class="cs-list" id="cs-list">${skelRows}</div>
           </div>
         </div>
         <div class="chat-main">
@@ -770,6 +1036,28 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           </div>
         </div>
       </div>`;
+
+    /* ---- 顾问团：骨架 → 名单 / 空态 / 失败可重试 ---- */
+    const csList = container.querySelector("#cs-list");
+    const loadAgents = async () => {
+      if (!csList) return;
+      const paint = (html) => { csList.innerHTML = html; };
+      paint(skelRows);
+      const r = await apiGet("/api/agents");
+      if (!r.ok) {
+        // r.data.detail 是给开发者看的（"服务返回 502"），用户看了不知道能干什么。
+        paint(`<div class="cs-empty">顾问团加载失败，<button type="button" class="cs-retry">重新加载</button></div>`);
+        const again = csList.querySelector(".cs-retry");
+        if (again) again.addEventListener("click", loadAgents);
+        return;
+      }
+      const agents = (r.data && r.data.experts) || [];
+      // 名单为空是后端没配专家，不是网络问题，别让用户反复点重试。
+      paint(agents.length
+        ? agents.map(a => `<div class="cs-agent">${escapeHtml(a.icon)} ${escapeHtml(a.title)}</div>`).join("")
+        : `<div class="cs-empty">暂无可用顾问</div>`);
+    };
+    loadAgents();
 
     const msgs = container.querySelector("#chat-msgs");
     const input = container.querySelector("#chat-in");
@@ -789,8 +1077,13 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
         const r = await apiGet("/api/knowledge/coverage");
         if (!r.ok || !r.data || !r.data.count) return;
         const d = r.data;
-        hint.innerHTML = `📚 本地攻略库覆盖 <strong>${d.count} 城</strong>：`
-          + `${escapeHtml(d.cities.join(" · "))}；其余城市仅提供通用建议`;
+        // 三档分开说：只有把「精编攻略 / 景点导览 / 景点清单」分清楚，用户才知道
+        // 门票、开放时间这类信息在哪些城市是攻略库给的、哪些是模型自己补的。
+        // 不要在这里列出全部城市名（355 个会把提示条撑成一堵墙）。
+        hint.innerHTML = `📚 攻略库覆盖 <strong>${d.count} 城</strong>：`
+          + `<strong>${d.full_count} 城</strong>有精编攻略（${escapeHtml(d.full_cities.join(" · "))}），`
+          + `${d.guided_count || 0} 城有景点导览（含介绍与部分门票），`
+          + `其余 ${d.list_count} 城为景点清单（只有景点名与类型，不含门票与开放时间）`;
       } catch (e) { /* 提示拉取失败不影响聊天 */ }
     })();
 
@@ -938,6 +1231,20 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       let typer = null;
       const thinkParts = [];
 
+      // 等待空窗计时：reasoner 多代理链路实测 65s，其中前 10-15s 只有
+      // 「正在调度顾问团队…」一行 —— 是放弃高发窗口（ux-report P2#6）。
+      // 让秒数与阶段预期走上去，等待从「卡住了吗」变成「进行到哪了」；
+      // 首个轨迹/正文/完成信号出现即停，不与后续渲染竞争。
+      const waitStart = Date.now();
+      const waitTimer = setInterval(() => {
+        const dots = ansEl.querySelector(".typing-dots");
+        if (!dots || steps.length || answer || streamDone) {
+          clearInterval(waitTimer);
+          return;
+        }
+        dots.textContent = `正在调度顾问团队…（已思考 ${Math.round((Date.now() - waitStart) / 1000)}s · 检索攻略库 → 顾问思考中 → 汇总回答）`;
+      }, 1000);
+
       function renderTrace() {
         if (!steps.length && !thinkParts.length) return;
         const stepsHtml = steps.map((s, i) => `
@@ -956,16 +1263,49 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       }
 
       const steps = [];
+      // 后端在 done 事件里给了 elapsed_ms / agent_calls，但一直没人用 ——
+      // 用户看不到「这条回答花了多久、几个专家参与」，答辩时也没法讲性能。
+      // 耗时放 title 里（悬停可见）而不是直接铺在脸上：慢查询不该被当成卖点，
+      // 但也不该藏起来。
+      let stats = null;
+
+      function renderStats() {
+        if (!stats || !stats.calls) return;
+        const secs = (stats.elapsed / 1000).toFixed(1);
+        const el = document.createElement("div");
+        el.className = "chat-stats";
+        el.title = `本次耗时 ${secs} 秒`;
+        el.innerHTML = `🧭 ${stats.calls} 位顾问协作 · ${steps.length} 步推理`;
+        botEl.querySelector(".bubble").appendChild(el);
+      }
 
       // 后端在回答正文里已按提示词标注「通用建议」，这里再在气泡底部补一条
       // 结构化提示：正文可能被汇总阶段压缩，提示条不会。
+      //
+      // 三档分开说。以前只有「有攻略 / 没攻略」，现在 165 城有景点导览、184 城只有
+      // 景点清单 —— 把它们都标成「暂无攻略库」是错的（用户会以为景点名是编的），
+      // 标成「有攻略」更错（用户会以为门票价来自精编攻略库）。所以要说清是哪一档。
       function renderCoverageTip() {
-        if (!cov || !cov.uncovered || !cov.uncovered.length) return;
+        if (!cov) return;
+        const guided = cov.guided || [];
+        const listed = cov.listed || [];
+        const uncovered = cov.uncovered || [];
+        if (!guided.length && !listed.length && !uncovered.length) return;
+        const bits = [];
+        if (guided.length) {
+          bits.push(`<strong>${escapeHtml(guided.join("、"))}</strong> 为景点导览档（景点介绍 + 部分门票），`
+            + "数据来自维基导游与地图，可能已过时，请以景区公告为准");
+        }
+        if (listed.length) {
+          bits.push(`<strong>${escapeHtml(listed.join("、"))}</strong> 仅有景点清单（景点名与类型），`
+            + "门票、开放时间、交通耗时未经攻略库校验");
+        }
+        if (uncovered.length) {
+          bits.push(`<strong>${escapeHtml(uncovered.join("、"))}</strong> 暂无本地攻略库，相关部分为通用建议`);
+        }
         const tip = document.createElement("div");
         tip.className = "coverage-tip";
-        tip.innerHTML = `📍 <strong>${escapeHtml(cov.uncovered.join("、"))}</strong> 暂无本地攻略库`
-          + `（当前覆盖 ${escapeHtml((cov.kb_cities || []).join(" · "))}），`
-          + "以上相关部分为通用建议，未经攻略库校验。";
+        tip.innerHTML = `📍 ${bits.join("；")}。`;
         botEl.querySelector(".bubble").appendChild(tip);
       }
 
@@ -973,6 +1313,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
         if (!streamDone || !typerDone || actionsAttached) return;
         actionsAttached = true;
         renderCoverageTip();
+        renderStats();
         assistantCount++;
         attachActions(botEl.querySelector(".bubble"), answer, assistantCount);
         if (answer) upsertSession(sessionId, text, assistantCount * 2);
@@ -1013,6 +1354,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           typerDone = true;
         } else if (ev.type === "done") {
           sessionId = ev.session_id || sessionId;
+          stats = { elapsed: ev.elapsed_ms || 0, calls: ev.agent_calls || 0 };
           streamDone = true;
           if (!answer) {
             ansEl.innerHTML = ev.error
@@ -1063,10 +1405,23 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
         }
       } catch (e) {
         if (typer) typer();
-        ansEl.innerHTML = `<span class="err">⚠️ ${escapeHtml(e.message || "服务暂不可用，请稍后重试")}</span>`;
+        // 这里是唯一会把浏览器原话漏给用户的地方（断网时 e.message = "Failed to fetch"）
+        ansEl.innerHTML = `<span class="err">⚠️ ${escapeHtml(netErrText(e))}</span>`;
         typerDone = true;
         streamDone = true;
         tryFinish();
+        // 原地重试：问题填回输入框、删掉空气泡、走同一条 send()。
+        // 不自动重试——真断网会连打三次，用户看到三个失败气泡还以为是自己点多了。
+        const retry = document.createElement("button");
+        retry.type = "button";
+        retry.className = "btn btn-ghost err-retry";
+        retry.textContent = "重试";
+        retry.addEventListener("click", () => {
+          botEl.remove();
+          input.value = text;
+          send();
+        });
+        botEl.querySelector(".bubble").appendChild(retry);
       } finally {
         busy = false;
         sendBtn.disabled = false;
@@ -1116,9 +1471,42 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
 
     let curCity = "北京";   // 当前渲染的城市（事件委托里要用）
 
+    // 地图按需加载：高德 SDK 约 1MB，解析 + WebGL 初始化会全部记在首屏 TBT 上
+    // （见 deliverables/gstack/map-tbt-options.md）。所以首屏只渲染占位与列表，
+    // 用户点了「显示地图」才创建 iframe。注意：延迟到 load/idle **没用** ——
+    // TBT 统计的是 FCP→TTI 之间的长任务，挪到 load 之后仍然落在窗口内。
+    let mapReady = false;
+    let lastCity = "北京", lastSpots = [];
+
+    function showMapPlaceholder() {
+      wrap.innerHTML = `
+        <div style="height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--paper-3);border:2px dashed var(--line);border-radius:16px;padding:24px;text-align:center">
+          <div style="font-size:2rem" aria-hidden="true">🗺️</div>
+          <div style="font-weight: var(--fw-strong)">地图按需加载</div>
+          <p style="margin:0;max-width:32em;color:var(--muted);font-size:var(--fs-md);line-height:1.7">
+            为了让你更快打开页面，地图不在首屏加载。点击后开始加载（首次约 1–2 秒），
+            右侧景点列表已经可以正常使用。
+          </p>
+          <button type="button" id="map-load" class="btn btn-accent" style="min-height:48px;min-width:160px">显示地图</button>
+        </div>`;
+      wrap.querySelector("#map-load").addEventListener("click", loadMapNow);
+    }
+
+    function loadMapNow() {
+      mapReady = true;
+      wrap.innerHTML = '<div style="height:560px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight: var(--fw-strong)">地图加载中…</div>';
+      renderAmapCity("amap-wrap", lastCity, { center: window.CITY_GEO[lastCity].center, spots: lastSpots });
+    }
+
     function render(city, spots, matched) {
       wrap.style.height = "560px";
-      renderAmapCity("amap-wrap", city, { center: window.CITY_GEO[city].center, spots: spots });
+      lastCity = city;
+      lastSpots = spots;
+      if (mapReady) {
+        renderAmapCity("amap-wrap", city, { center: window.CITY_GEO[city].center, spots: spots });
+      } else {
+        showMapPlaceholder();
+      }
       const ov = citySpotOv(city);
       const addedNames = new Set((ov.added || []).map((a) => a && a.n));
       const custom = hasSpotOv(city);
@@ -1268,7 +1656,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       <div class="app-panel">
         <div class="app-toolbar">
           <select id="tr-from" class="app-select">${options}</select>
-          <span style="font-weight:700">→</span>
+          <span style="font-weight: var(--fw-strong)">→</span>
           <select id="tr-to" class="app-select">${options}</select>
           <button id="tr-go" class="btn btn-accent">规划路线</button>
         </div>
@@ -1292,7 +1680,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
         if (mapEl) mapEl.innerHTML = "";   // 别把上一次的城市路线留在画面上
         return;
       }
-      bar.innerHTML = `<div style="background:#fff9e0;border:2px solid #2b2b2b;border-radius:12px;padding:10px 14px;font-weight:700;color:#2b1d0e;box-shadow:3px 3px 0 rgba(43,43,43,.55);display:inline-block">📍 ${escapeHtml(fc)} → ${escapeHtml(tc)} · 正在规划…</div>`;
+      bar.innerHTML = `<div style="background:#fff9e0;border:2px solid #2b2b2b;border-radius:12px;padding:10px 14px;font-weight: var(--fw-strong);color:#2b1d0e;box-shadow:3px 3px 0 rgba(43,43,43,.55);display:inline-block">📍 ${escapeHtml(fc)} → ${escapeHtml(tc)} · 正在规划…</div>`;
       renderAmapRoute("tr-map", fc, tc);
       setTimeout(() => {
         if (my !== gen) return;   // 已经有更新的规划在跑，丢弃本次
@@ -1302,7 +1690,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
         const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
         const dist = 2*R*Math.asin(Math.sqrt(a));
         let tip = dist < 150 ? "🚗 距离较近，推荐自驾或城际高铁" : dist < 800 ? "🚄 推荐高铁出行，快捷舒适" : dist < 1500 ? "🚄✈️ 高铁与飞机均可" : "✈️ 距离较远，推荐乘坐飞机";
-        bar.innerHTML = `<div style="background:#fff9e0;border:2px solid #2b2b2b;border-radius:12px;padding:10px 14px;font-weight:700;color:#2b1d0e;box-shadow:3px 3px 0 rgba(43,43,43,.55);display:inline-block">📍 ${escapeHtml(fc)} → ${escapeHtml(tc)} · 直线约 ${dist.toFixed(0)} 公里 · ${tip}</div>`;
+        bar.innerHTML = `<div style="background:#fff9e0;border:2px solid #2b2b2b;border-radius:12px;padding:10px 14px;font-weight: var(--fw-strong);color:#2b1d0e;box-shadow:3px 3px 0 rgba(43,43,43,.55);display:inline-block">📍 ${escapeHtml(fc)} → ${escapeHtml(tc)} · 直线约 ${dist.toFixed(0)} 公里 · ${tip}</div>`;
       }, 1200);
     }
     goBtn.addEventListener("click", refresh);
@@ -1432,13 +1820,41 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
     const r = await apiGet("/api/trips");
     const box = el.querySelector("#trip-list");
     if (!r.ok) {
-      box.innerHTML = `<div class="app-empty"><h3>行程加载失败</h3><p>${escapeHtml((r.data && r.data.detail) || "登录可能已过期")}</p></div>`;
+      // 只有文案的失败态等于把用户逼去刷整页：同一站里 chat 与 favorites 都给了
+      // 「重新加载」，行程页没有，凭什么是它最难受。这里就地重试，重走的还是
+      // renderTripList() —— 本页唯一的列表入口，创建表单与它的监听都在里面重挂，
+      // 不新造一套请求逻辑。按钮样式与 favorites 的「重新加载」完全一致
+      // （.app-empty 里的 .btn.btn-primary），手机端由 .btn{min-height:44px} 兜住。
+      box.innerHTML = `<div class="app-empty">
+        <div style="font-size:52px">⚠️</div>
+        <h3>行程加载失败</h3>
+        <p>${escapeHtml((r.data && r.data.detail) || "登录可能已过期")}</p>
+        <button class="btn btn-primary" id="trip-retry">重新加载</button>
+      </div>`;
+      const retryBtn = box.querySelector("#trip-retry");
+      if (retryBtn) retryBtn.addEventListener("click", () => {
+        // 先把按钮锁住：弱网下一次点击要等 3~5 秒才见结果，不反馈会连点三次
+        retryBtn.disabled = true;
+        retryBtn.textContent = "加载中…";
+        renderTripList();
+      });
       return;
     }
     const list = (r.data || {}).trips || [];
     tripsView.list = list;
     if (!list.length) {
-      box.innerHTML = `<div class="app-empty"><div style="font-size:52px">🧳</div><h3>还没有行程</h3><p>在上面填一个目的地，就能开始排你的旅行</p></div>`;
+      // 空白页对第一次来的人（和答辩现场自己点开链接的老师）最不友好：
+      // 他不知道「填目的地」之后会看到什么。给一个**确定性**的入口 ——
+      // 后端用本地地图数据建一份，不调 AI，秒出，网络抖动也不影响。
+      box.innerHTML = `<div class="app-empty">
+        <div style="font-size:52px">🧳</div>
+        <h3>还没有行程</h3>
+        <p>在上面填一个目的地，就能开始排你的旅行</p>
+        <button class="btn btn-ghost" id="trip-sample">先看一份示例（北京 3 天）</button>
+        <p class="trip-sample-note">用本地景点数据生成，可随时删除</p>
+      </div>`;
+      const sampleBtn = box.querySelector("#trip-sample");
+      if (sampleBtn) sampleBtn.addEventListener("click", () => loadSampleTrip(sampleBtn));
       return;
     }
     box.innerHTML = `<div class="trip-grid">${list.map(t => `
@@ -1447,7 +1863,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           <h3>${escapeHtml(t.city)}</h3>
           <span class="trip-chip">${t.days} 天</span>
         </div>
-        <div class="trip-cd">${escapeHtml(tripPhaseText(t))}</div>
+        <div class="trip-cd${t.phase === "undated" ? " is-empty" : ""}">${escapeHtml(tripPhaseText(t))}</div>
         <div class="trip-meta">${escapeHtml(t.start_date || "日期待定")}${t.budget ? ` · 预算 ¥${t.budget}` : ""}</div>
         ${tripProgressBar(t.progress)}
         <div class="trip-foot">已完成 ${t.progress.done}/${t.progress.total} 项</div>
@@ -1456,6 +1872,27 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
     box.querySelectorAll(".trip-card").forEach(card => {
       card.addEventListener("click", () => openTrip(card.dataset.id));
     });
+  }
+
+  /**
+   * 载入示例行程。
+   *
+   * 后端一次事务建完（行程 + 条目 + 花费），失败什么都不留，所以这里不用处理
+   * 「建了一半」。请求期间禁用按钮：后端做了幂等（第二次直接返回同一份），
+   * 但连点两下、按钮又没反应，用户会以为卡死了。
+   */
+  async function loadSampleTrip(btn) {
+    const label = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "正在生成…"; }
+    const r = await apiPost("/api/trips/sample", { city: "北京" });
+    if (!r.ok) {
+      toast((r.data && r.data.detail) || "示例行程生成失败");
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      return;
+    }
+    toast(r.data.reused ? "已为你打开上次那份示例行程" : "示例行程已生成，可以随便改");
+    await renderTripList();     // 先刷新列表：用户返回列表时能看到卡片，而不是空白
+    openTrip(r.data.trip.id);   // 直接进详情，省掉一次点击
   }
 
   async function createTripFromForm() {
@@ -1490,48 +1927,157 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
     return groups;
   }
 
+  /* ---------- 行程地图：把每日条目对到景点库坐标 ---------- */
+
+  // 条目名来自 AI 或用户手输，跟景点库不会字字相同（「故宫」vs「故宫博物院」、
+  // 「天坛（需预约）」vs「天坛公园」）。先去掉括号备注与标点，再做「相等 → 包含」
+  // 两轮匹配；包含匹配取名字最短的那个，避免「长城」命中名字更长的服务中心之类。
+  function normSpotText(s) {
+    return String(s == null ? "" : s)
+      .replace(/[（(【\[][^)）】\]]*[)）】\]]/g, "")
+      .replace(/[\s\u3000·・,，、。.!！?？:：;；'"“”‘’\-—–_/\\]/g, "");
+  }
+
+  function matchTripSpot(title, spots) {
+    const t = normSpotText(title);
+    if (t.length < 2) return null;          // 单字（「吃」「逛」）匹配出来的都是噪声
+    const norm = spots.map(s => ({ row: s, key: normSpotText(s[0]) }));
+    const exact = norm.find(x => x.key && x.key === t);
+    if (exact) return exact.row;
+    const cands = norm.filter(x => x.key && (x.key.includes(t) || t.includes(x.key)));
+    if (!cands.length) return null;
+    cands.sort((a, b) => a.key.length - b.key.length);
+    return cands[0].row;
+  }
+
+  /**
+   * 模板骨架条目 → 同类推荐景点。
+   *
+   * <p>模板只写「什么时候做什么类型的事」（老城区 / 城市地标、小吃街扫街…），刻意不含具体
+   * 景点名 —— 于是按名字匹配必然 0 上图，行程地图对模板行程整个空转。这里按条目关键词映射到
+   * 该市同分类的推荐景点（CITY_GEO 列表顺序即推荐顺序）；used 让不同条目拿到不同景点，
+   * 避免全部塌到同一个点。抵达 / 返程 / 补漏这类本来就无地点的条目不强行匹配。
+   */
+  const SKELETON_RULES = [
+    { re: /美食|小吃|夜市|晚餐|晚饭|馆子|餐厅|下午茶|甜品|早茶|扫街|菜市场/, cats: ["美食", "商圈"] },
+    { re: /博物馆|科技馆|海洋馆|展览|展馆|演出|温泉|手作|室内馆/, cats: ["场馆", "体验"] },
+    { re: /公园|动物园|亲子|乐园/, cats: ["公园", "亲子", "乐园"] },
+    { re: /日出|日落|夜景|机位|蓝调|摄影|建筑群/, cats: ["地标", "自然", "街区"] },
+    { re: /地标|老城|街区|核心景点|近郊|景点|名胜|古迹/, cats: ["地标", "古迹", "街区", "公园", "自然"] }
+  ];
+  const SKELETON_SKIP = /抵达|返程|寄存|入住|放下行李|补漏|收尾|特产|带走的/;
+  function matchSkeletonEntry(it, spots, used) {
+    const text = (it.title || "") + " " + (it.note || "");
+    if (SKELETON_SKIP.test(text)) return null;
+    // 级联：标题关键词规则 → 条目类型规则 → spot 类主打分类推荐序。
+    // 前一档在当前城市没有可用景点（如北京没有「场馆」分类）时落到下一档，
+    // 保证「套模板 → 看地图」主路径必上图；真正无地点的条目（抵达/返程/补漏）不匹配。
+    const rules = [];
+    const kw = SKELETON_RULES.find(r => r.re.test(text));
+    if (kw) rules.push(kw);
+    if (it.kind === "food") rules.push({ cats: ["美食", "商圈"] });
+    if (it.kind === "experience") rules.push({ cats: ["场馆", "体验", "街区"] });
+    if (it.kind === "spot") rules.push({ cats: ["地标", "古迹", "街区", "公园", "自然", "乐园"] });
+    for (const rule of rules) {
+      const hit = spots.find(s => !used.has(s[0]) && rule.cats.indexOf(s[3]) >= 0);
+      if (hit) { used.add(hit[0]); return hit; }
+    }
+    return null;
+  }
+
+  /** 把一份行程算成「每天去哪几站」；对不上景点库的条目单独列出来，不静默丢弃。 */
+  function tripMapPlan(t) {
+    const city = t.city || "";
+    const info = (window.CITY_GEO || {})[city];
+    if (!info) return { ok: false, reason: `「${city || "未填城市"}」不在景点库里，暂时画不出地图` };
+    const spots = effectiveSpots(city);
+    const days = [];
+    let total = 0;
+    let located = 0;
+    let fallback = 0;
+    const used = new Set();
+    const missing = [];
+    (t.itinerary || []).forEach(d => {
+      const stops = [];
+      (d.items || []).forEach(it => {
+        total += 1;
+        let hit = matchTripSpot(it.title, spots);
+        if (!hit) {
+          hit = matchSkeletonEntry(it, spots, used);
+          if (hit) fallback += 1;
+        }
+        if (hit) {
+          stops.push({ name: hit[0], lng: hit[2], lat: hit[1], note: it.note || "" });
+          located += 1;
+        } else if (missing.indexOf(it.title) < 0) {
+          missing.push(it.title);
+        }
+      });
+      if (stops.length) days.push({ day: d.day, stops });
+    });
+    return { ok: true, city, center: info.center, days, total, located, missing, fallback };
+  }
+
+  function openTripMap(t) {
+    const plan = tripMapPlan(t);
+    const old = document.getElementById("trip-map-modal");
+    if (old) old.remove();
+    const box = document.createElement("div");
+    box.id = "trip-map-modal";
+    box.className = "modal open";
+    const legend = plan.ok && plan.days.length
+      ? plan.days.map((d, i) => `<span class="tmm-day"><i style="background:${TRIP_DAY_COLORS[i % TRIP_DAY_COLORS.length]}"></i>第 ${d.day} 天 · ${d.stops.length} 站</span>`).join("")
+      : "";
+    box.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-card modal-card--wide">
+        <button class="modal-close" aria-label="关闭">&times;</button>
+        <div class="tmm-head">
+          <h3>🗺 ${escapeHtml(t.title)}</h3>
+          <span class="trip-meta">${plan.ok ? `已上图 ${plan.located}/${plan.total} 项` : "无法上图"}</span>
+        </div>
+        ${plan.ok && plan.days.length
+          ? `<div class="tmm-legend">${legend}</div>
+             <div class="tmm-canvas" id="trip-map-canvas"></div>
+             <p class="trip-hint tmm-foot">同一天按游玩顺序编号并连线，颜色区分天；点击标记看详情。</p>
+             ${plan.fallback ? `<p class="trip-hint tmm-foot">其中 ${plan.fallback} 项是模板骨架，已按条目类型匹配同类推荐景点；想精确控制，把条目改成具体地点名即可。</p>` : ""}`
+          : plan.ok
+            ? `<p class="trip-hint">这份行程还没有能对上景点库的地点。可以点上方「✨ 生成每日行程」让 AI 排一版，或直接去景点库挑几个加进来：</p>
+               <div style="margin:10px 0 4px"><a class="btn btn-primary" href="spots.html?city=${encodeURIComponent(plan.city)}">去景点库挑几个</a></div>`
+            : `<p class="trip-hint">${escapeHtml(plan.reason)}</p>`}
+        ${plan.ok && plan.missing.length
+          ? `<details class="tmm-missing"><summary>${plan.missing.length} 项未上图（不是景点库里的具体地点）</summary>${plan.missing.map(escapeHtml).join("、")}</details>`
+          : ""}
+      </div>`;
+    document.body.appendChild(box);
+    const close = () => box.remove();
+    box.querySelector(".modal-backdrop").addEventListener("click", close);
+    box.querySelector(".modal-close").addEventListener("click", close);
+    document.addEventListener("keydown", function onEsc(e) {
+      if (e.key === "Escape") { close(); document.removeEventListener("keydown", onEsc); }
+    });
+    if (plan.ok && plan.days.length) renderAmapTripMap("trip-map-canvas", plan);
+  }
+
   function itemRow(it) {
+    const slot = (it.slot || "").trim();
     return `
-      <label class="trip-item${it.done ? " done" : ""}">
+      <label class="trip-item${it.done ? " done" : ""}" data-item-id="${it.id}" data-day="${it.day_index}">
         <input type="checkbox" class="trip-check" data-id="${it.id}"${it.done ? " checked" : ""} />
+        ${slot ? `<span class="trip-item-slot" style="flex:none;font-size:var(--fs-xs);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px">${escapeHtml(slot)}</span>` : ""}
         <span class="trip-item-title">${escapeHtml(it.title)}</span>
         ${it.note ? `<span class="trip-item-note">${escapeHtml(it.note)}</span>` : ""}
-        <button class="trip-item-del" data-id="${it.id}" title="删除">×</button>
+        <button type="button" class="trip-item-edit" data-id="${it.id}" title="编辑这一项" aria-label="编辑 ${escapeHtml(it.title)}" style="flex:none;background:none;border:0;cursor:pointer;font-size:var(--fs-md);line-height:1;padding:2px 6px;opacity:.6">✏️</button>
+        <button type="button" class="trip-item-del" data-id="${it.id}" title="删除">×</button>
       </label>`;
   }
 
-  function renderTripDetail(t) {
-    const el = tripsView.el;
+  /* ---------- 两个列表分区（拆出来才能「只重画这一块」） ---------- */
+
+  function prepPanelHtml(t) {
     const prep = t.prep || [];
     const groups = prepGroups(prep);
-    const itinerary = t.itinerary || [];
-
-    el.innerHTML = `
-      <div class="trip-detail-head">
-        <button class="btn btn-ghost" id="trip-back">← 返回列表</button>
-        <div class="trip-actions">
-          <button class="btn btn-accent" data-act="plan">✨ 生成每日行程</button>
-          <button class="btn btn-primary" data-act="packing">🎒 生成装备清单</button>
-          <button class="btn btn-ghost" data-act="weather">🌦 天气与建议</button>
-          <button class="btn btn-ghost trip-danger" data-act="del">🗑 删除行程</button>
-        </div>
-      </div>
-
-      <div class="app-panel trip-hero">
-        <div class="trip-hero-main">
-          <div class="trip-cd-big">${t.countdown !== null && t.countdown > 0 ? t.countdown : "—"}<span>${t.countdown !== null && t.countdown > 0 ? "天后出发" : escapeHtml(tripPhaseText(t))}</span></div>
-          <div>
-            <h2>${escapeHtml(t.title)}</h2>
-            <div class="trip-meta">${escapeHtml(t.start_date || "日期待定")} · ${t.days} 天${t.budget ? ` · 人均预算 ¥${t.budget}` : ""}</div>
-          </div>
-        </div>
-        ${tripProgressBar(t.progress, true)}
-        <div class="trip-foot">已完成 ${t.progress.done}/${t.progress.total} 项（${t.progress.percent}%）</div>
-      </div>
-
-      <div id="trip-weather"></div>
-
-      <div class="app-panel">
+    return `<div class="app-panel">
         <div class="trip-sec-head"><h3>行前清单</h3><span class="trip-meta">${prep.length} 项</span></div>
         ${groups.length ? groups.map(g => `
           <div class="trip-group">
@@ -1540,65 +2086,951 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
           </div>`).join("") : `<div class="app-empty" style="padding:24px"><p>还没有清单，点上方「🎒 生成装备清单」自动生成</p></div>`}
         <div class="trip-add-row">
           <input class="trip-add-input" data-day="0" placeholder="手动添加一条行前准备…" />
+          <input class="trip-add-input trip-add-slot" data-slot-day="0" maxlength="20" placeholder="分组（可选，如 证件与票据）" style="flex:0 0 170px" />
           <button class="btn btn-ghost trip-add-btn" data-day="0">添加</button>
         </div>
-      </div>
+      </div>`;
+  }
 
-      <div class="app-panel">
+  // 时段候选：冲突检测靠 slot 非空，手输自由文本会写出「上午」「上午9点」「9:00」三种说法，
+  // 同一时段就撞不上，提示形同虚设。给候选 + 允许自由输入，兼顾一致性和灵活。
+  const TRIP_SLOTS = ["上午", "中午", "下午", "晚上", "全天"];
+
+  function itineraryPanelHtml(t) {
+    const itinerary = t.itinerary || [];
+    return `<div class="app-panel">
         <div class="trip-sec-head"><h3>每日行程</h3><span class="trip-meta">${itinerary.length} 天</span></div>
+        <div class="trip-revise">
+          <input class="trip-add-input" id="trip-revise-input" placeholder="想怎么改？例如「第三天想换室内，怕下雨」" />
+          <button class="btn btn-accent" id="trip-revise-btn">🤖 按我说的改</button>
+        </div>
+        <p class="trip-hint">只改你提到的那几天，已勾选的条目会保留勾选状态。</p>
+        <datalist id="trip-slot-list">${TRIP_SLOTS.map(s => `<option value="${s}"></option>`).join("")}</datalist>
         ${itinerary.length ? itinerary.map(d => `
           <div class="trip-day">
             <div class="trip-day-name">第 ${d.day} 天</div>
             ${d.items.map(itemRow).join("")}
             <div class="trip-add-row">
               <input class="trip-add-input" data-day="${d.day}" placeholder="给第 ${d.day} 天加一项…" />
+              <input class="trip-add-input trip-add-slot" data-slot-day="${d.day}" maxlength="20" list="trip-slot-list" placeholder="时段（可选）" style="flex:0 0 110px" />
               <button class="btn btn-ghost trip-add-btn" data-day="${d.day}">添加</button>
             </div>
-          </div>`).join("") : `<div class="app-empty" style="padding:24px"><p>还没有安排，点上方「✨ 生成每日行程」让 AI 排一版</p></div>`}
+          </div>`).join("") : `
+          <div class="app-empty" style="padding:12px 24px"><p>手动加一条，或点上方「✨ 生成每日行程」让 AI 排一版</p></div>
+          ${Array.from({ length: Math.max(1, t.days || 1) }, (_, i) => `
+          <div class="trip-day">
+            <div class="trip-day-name">第 ${i + 1} 天</div>
+            <div class="trip-add-row">
+              <input class="trip-add-input" data-day="${i + 1}" placeholder="给第 ${i + 1} 天加一项…" />
+              <input class="trip-add-input trip-add-slot" data-slot-day="${i + 1}" maxlength="20" list="trip-slot-list" placeholder="时段（可选）" style="flex:0 0 110px" />
+              <button class="btn btn-ghost trip-add-btn" data-day="${i + 1}">添加</button>
+            </div>
+          </div>`).join("")}`}
       </div>`;
+  }
+
+  /**
+   * 把接口回的行程合并进当前对象（就地改，不换引用）。
+   *
+   * <p>所有事件处理器都闭包捕获了同一个 t，换引用会让它们读到旧数据 —— 表现就是
+   * 「改完再点一次编辑，弹回来还是老值」。就地合并才能让局部刷新和闭包共存。
+   */
+  function applyTripView(t, trip) {
+    if (!trip || trip.id !== t.id) return t;
+    Object.assign(t, trip);
+    if (tripsView.current && tripsView.current.id === t.id) Object.assign(tripsView.current, trip);
+    return t;
+  }
+
+  /** 条目增删改之后列表变了，但只有列表变了 —— 摘要/冲突/两个清单重画，不碰预算与游记。 */
+  function refreshTripBody(t) {
+    refreshTripHero(t);
+    refreshTripConflicts(t);
+    refreshPrep(t);
+    refreshItinerary(t);
+  }
+
+  function refreshPrep(t) {
+    const box = document.getElementById("trip-prep-wrap");
+    if (!box) return;
+    box.innerHTML = prepPanelHtml(t);
+    bindItemRows(box, t);
+    bindAddRows(box, t);
+  }
+
+  function refreshItinerary(t) {
+    const box = document.getElementById("trip-itinerary-wrap");
+    if (!box) return;
+    box.innerHTML = itineraryPanelHtml(t);
+    bindItemRows(box, t);
+    bindAddRows(box, t);
+    bindRevise(box, t);
+  }
+
+  async function reloadTrip(t) {
+    const r = await apiGet(`/api/trips/${encodeURIComponent(t.id)}`);
+    if (!r.ok) return null;
+    return applyTripView(t, r.data.trip);
+  }
+
+  /* ---------- 条目行内编辑 ---------- */
+
+  /**
+   * 点 ✏️ 就地展开编辑行（文字/时段/备注）。
+   *
+   * <p>为什么不是整页表单：用户改的是「第 2 天下午那一项」，眼睛正盯着那一行；
+   * 跳到另一个页面再回来，他得重新找回自己刚才在看的位置。
+   *
+   * <p>注意 .trip-item 是 &lt;label&gt;，里面点按钮会被 label 转发给 checkbox，
+   * 所以所有按钮都要 preventDefault + stopPropagation。
+   */
+  function openItemEditor(root, t, itemId) {
+    const label = root.querySelector(`.trip-item[data-item-id="${itemId}"]`);
+    if (!label || label.nextElementSibling && label.nextElementSibling.classList.contains("trip-item--edit")) return;
+    const day = parseInt(label.dataset.day, 10) || 0;
+    const pool = day === 0 ? (t.prep || []) : (t.itinerary || []).reduce((a, d) => a.concat(d.items || []), []);
+    const it = pool.find((x) => String(x.id) === String(itemId));
+    if (!it) return;
+
+    const box = document.createElement("div");
+    box.className = "trip-item trip-item--edit";
+    box.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0";
+    box.innerHTML = `
+      <input class="trip-add-input trip-edit-title" maxlength="120" placeholder="这一项是什么" style="flex:1 1 180px" />
+      <input class="trip-add-input trip-edit-slot" maxlength="20" placeholder="${day === 0 ? "分组" : "时段"}" style="flex:0 0 120px"${day === 0 ? "" : ' list="trip-slot-list"'} />
+      <input class="trip-add-input trip-edit-note" maxlength="500" placeholder="备注（可选）" style="flex:1 1 160px" />
+      <button type="button" class="btn btn-primary trip-edit-save">保存</button>
+      <button type="button" class="btn btn-ghost trip-edit-cancel">取消</button>`;
+
+    const titleEl = box.querySelector(".trip-edit-title");
+    const slotEl = box.querySelector(".trip-edit-slot");
+    const noteEl = box.querySelector(".trip-edit-note");
+    titleEl.value = it.title || "";
+    slotEl.value = it.slot || "";
+    noteEl.value = it.note || "";
+
+    label.hidden = true;
+    label.after(box);
+    titleEl.focus();
+
+    const close = () => { box.remove(); label.hidden = false; };
+    box.querySelector(".trip-edit-cancel").addEventListener("click", close);
+
+    const saveBtn = box.querySelector(".trip-edit-save");
+    saveBtn.addEventListener("click", async () => {
+      const title = (titleEl.value || "").trim();
+      if (!title) { toast("这一项不能为空"); titleEl.focus(); return; }
+      const payload = {};
+      if (title !== (it.title || "")) payload.title = title;
+      if ((slotEl.value || "").trim() !== (it.slot || "")) payload.slot = (slotEl.value || "").trim();
+      if ((noteEl.value || "").trim() !== (it.note || "")) payload.note = (noteEl.value || "").trim();
+      if (!Object.keys(payload).length) { close(); toast("没有改动"); return; }
+      saveBtn.disabled = true;
+      saveBtn.textContent = "保存中…";
+      const r = await api("PATCH", `/api/trips/${encodeURIComponent(t.id)}/items/${it.id}`, payload);
+      saveBtn.disabled = false;
+      saveBtn.textContent = "保存";
+      if (!r.ok) { toast((r.data && r.data.detail) || "保存失败"); return; }
+      applyTripView(t, r.data.trip);
+      // 时段/分组改了会换组、换天块，整块列表重画才自洽；预算与游记不动
+      refreshTripBody(t);
+      toast("已保存");
+    });
+  }
+
+  /** 勾选 / 删除 / 编辑：三种都是「单条条目」操作。 */
+  function bindItemRows(root, t) {
+    root.querySelectorAll(".trip-check").forEach(box => {
+      box.addEventListener("change", async (e) => {
+        const el = e.currentTarget;
+        const id = el.dataset.id;
+        const want = el.checked;
+        el.disabled = true;
+        const r = await api("PATCH", `/api/trips/${encodeURIComponent(t.id)}/items/${id}`, { done: want });
+        el.disabled = false;
+        if (!r.ok) { el.checked = !want; toast((r.data && r.data.detail) || "更新失败"); return; }
+        const row = el.closest(".trip-item");
+        if (row) row.classList.toggle("done", want);
+        applyTripView(t, r.data.trip);
+        // 只更新摘要里的进度，不重画列表 —— 否则勾一条滚回顶部，勾十条就疯了
+        refreshTripHero(t);
+        refreshTripConflicts(t);
+      });
+    });
+
+    root.querySelectorAll(".trip-item-del").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = e.currentTarget.dataset.id;
+        const r = await api("DELETE", `/api/trips/${encodeURIComponent(t.id)}/items/${id}`);
+        if (!r.ok) { toast((r.data && r.data.detail) || "删除失败"); return; }
+        if (!(await reloadTrip(t))) { toast("已删除，但刷新失败，请重开这份行程"); return; }
+        refreshTripBody(t);
+      });
+    });
+
+    root.querySelectorAll(".trip-item-edit").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openItemEditor(root, t, e.currentTarget.dataset.id);
+      });
+    });
+  }
+
+  /**
+   * 手动添加条目。
+   *
+   * <p>「时段」不是可选装饰：冲突检测（TripService.conflicts）只比较 slot 非空的条目，
+   * 手加的行要是永远没有 slot，它就永远不进检测，用户排了两项同一时段也收不到提示。
+   */
+  function bindAddRows(root, t) {
+    root.querySelectorAll(".trip-add-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const day = parseInt(btn.dataset.day, 10) || 0;
+        const titleEl = root.querySelector(`.trip-add-input[data-day="${day}"]`);
+        const slotEl = root.querySelector(`.trip-add-slot[data-slot-day="${day}"]`);
+        const title = (titleEl.value || "").trim();
+        const slot = slotEl ? (slotEl.value || "").trim() : "";
+        if (!title) { toast(day === 0 ? "先写要准备什么" : "先写要去哪/做什么"); titleEl.focus(); return; }
+        btn.disabled = true;
+        const r = await apiPost(`/api/trips/${encodeURIComponent(t.id)}/items`, {
+          title, day_index: day, slot: slot || null, kind: day === 0 ? "doc" : "spot",
+        });
+        btn.disabled = false;
+        if (!r.ok) { toast((r.data && r.data.detail) || "添加失败"); return; }
+        // POST /items 只回单条，拿不到新的进度，拉一次完整视图
+        if (!(await reloadTrip(t))) { toast("已添加，但刷新失败，请重开这份行程"); return; }
+        refreshTripBody(t);
+        toast("已添加");
+      });
+    });
+  }
+
+  /** AI 改行程：只改提到的那几天，已勾选的条目保留勾选状态。 */
+  function bindRevise(root, t) {
+    const reviseBtn = root.querySelector("#trip-revise-btn");
+    if (!reviseBtn) return;
+    reviseBtn.addEventListener("click", async () => {
+      const input = root.querySelector("#trip-revise-input");
+      const instruction = (input.value || "").trim();
+      if (!instruction) { toast("先说一下想怎么改"); input.focus(); return; }
+      reviseBtn.disabled = true;
+      reviseBtn.textContent = "修改中…";
+      const r = await apiPost(`/api/trips/${encodeURIComponent(t.id)}/revise`, { instruction });
+      reviseBtn.disabled = false;
+      reviseBtn.textContent = "🤖 按我说的改";
+      if (!r.ok) { toast((r.data && r.data.detail) || "修改失败"); return; }
+      toast(`已调整为 ${r.data.items} 项，勾选状态保留`);
+      applyTripView(t, r.data.trip);
+      refreshTripBody(t);
+    });
+  }
+
+  /**
+   * 顶部摘要。
+   *
+   * <p>抽成函数只为一件事：改完日期/预算时能**只换这一块**。整页 innerHTML 重建会把
+   * 滚动位置、正在输入的框、已展开的模板行一起冲掉，改一个字闪一下，用起来很难受。
+   */
+  function tripHeroHtml(t) {
+    const cd = t.countdown !== null && t.countdown > 0;
+    return `<div class="app-panel trip-hero">
+        <div class="trip-hero-main">
+          <div class="trip-cd-big">${cd ? t.countdown : "—"}<span>${cd ? "天后出发" : escapeHtml(tripPhaseText(t))}</span></div>
+          <div>
+            <h2>${escapeHtml(t.title)}</h2>
+            <div class="trip-meta">${escapeHtml(t.start_date || "日期待定")} · ${t.days} 天${t.budget ? ` · 人均预算 ¥${t.budget}` : ""}</div>
+          </div>
+        </div>
+        ${tripProgressBar(t.progress, true)}
+        <div class="trip-foot">已完成 ${t.progress.done}/${t.progress.total} 项（${t.progress.percent}%）</div>
+      </div>`;
+  }
+
+  function refreshTripHero(t) {
+    const box = document.getElementById("trip-hero-wrap");
+    if (!box) return;
+    box.innerHTML = tripHeroHtml(t);
+  }
+
+  function refreshTripConflicts(t) {
+    const box = document.getElementById("trip-conflicts-wrap");
+    if (!box) return;
+    box.innerHTML = conflictBar(t);
+  }
+
+  /** 预算块整体换掉：汇总数字、进度条、两张图都在这一块里。 */
+  function refreshTripBudget(t) {
+    const box = document.getElementById("trip-budget-wrap");
+    if (!box) return;
+    disposeCharts();
+    box.innerHTML = budgetPanel(t);
+    bindBudgetPanel(box, t);
+    drawBudgetCharts(t);
+    fillExpenseList(t.id);
+  }
+
+  /**
+   * 行程属性编辑行（目的地/标题/日期/天数/预算/备注）。
+   *
+   * <p>就地展开一行，不跳页、不弹窗：这些字段用户是「边看行程边改」的，
+   * 跳走再回来会丢掉他刚才在看的安排。
+   */
+  function tripEditRowHtml() {
+    const cities = Object.keys(window.CITY_GEO || {}).sort();
+    return `
+      <div class="trip-new-row trip-edit-row" id="trip-edit-row" hidden>
+        <input id="edit-title" maxlength="80" placeholder="行程标题" style="flex:1 1 180px" />
+        <input id="edit-city" list="trip-edit-city-list" placeholder="目的地" autocomplete="off" style="flex:0 0 130px" />
+        <datalist id="trip-edit-city-list">${cities.map(c => `<option value="${escapeHtml(c)}"></option>`).join("")}</datalist>
+        <input id="edit-date" type="date" title="出发日期（可留空）" style="flex:0 0 150px" />
+        <input id="edit-days" type="number" min="1" max="30" title="天数" style="flex:0 0 78px" />
+        <input id="edit-budget" type="number" min="0" step="100" placeholder="人均预算" style="flex:0 0 120px" />
+        <input id="edit-note" maxlength="500" placeholder="备注（可选）" style="flex:1 1 200px" />
+        <button class="btn btn-primary" id="edit-save">保存</button>
+        <button class="btn btn-ghost" id="edit-cancel">取消</button>
+      </div>`;
+  }
+
+  /** 展开/收起编辑行。用 onclick 而不是 addEventListener：反复点不能叠一堆监听器。 */
+  function openTripEditor(t) {
+    const row = document.getElementById("trip-edit-row");
+    if (!row) return;
+    if (!row.hidden) { row.hidden = true; return; }
+    // 局部刷新不会重绑动作栏，闭包里捕获的 t 可能是保存前的旧对象 —— 以 current 为准
+    const cur = tripsView.current && tripsView.current.id === t.id ? tripsView.current : t;
+    row.querySelector("#edit-title").value = cur.title || "";
+    row.querySelector("#edit-city").value = cur.city || "";
+    row.querySelector("#edit-date").value = cur.start_date || "";
+    row.querySelector("#edit-days").value = cur.days;
+    row.querySelector("#edit-budget").value = cur.budget || "";
+    row.querySelector("#edit-note").value = cur.note || "";
+    row.hidden = false;
+    row.querySelector("#edit-title").focus();
+    row.querySelector("#edit-save").onclick = () => saveTripProps(cur, row.querySelector("#edit-save"));
+    row.querySelector("#edit-cancel").onclick = () => { row.hidden = true; };
+  }
+
+  /**
+   * 保存行程属性（PATCH /api/trips/{id}，null 字段 = 不改，所以只提交真正动过的）。
+   *
+   * <p>天数改小时必须拦：后端的 update 只改 trip.days，**不会**清理 day_index 超出的条目，
+   * 那些条目会继续以「第 5 天」挂在 3 天的行程里 —— 用户看到的是一份自相矛盾的行程，
+   * 而且日程页只列 1~3 天，他既看不见也删不掉。所以这里确认后主动删掉，别留脏数据。
+   */
+  async function saveTripProps(t, btn) {
+    const row = document.getElementById("trip-edit-row");
+    if (!row) return;
+    const val = (sel) => (row.querySelector(sel).value || "").trim();
+
+    const title = val("#edit-title");
+    const city = val("#edit-city");
+    const startDate = val("#edit-date");
+    const note = val("#edit-note");
+    const daysRaw = val("#edit-days");
+    const budgetRaw = val("#edit-budget");
+
+    const days = daysRaw === "" ? NaN : parseInt(daysRaw, 10);
+    if (!isFinite(days) || days < 1 || days > 30) { toast("天数要在 1~30 之间"); return; }
+    const budget = budgetRaw === "" ? null : parseInt(budgetRaw, 10);
+    if (budget !== null && (!isFinite(budget) || budget < 0)) { toast("预算不能为负"); return; }
+
+    const payload = {};
+    if (title && title !== (t.title || "")) payload.title = title;
+    if (city && city !== (t.city || "")) payload.city = city;
+    if (startDate !== (t.start_date || "")) payload.start_date = startDate;
+    if (days !== t.days) payload.days = days;
+    if (budget !== null && budget !== t.budget) payload.budget = budget;
+    if (note !== (t.note || "")) payload.note = note;
+
+    if (!Object.keys(payload).length) { toast("没有改动"); row.hidden = true; return; }
+
+    const overflow = [];
+    if (payload.days != null && payload.days < t.days) {
+      (t.itinerary || []).forEach((d) => {
+        (d.items || []).forEach((it) => {
+          const day = it.day_index == null ? d.day : it.day_index;
+          if (day > payload.days) overflow.push({ id: it.id, day });
+        });
+      });
+      if (overflow.length) {
+        const dayList = Array.from(new Set(overflow.map((x) => x.day))).sort((a, b) => a - b);
+        if (!confirm(`改为 ${payload.days} 天后，第 ${dayList.join("、")} 天的 ${overflow.length} 项安排会超出行程天数。保存将一并删除这 ${overflow.length} 项，且不可撤销。继续？`)) return;
+      }
+    }
+
+    btn.disabled = true;
+    btn.textContent = "保存中…";
+    const r = await api("PATCH", `/api/trips/${encodeURIComponent(t.id)}`, payload);
+    btn.disabled = false;
+    btn.textContent = "保存";
+    if (!r.ok) { toast((r.data && r.data.detail) || "保存失败"); return; }
+
+    let trip = r.data.trip;
+    if (overflow.length) {
+      let failed = 0;
+      for (const it of overflow) {
+        const dr = await api("DELETE", `/api/trips/${encodeURIComponent(t.id)}/items/${it.id}`);
+        if (!dr.ok) failed += 1;
+      }
+      if (failed) toast(`${failed} 项超出天数的安排没删掉，可在每日行程里逐条删除`);
+      // 删了条目，进度与每日行程都变了，拉一次完整视图再整块渲染
+      const fresh = await apiGet(`/api/trips/${encodeURIComponent(t.id)}`);
+      if (fresh.ok) trip = fresh.data.trip;
+      applyTripView(t, trip);   // 就地合并：别换对象，否则闭包里拿到的还是旧数据
+      row.hidden = true;
+      renderTripDetail(t);
+      return;
+    }
+
+    // 就地合并而不是换 tripsView.current：动作栏/条目行/预算面板的处理器都闭包捕获了 t，
+    // 换引用会让「保存后再点编辑」读回旧值。
+    applyTripView(t, trip);
+    row.hidden = true;
+    refreshTripHero(t);
+    refreshTripConflicts(t);
+    refreshTripBudget(t);
+    toast("已保存");
+  }
+
+  function renderTripDetail(t) {
+    const el = tripsView.el;
+    // 详情页整块重渲染：先销毁上一轮的图表实例，否则每点一次勾选就多留一份 ECharts
+    disposeCharts();
+
+    el.innerHTML = `
+      <div class="trip-detail-head">
+        <button class="btn btn-ghost" id="trip-back">← 返回列表</button>
+        <div class="trip-actions">
+          <button class="btn btn-primary" data-act="edit">✏️ 编辑</button>
+          <button class="btn btn-accent" data-act="plan">✨ 生成每日行程</button>
+          <button class="btn btn-primary" data-act="packing">🎒 生成装备清单</button>
+          <button class="btn btn-ghost" data-act="weather">🌦 天气与建议</button>
+          <button class="btn btn-ghost" data-act="map">🗺 行程地图</button>
+          <button class="btn btn-ghost" data-act="template">📋 套用模板</button>
+          <button class="btn btn-ghost" data-act="share">🔗 分享</button>
+          <button class="btn btn-ghost" data-act="export">🖨 导出</button>
+          <button class="btn btn-ghost trip-danger" data-act="del">🗑 删除行程</button>
+        </div>
+      </div>
+
+      ${t.share_token ? `<div class="trip-share-bar" id="trip-share-bar">
+          <span class="trip-share-url">${escapeHtml(location.origin)}/s/${escapeHtml(t.share_token)}</span>
+          <button class="btn btn-ghost" data-act="share">📋 复制链接</button>
+          <button class="btn btn-ghost trip-danger" data-act="unshare">取消分享</button>
+        </div>` : ""}
+
+      <div class="trip-tpl-row" id="trip-tpl-row" hidden></div>
+      <div class="trip-export-row" id="trip-export-row" hidden>
+        <button class="trip-export-btn" id="trip-export-ics"><b>📅 下载日历（.ics）</b><span>导入手机 / 电脑日历应用</span></button>
+        <button class="trip-export-btn" id="trip-export-print"><b>🖨 打印版</b><span>新窗口打开，浏览器里「打印 → 存为 PDF」</span></button>
+      </div>
+
+      ${tripEditRowHtml()}
+
+      <div id="trip-hero-wrap">${tripHeroHtml(t)}</div>
+
+      <div id="trip-weather"></div>
+
+      <div id="trip-conflicts-wrap">${conflictBar(t)}</div>
+
+      <div id="trip-budget-wrap">${budgetPanel(t)}</div>
+
+      <div id="trip-prep-wrap">${prepPanelHtml(t)}</div>
+
+      <div id="trip-itinerary-wrap">${itineraryPanelHtml(t)}</div>
+
+      ${notesPanel(t)}`;
 
     el.querySelector("#trip-back").addEventListener("click", () => {
       tripsView.current = null;
       renderTripList();
     });
 
-    el.querySelectorAll(".trip-check").forEach(box => {
-      box.addEventListener("change", async (e) => {
-        const id = e.currentTarget.dataset.id;
-        const r = await api("PATCH", `/api/trips/${encodeURIComponent(t.id)}/items/${id}`, { done: e.currentTarget.checked });
-        if (!r.ok) { toast("更新失败"); e.currentTarget.checked = !e.currentTarget.checked; return; }
-        tripsView.current = r.data.trip;
-        renderTripDetail(r.data.trip);
-      });
-    });
+    // 条目 / 添加 / AI 改行程：绑定都抽成函数，局部刷新时对新区块重绑一次即可
+    bindItemRows(el, t);
+    bindAddRows(el, t);
+    bindRevise(el, t);
 
-    el.querySelectorAll(".trip-item-del").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const id = e.currentTarget.dataset.id;
-        const r = await api("DELETE", `/api/trips/${encodeURIComponent(t.id)}/items/${id}`);
-        if (!r.ok) { toast("删除失败"); return; }
-        await openTrip(t.id);
-      });
-    });
-
-    el.querySelectorAll(".trip-add-btn").forEach(btn => {
-      btn.addEventListener("click", async (e) => {
-        const day = parseInt(e.currentTarget.dataset.day, 10) || 0;
-        const input = el.querySelector(`.trip-add-input[data-day="${day}"]`);
-        const title = (input.value || "").trim();
-        if (!title) return;
-        const r = await apiPost(`/api/trips/${encodeURIComponent(t.id)}/items`, {
-          title, day_index: day, kind: day === 0 ? "doc" : "spot",
-        });
-        if (!r.ok) { toast((r.data && r.data.detail) || "添加失败"); return; }
-        await openTrip(t.id);
-      });
-    });
+    // ---- 预算记账（绑定抽成函数：记账后只重画预算块，不再整页重渲染）
+    bindBudgetPanel(el, t);
+    fillExpenseList(t.id);
+    drawBudgetCharts(t);
+    fillNotes(t.id);
+    bindNoteEditor(t.id);
 
     el.querySelectorAll(".trip-actions [data-act]").forEach(btn => {
       btn.addEventListener("click", () => tripAction(btn.dataset.act, t, btn));
+    });
+  }
+
+  // ------------------------------------------------------------ 预算面板
+
+  function money(n) {
+    const v = Number(n || 0);
+    return v.toFixed(2).replace(/\.00$/, "");
+  }
+
+  // ------------------------------------------------------------ 排期冲突
+
+  /**
+   * 冲突提示条（任务书 2(2)）。
+   * 只提示不拦截：想上午连逛两个挨着的景点是合理的，硬拦会逼用户去猜规则。
+   */
+  function conflictBar(t) {
+    const list = t.conflicts || [];
+    if (!list.length) return "";
+    return `<div class="app-panel trip-conflicts">
+      <div class="trip-sec-head"><h3>⚠️ 排期提示</h3><span class="trip-meta">${list.length} 条</span></div>
+      <ul>${list.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
+      <p class="trip-hint">这些只是提醒，不影响保存。真要上午赶两个地方，把时段改成「上午」「下午」就分开了。</p>
+    </div>`;
+  }
+
+  // ------------------------------------------------------------ 游记
+
+  function notesPanel(t) {
+    return `<div class="app-panel trip-notes">
+      <div class="trip-sec-head"><h3>游记</h3><span class="trip-meta">图文记录，图片存在本地</span></div>
+      <div id="note-list" class="note-list"><p class="trip-hint">加载中…</p></div>
+      <div class="note-editor">
+        <input id="note-title" class="trip-add-input" placeholder="标题（不填就用正文首行）" maxlength="80" />
+        <textarea id="note-content" class="note-text" rows="4" placeholder="这一天发生了什么？走了多久、吃了什么、哪里值得再去一次…"></textarea>
+        <div class="note-tools">
+          <input id="note-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+          <button class="btn btn-ghost" id="note-pick">🖼 添加图片</button>
+          <span id="note-imgs" class="note-imgs"></span>
+          <button class="btn btn-primary" id="note-save">保存游记</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /** 待上传的图片地址（本页生命周期内有效）。 */
+  let noteImages = [];
+
+  async function fillNotes(tripId) {
+    const box = document.querySelector("#note-list");
+    if (!box) return;
+    const r = await apiGet(`/api/trips/${encodeURIComponent(tripId)}/notes`);
+    if (!r.ok) { box.innerHTML = `<p class="trip-hint">游记加载失败</p>`; return; }
+    const rows = (r.data && r.data.notes) || [];
+    if (!rows.length) {
+      box.innerHTML = `<p class="trip-hint">还没有游记。玩完回来写一篇，图片会一起存下来。</p>`;
+      return;
+    }
+    box.innerHTML = rows.map((n) => `
+      <article class="note-card" data-note-id="${n.id}">
+        <div class="note-head">
+          <h4>${escapeHtml(n.title)}</h4>
+          <span class="note-acts" style="display:flex;align-items:center;gap:2px;flex:none">
+            <button class="note-edit" data-id="${n.id}" title="编辑这篇游记" aria-label="编辑 ${escapeHtml(n.title)}" style="background:none;border:0;cursor:pointer;opacity:.6;font-size:var(--fs-md);padding:0 4px">✏️</button>
+            <button class="note-del" data-id="${n.id}" title="删除">×</button>
+          </span>
+        </div>
+        <div class="note-time">${escapeHtml(String(n.created_at || "").slice(0, 10))}</div>
+        <div class="note-body">${escapeHtml(n.content)}</div>
+        ${(n.images || []).length ? `<div class="note-imgs">${n.images.map((src) => `<img src="${escapeHtml(src)}" alt="游记配图" loading="lazy" />`).join("")}</div>` : ""}
+      </article>`).join("");
+
+    box.querySelectorAll(".note-del").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (!confirm("删除这篇游记？")) return;
+        const r2 = await api("DELETE", `/api/trips/${encodeURIComponent(tripId)}/notes/${id}`);
+        if (!r2.ok) { toast("删除失败"); return; }
+        fillNotes(tripId);
+      });
+    });
+
+    box.querySelectorAll(".note-edit").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const note = rows.find((x) => String(x.id) === btn.dataset.id);
+        if (note) openNoteEditor(tripId, note, btn.closest(".note-card"));
+      });
+    });
+  }
+
+  /**
+   * 就地改一篇游记（PUT /api/trips/{tripId}/notes/{id}）。
+   *
+   * <p>只提交标题与正文：后端 images 传 null 表示「不动」，所以编辑正文不会把已存的图弄丢。
+   * 想在编辑里加图得复用上传流程，代价是这一屏两套上传状态，暂时不值。
+   */
+  /**
+   * 标题留空时的默认标题：正文首行前 20 字，取不到就「未命名游记」。
+   *
+   * <p>逐字对齐 `NoteService.defaultTitle()`（创建游记时用的是同一套规则）。
+   * 改那边记得改这里 —— 创建允许留空、更新不允许，是最容易让人困惑的那种不一致。
+   */
+  function defaultNoteTitle(content) {
+    const first = String(content || "").split(/\r?\n/)[0].trim();
+    if (!first) return "未命名游记";
+    return first.length > 20 ? first.slice(0, 20) : first;
+  }
+
+  function openNoteEditor(tripId, note, card) {
+    if (!card || card.dataset.editing === "1") return;
+    card.dataset.editing = "1";
+    const imgs = note.images || [];
+    card.innerHTML = `
+      <div class="note-editor" style="margin:0">
+        <input id="note-edit-title" class="trip-add-input" maxlength="80" placeholder="标题（留空则用正文首行）" style="width:100%;margin-bottom:8px" />
+        <textarea id="note-edit-content" class="note-text" rows="5" placeholder="正文" style="width:100%"></textarea>
+        ${imgs.length ? `<div class="note-imgs">${imgs.map((src) => `<img src="${escapeHtml(src)}" alt="游记配图" />`).join("")}</div><p class="trip-hint">配图保持不变</p>` : ""}
+        <div class="note-tools">
+          <button class="btn btn-primary" id="note-edit-save">保存</button>
+          <button class="btn btn-ghost" id="note-edit-cancel">取消</button>
+        </div>
+      </div>`;
+
+    const titleEl = card.querySelector("#note-edit-title");
+    const contentEl = card.querySelector("#note-edit-content");
+    titleEl.value = note.title || "";
+    contentEl.value = note.content || "";
+    contentEl.focus();
+
+    const cancel = card.querySelector("#note-edit-cancel");
+    cancel.addEventListener("click", () => fillNotes(tripId));   // 重新拉一次，未保存的改动丢弃
+
+    const save = card.querySelector("#note-edit-save");
+    save.addEventListener("click", async () => {
+      const content = (contentEl.value || "").trim();
+      if (!content) { toast("正文不能为空"); contentEl.focus(); return; }
+      // 不能把 "" 交给后端：NoteService.update 对空标题是「跳过」，接口照样回 200，
+      // 前端再提示「已更新」就成了假成功。留空 = 用正文首行，与创建时的规则一致。
+      const title = (titleEl.value || "").trim() || defaultNoteTitle(content);
+      const payload = {};
+      if (title !== (note.title || "")) payload.title = title;
+      if (content !== (note.content || "")) payload.content = content;
+      if (!Object.keys(payload).length) { fillNotes(tripId); toast("没有改动"); return; }
+      save.disabled = true;
+      save.textContent = "保存中…";
+      const r = await apiPut(`/api/trips/${encodeURIComponent(tripId)}/notes/${note.id}`, payload);
+      save.disabled = false;
+      save.textContent = "保存";
+      if (!r.ok) { toast((r.data && r.data.detail) || "保存失败"); return; }
+      toast("游记已更新");
+      fillNotes(tripId);
+    });
+  }
+
+  /** 游记编辑器的事件绑定：上传是「先传图再存文」，图片地址随正文一起提交。 */
+  function bindNoteEditor(tripId) {
+    const pick = document.querySelector("#note-pick");
+    const file = document.querySelector("#note-file");
+    const save = document.querySelector("#note-save");
+    if (!pick || !file || !save) return;
+
+    noteImages = [];
+    const imgsBox = document.querySelector("#note-imgs");
+    const renderImgs = () => {
+      imgsBox.innerHTML = noteImages.map((u) => `<img src="${escapeHtml(u)}" alt="待发布图片" />`).join("");
+    };
+
+    pick.addEventListener("click", () => file.click());
+    file.addEventListener("change", async () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      if (f.size > 5 * 1024 * 1024) { toast("图片不能超过 5MB"); file.value = ""; return; }
+      pick.disabled = true;
+      pick.textContent = "上传中…";
+      const fd = new FormData();
+      fd.append("file", f);
+      const t = localStorage.getItem("tc_token");
+      let data = {};
+      try {
+        const resp = await fetch("/api/uploads", {
+          method: "POST",
+          headers: t ? { "X-Auth-Token": t } : {},
+          body: fd,
+        });
+        data = await resp.json().catch(() => ({}));
+        if (!resp.ok) { toast(data.detail || "上传失败"); return; }
+        noteImages.push(data.url);
+        renderImgs();
+      } catch (e) {
+        toast("上传失败，请检查网络");
+      } finally {
+        pick.disabled = false;
+        pick.textContent = "🖼 添加图片";
+        file.value = "";
+      }
+    });
+
+    save.addEventListener("click", async () => {
+      const title = (document.querySelector("#note-title").value || "").trim();
+      const content = (document.querySelector("#note-content").value || "").trim();
+      if (!content) { toast("先写点内容"); return; }
+      save.disabled = true;
+      const r = await apiPost(`/api/trips/${encodeURIComponent(tripId)}/notes`, { title, content, images: noteImages });
+      save.disabled = false;
+      if (!r.ok) { toast((r.data && r.data.detail) || "保存失败"); return; }
+      document.querySelector("#note-title").value = "";
+      document.querySelector("#note-content").value = "";
+      noteImages = [];
+      renderImgs();
+      toast("游记已保存");
+      fillNotes(tripId);
+    });
+  }
+
+  // ------------------------------------------------------------ 费用图表（ECharts）
+
+  /** 图表实例集中管一下：详情页每次重渲染都会换掉 DOM，旧实例不 dispose 会一直占内存。 */
+  let charts = [];
+  function disposeCharts() {
+    charts.forEach((c) => { try { c.dispose(); } catch (e) { /* 已销毁 */ } });
+    charts = [];
+  }
+
+  function drawBudgetCharts(t) {
+    if (typeof echarts === "undefined") return;
+    const e = t.expenses || {};
+    const cats = Object.entries(e.by_category || {});
+    const days = (e.by_day || []).map((d) => ({ day: d.day, amount: Number(d.amount) || 0 }));
+
+    const catBox = document.querySelector("#chart-cat");
+    const dayBox = document.querySelector("#chart-day");
+    const palette = ["#FF5436", "#FFA53D", "#0E9E94", "#6C4DF6", "#2EBDa8", "#877D6C"];
+
+    if (catBox && cats.length) {
+      const c = echarts.init(catBox);
+      c.setOption({
+        color: palette,
+        tooltip: { trigger: "item", formatter: "{b}：¥{c}（{d}%）" },
+        legend: { bottom: 0, icon: "circle", itemWidth: 8, itemHeight: 8, textStyle: { fontSize: 11 } },
+        series: [{
+          type: "pie",
+          radius: ["46%", "68%"],
+          center: ["50%", "44%"],
+          avoidLabelOverlap: true,
+          itemStyle: { borderColor: "#fff", borderWidth: 2 },
+          label: { show: false },
+          data: cats.map(([k, v]) => ({ name: k, value: Number(v) })),
+        }],
+      });
+      charts.push(c);
+    } else if (catBox) {
+      catBox.innerHTML = `<p class="trip-hint">记几笔账，这里会出现分类占比</p>`;
+    }
+
+    if (dayBox && days.length) {
+      const c = echarts.init(dayBox);
+      c.setOption({
+        color: ["#FF5436"],
+        grid: { left: 8, right: 12, top: 24, bottom: 8, containLabel: true },
+        tooltip: { trigger: "axis", formatter: (p) => `${p[0].name}：¥${p[0].value}` },
+        xAxis: {
+          type: "category",
+          data: days.map((d) => (d.day > 0 ? `第${d.day}天` : "行前")),
+          axisLine: { lineStyle: { color: "#CFC4AC" } },
+          axisTick: { show: false },
+          axisLabel: { color: "#877D6C", fontSize: 11 },
+        },
+        yAxis: {
+          type: "value",
+          splitLine: { lineStyle: { color: "#EFE9DC" } },
+          axisLabel: { color: "#877D6C", fontSize: 11 },
+        },
+        series: [{ type: "bar", barMaxWidth: 26, itemStyle: { borderRadius: [6, 6, 0, 0] }, data: days.map((d) => d.amount) }],
+      });
+      charts.push(c);
+    } else if (dayBox) {
+      dayBox.innerHTML = `<p class="trip-hint">按天分布会出现在这里</p>`;
+    }
+  }
+
+  function budgetPanel(t) {
+    const e = t.expenses || { budget: 0, spent: 0, remaining: 0, percent: 0, by_category: {} };
+    const over = e.budget > 0 && Number(e.spent) > e.budget;
+    const pct = Math.max(0, Math.min(100, Number(e.percent) || 0));
+    const cats = Object.keys(e.by_category || {});
+    const dayOptions = [`<option value="0">行前</option>`]
+      .concat(Array.from({ length: t.days }, (_, i) => `<option value="${i + 1}">第 ${i + 1} 天</option>`))
+      .join("");
+
+    return `
+      <div class="app-panel trip-budget">
+        <div class="trip-sec-head">
+          <h3>预算与花费</h3>
+          <span class="trip-meta">${e.budget > 0 ? `预算 ¥${money(e.budget)} · 已花 ¥${money(e.spent)} · 剩余 ¥${money(e.remaining)}` : `已花 ¥${money(e.spent)}（未设预算）`}</span>
+        </div>
+        ${e.budget > 0 ? `<div class="budget-bar"><i style="width:${pct}%" class="${over ? "over" : ""}"></i></div>
+          <p class="trip-hint">${over ? `已超预算 ¥${money(Number(e.spent) - e.budget)}，后面几天可以压一压餐饮与门票` : `已用 ${pct}% 的预算`}</p>` : ""}
+        ${cats.length ? `<div class="budget-cats">${cats.map(c => `<span class="budget-cat">${escapeHtml(c)} <b>¥${money(e.by_category[c])}</b></span>`).join("")}</div>` : ""}
+        <div class="budget-charts">
+          <div class="budget-chart">
+            <div class="budget-chart-title">分类占比</div>
+            <div id="chart-cat" class="chart-box"></div>
+          </div>
+          <div class="budget-chart">
+            <div class="budget-chart-title">按天花费</div>
+            <div id="chart-day" class="chart-box"></div>
+          </div>
+        </div>
+        <div class="budget-form">
+          <select id="budget-cat">
+            <option>交通</option><option>住宿</option><option>餐饮</option>
+            <option>门票</option><option>购物</option><option>其他</option>
+          </select>
+          <input id="budget-title" placeholder="花在什么上？如 故宫门票" maxlength="40" />
+          <input id="budget-amount" type="number" min="0" step="0.01" placeholder="金额" />
+          <select id="budget-day">${dayOptions}</select>
+          <button class="btn btn-primary" id="budget-add">记一笔</button>
+        </div>
+        <div id="budget-list" class="budget-list"></div>
+      </div>`;
+  }
+
+  /**
+   * 预算面板的事件绑定。
+   *
+   * <p>记一笔之后只重画预算块（`refreshTripBudget`），不调 `openTrip()`：
+   * 记账往往是连着记好几笔，每笔都整页重建会把光标和滚动位置一起甩掉。
+   * 后端 POST /expenses 顺手回了汇总，够用；万一没有就用返回体里的 trip.expenses。
+   */
+  function bindBudgetPanel(root, t) {
+    const addExpense = root.querySelector("#budget-add");
+    if (addExpense) {
+      addExpense.addEventListener("click", async () => {
+        const category = root.querySelector("#budget-cat").value;
+        const titleEl = root.querySelector("#budget-title");
+        const amountEl = root.querySelector("#budget-amount");
+        const dayEl = root.querySelector("#budget-day");
+        const title = (titleEl.value || "").trim();
+        const amount = parseFloat(amountEl.value);
+        if (!title) { toast("填一下这笔花在什么上"); titleEl.focus(); return; }
+        if (!isFinite(amount) || amount <= 0) { toast("金额要大于 0"); amountEl.focus(); return; }
+        addExpense.disabled = true;
+        const r = await apiPost(`/api/trips/${encodeURIComponent(t.id)}/expenses`, {
+          category, title, amount, day_index: parseInt(dayEl.value, 10) || 0,
+        });
+        addExpense.disabled = false;
+        if (!r.ok) { toast((r.data && r.data.detail) || "记账失败"); return; }
+        applyBudgetView(t, r.data);
+        refreshTripBudget(t);
+        toast("已记一笔");
+      });
+    }
+
+    root.querySelectorAll(".budget-del").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const id = e.currentTarget.dataset.id;
+        const r = await api("DELETE", `/api/trips/${encodeURIComponent(t.id)}/expenses/${id}`);
+        if (!r.ok) { toast("删除失败"); return; }
+        applyBudgetView(t, r.data);
+        refreshTripBudget(t);
+      });
+    });
+  }
+
+  /** 把记账接口回的汇总塞回当前行程对象：summary 优先，没有就取 trip.expenses。 */
+  function applyBudgetView(t, data) {
+    const summary = (data && data.summary) || (data && data.trip && data.trip.expenses);
+    if (!summary) return;
+    t.expenses = summary;
+    if (tripsView.current && tripsView.current.id === t.id) tripsView.current.expenses = summary;
+  }
+
+  /** 明细单独拉一次：详情接口只带汇总，把每一笔都塞进去会让列表页也变重。 */
+  async function fillExpenseList(tripId) {
+    const box = document.querySelector("#budget-list");
+    if (!box) return;
+    const r = await apiGet(`/api/trips/${encodeURIComponent(tripId)}/expenses`);
+    if (!r.ok) { box.innerHTML = ""; return; }
+    const rows = (r.data && r.data.expenses) || [];
+    if (!rows.length) {
+      box.innerHTML = `<p class="trip-hint">还没有记账。把门票、餐饮、交通记下来，剩下的预算一目了然。</p>`;
+      return;
+    }
+    box.innerHTML = rows.map(x => `
+      <div class="budget-item" data-expense-id="${x.id}">
+        <span class="budget-tag">${escapeHtml(x.category)}</span>
+        <span class="budget-name">${escapeHtml(x.title)}</span>
+        <span class="budget-day">${x.day_index > 0 ? `第${x.day_index}天` : "行前"}</span>
+        <span class="budget-amt">¥${money(x.amount)}</span>
+        <button class="budget-edit" data-id="${x.id}" title="编辑这一笔" aria-label="编辑 ${escapeHtml(x.title)}" style="background:none;border:0;cursor:pointer;opacity:.6;font-size:var(--fs-sm);padding:0 2px">✏️</button>
+        <button class="budget-del" data-id="${x.id}" title="删除">×</button>
+      </div>`).join("");
+
+    box.querySelectorAll(".budget-edit").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const row = rows.find(x => String(x.id) === btn.dataset.id);
+        if (row) openExpenseEditor(tripId, row, btn.closest(".budget-item"));
+      });
+    });
+  }
+
+  const EXPENSE_CATS = ["交通", "住宿", "餐饮", "门票", "购物", "其他"];
+
+  /**
+   * 就地改一笔账（PATCH /api/trips/{tripId}/expenses/{id}）。
+   *
+   * <p>记账最常见的动作是「金额记错了改一下」和「忘了选第几天」。为此让人删掉重记，
+   * 等于把已经填对的三项重新填一遍。这里把这一行换成四个输入框，改完立刻重算汇总。
+   */
+  function openExpenseEditor(tripId, row, el) {
+    if (!el || el.dataset.editing === "1") return;
+    el.dataset.editing = "1";
+    const days = Math.max(
+      (tripsView.current && tripsView.current.days) || 1,
+      Number(row.day_index) || 0,
+      1
+    );
+    const dayOpts = [`<option value="0">行前</option>`]
+      .concat(Array.from({ length: days }, (_, i) => `<option value="${i + 1}">第 ${i + 1} 天</option>`))
+      .join("");
+
+    el.innerHTML = `
+      <select class="exp-cat" style="flex:0 0 88px">${EXPENSE_CATS.map(c => `<option${c === row.category ? " selected" : ""}>${escapeHtml(c)}</option>`).join("")}</select>
+      <input class="exp-title trip-add-input" maxlength="120" style="flex:1 1 130px" />
+      <input class="exp-amount trip-add-input" type="number" min="0" step="0.01" style="flex:0 0 88px" />
+      <select class="exp-day" style="flex:0 0 96px">${dayOpts}</select>
+      <button class="btn btn-primary exp-save" type="button">保存</button>
+      <button class="btn btn-ghost exp-cancel" type="button">取消</button>`;
+
+    const catEl = el.querySelector(".exp-cat");
+    const titleEl = el.querySelector(".exp-title");
+    const amountEl = el.querySelector(".exp-amount");
+    const dayEl = el.querySelector(".exp-day");
+    titleEl.value = row.title || "";
+    amountEl.value = Number(row.amount) || 0;
+    dayEl.value = String(row.day_index || 0);
+
+    const cancel = el.querySelector(".exp-cancel");
+    cancel.addEventListener("click", () => fillExpenseList(tripId));
+
+    const save = el.querySelector(".exp-save");
+    save.addEventListener("click", async () => {
+      const title = (titleEl.value || "").trim();
+      const amount = parseFloat(amountEl.value);
+      if (!title) { toast("填一下这笔花在什么上"); titleEl.focus(); return; }
+      if (!isFinite(amount) || amount <= 0) { toast("金额要大于 0"); amountEl.focus(); return; }
+      const payload = {};
+      if (catEl.value !== row.category) payload.category = catEl.value;
+      if (title !== (row.title || "")) payload.title = title;
+      if (Number(amount) !== Number(row.amount)) payload.amount = amount;
+      if (Number(dayEl.value) !== Number(row.day_index || 0)) payload.day_index = Number(dayEl.value);
+      if (!Object.keys(payload).length) { fillExpenseList(tripId); toast("没有改动"); return; }
+      save.disabled = true;
+      save.textContent = "保存中…";
+      const r = await api("PATCH", `/api/trips/${encodeURIComponent(tripId)}/expenses/${row.id}`, payload);
+      save.disabled = false;
+      save.textContent = "保存";
+      if (!r.ok) { toast((r.data && r.data.detail) || "保存失败"); return; }
+      const t = tripsView.current;
+      if (t) {
+        applyBudgetView(t, r.data);
+        refreshTripBudget(t);   // 汇总、进度条、两张图一起跟着变
+      } else {
+        fillExpenseList(tripId);
+      }
+      toast("已更新这一笔");
     });
   }
 
@@ -1613,6 +3045,31 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       renderTripList();
       return;
     }
+    if (act === "template") { await openTemplatePicker(t); return; }
+    if (act === "edit") { openTripEditor(t); return; }
+    if (act === "share") { await shareTrip(t); return; }
+    if (act === "unshare") { await revokeShare(t); return; }
+    if (act === "export") { openExportPicker(t); return; }
+    if (act === "map") { openTripMap(t); return; }
+
+    // 「生成每日行程」是整段替换（后端 replaceItinerary）：会删掉已有的每日安排，
+    // 并把勾选状态一并重置。用户手动加了几条、勾了一半的时候点一下就没，所以先确认。
+    // 空行程不弹——那种情况下「生成」是唯一有意义的操作，多问一步只是噪音。
+    // 放在禁用按钮之前：用户点「取消」时按钮还没变成「生成中…」，界面不会有闪烁。
+    if (act === "plan") {
+      const existing = [];
+      (t.itinerary || []).forEach((d) => {
+        (d.items || []).forEach((it) => {
+          const day = it.day_index == null ? d.day : it.day_index;
+          if (day >= 1) existing.push(it);
+        });
+      });
+      if (existing.length) {
+        const doneCount = existing.filter((it) => it.done).length;
+        if (!confirm(`生成会清空现有 ${existing.length} 项每日安排与已勾选的 ${doneCount} 项，且不可撤销。继续？`)) return;
+      }
+    }
+
     const label = btn.textContent;
     btn.disabled = true;
     btn.textContent = act === "plan" ? "生成中…" : act === "packing" ? "生成中…" : "查询中…";
@@ -1635,6 +3092,101 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       btn.disabled = false;
       btn.textContent = label;
     }
+  }
+
+  /** 模板选择：直接在当前页展开一行，不用弹窗（少一层点击）。 */
+  async function openTemplatePicker(t) {
+    const row = document.getElementById("trip-tpl-row");
+    if (!row) return;
+    if (!row.hidden) { row.hidden = true; return; }
+    const r = await apiGet("/api/templates");
+    if (!r.ok) { toast("模板加载失败"); return; }
+    const list = (r.data && r.data.templates) || [];
+    row.innerHTML = list.map(x => `
+      <button class="trip-tpl" data-key="${escapeHtml(x.key)}" title="${escapeHtml(x.description)}">
+        <b>${escapeHtml(x.name)}</b>
+        <span>${escapeHtml(x.description)}</span>
+      </button>`).join("");
+    row.hidden = false;
+    row.querySelectorAll(".trip-tpl").forEach(b => {
+      b.addEventListener("click", async () => {
+        if (!confirm("套用模板会替换现有的每日安排（行前清单不动），继续？")) return;
+        const rr = await apiPost(`/api/trips/${encodeURIComponent(t.id)}/templates/${b.dataset.key}`);
+        if (!rr.ok) { toast((rr.data && rr.data.detail) || "套用失败"); return; }
+        toast(`已套用模板，共 ${rr.data.items} 项安排`);
+        await openTrip(t.id);
+      });
+    });
+  }
+
+  /** 分享：生成只读链接；已有链接就提示复制，再点一次取消分享。 */
+  async function shareTrip(t) {
+    if (!t.share_token) {
+      const r = await apiPost(`/api/trips/${encodeURIComponent(t.id)}/share`);
+      if (!r.ok) { toast((r.data && r.data.detail) || "生成分享链接失败"); return; }
+      const url = location.origin + r.data.url;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url).catch(() => {});
+      }
+      toast("分享链接已复制，任何人打开都只能看不能改");
+      await openTrip(t.id);
+      return;
+    }
+    // 已分享时只做「复制」：链接常驻在分享条里（renderTripDetail 的 trip-share-bar），
+    // 想看链接的用户直接复制即可；「取消分享」是独立的低强调按钮 + 二次确认，
+    // 不再捆在同一个 confirm 里 —— 旧交互里想看链接的用户极易误杀链接（ux-report P2#7）。
+    const url = location.origin + "/s/" + t.share_token;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(url).catch(() => {});
+    }
+    toast("分享链接已复制");
+  }
+
+  /** 取消分享：独立入口 + 二次确认（文案里写清后果），不与「复制链接」共用任何弹窗。 */
+  async function revokeShare(t) {
+    if (!confirm("取消后这个链接会立即失效，已经拿到链接的人也将无法打开。确定取消分享吗？")) return;
+    const r = await api("DELETE", `/api/trips/${encodeURIComponent(t.id)}/share`);
+    if (!r.ok) { toast((r.data && r.data.detail) || "取消失败"); return; }
+    toast("已取消分享");
+    await openTrip(t.id);
+  }
+
+  /** 导出：点「🖨 导出」在按钮行下方展开双按钮（下载 ics / 打印版），不再用 confirm 让「取消」承载打印版。 */
+  function openExportPicker(t) {
+    const row = document.getElementById("trip-export-row");
+    if (!row) return;
+    row.hidden = !row.hidden;
+    if (row.hidden) return;
+    const icsBtn = row.querySelector("#trip-export-ics");
+    const printBtn = row.querySelector("#trip-export-print");
+    icsBtn.onclick = () => { row.hidden = true; downloadTripIcs(t); };
+    printBtn.onclick = () => { row.hidden = true; openTripPrintVersion(t); };
+  }
+
+  async function downloadTripIcs(t) {
+    const id = encodeURIComponent(t.id);
+    const r = await fetch(API_BASE + `/api/trips/${id}/export/ics`, { headers: authHeaders() });
+    if (!r.ok) { toast("导出失败"); return; }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${t.title || "行程"}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast("日历文件已下载");
+  }
+
+  async function openTripPrintVersion(t) {
+    const id = encodeURIComponent(t.id);
+    const r = await fetch(API_BASE + `/api/trips/${id}/export/print`, { headers: authHeaders() });
+    if (!r.ok) { toast("打开打印版失败"); return; }
+    const html = await r.text();
+    const w = window.open("", "_blank");
+    if (!w) { toast("浏览器拦截了新窗口，请允许弹窗后重试"); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
   }
 
   function renderTripWeather(data) {
@@ -1722,7 +3274,7 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
     const usage = s.llm_usage || {};
     const fmtTok = (n) => !n ? "0" : n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(n);
     const usageRows = Object.entries(usage.by_agent || {}).map(([name, v]) =>
-      `<div class="session-row"><span>${escapeHtml(name)}</span><span style="color:var(--muted);font-size:.8rem">${v.calls||0} 次 · ${fmtTok(v.prompt_tokens)} 入 / ${fmtTok(v.completion_tokens)} 出</span></div>`).join("");
+      `<div class="session-row"><span>${escapeHtml(name)}</span><span style="color:var(--muted);font-size:var(--fs-sm)">${v.calls||0} 次 · ${fmtTok(v.prompt_tokens)} 入 / ${fmtTok(v.completion_tokens)} 出</span></div>`).join("");
     host.innerHTML = `
       <div class="app-panel">
         <h3 style="margin-bottom:16px">运营看板</h3>
@@ -1753,19 +3305,19 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
         <div class="modal-err" id="au-err" style="margin-bottom:14px"></div>
         <h4 style="margin:24px 0 12px">注册用户使用情况（${users.length}）</h4>
         <div class="session-list">${users.map(u => `
-          <div class="session-row" style="flex-wrap:wrap;gap:6px 14px">
+          <div class="session-row session-row--wrap">
             <span><strong>${escapeHtml(u.username)}</strong>
-              <span style="font-size:.72rem;padding:2px 8px;border-radius:999px;${u.role === "admin" ? "background:var(--grad-sunset);color:#fff" : "background:var(--paper-3);color:var(--muted)"}">${u.role === "admin" ? "管理员" : "用户"}</span>
+              <span style="font-size:var(--fs-xs);padding:2px 8px;border-radius:999px;${u.role === "admin" ? "background:var(--grad-sunset);color:#fff" : "background:var(--paper-3);color:var(--muted)"}">${u.role === "admin" ? "管理员" : "用户"}</span>
             </span>
-            <span style="color:var(--muted);font-size:.8rem">会话 ${u.session_count} · 消息 ${u.message_count}</span>
-            <span style="color:var(--muted);font-size:.8rem">注册 ${fmt(u.created_at)}</span>
-            <span style="color:var(--muted);font-size:.8rem">最近活跃 ${u.last_active ? fmt(u.last_active) : "从未使用"}</span>
+            <span style="color:var(--muted);font-size:var(--fs-sm)">会话 ${u.session_count} · 消息 ${u.message_count}</span>
+            <span style="color:var(--muted);font-size:var(--fs-sm)">注册 ${fmt(u.created_at)}</span>
+            <span style="color:var(--muted);font-size:var(--fs-sm)">最近活跃 ${u.last_active ? fmt(u.last_active) : "从未使用"}</span>
           </div>`).join("")}</div>
         <h4 style="margin:24px 0 12px">最近会话</h4>
         <div class="session-list">${sessions.map(ss => `
           <div class="session-row">
-            <span>${escapeHtml(ss.preview || "…")}${ss.username ? ` <span style="font-size:.72rem;color:var(--teal)">@${escapeHtml(ss.username)}</span>` : ""}</span>
-            <span style="color:var(--muted);font-size:.8rem">消息 ${ss.message_count}</span>
+            <span>${escapeHtml(ss.preview || "…")}${ss.username ? ` <span style="font-size:var(--fs-xs);color:var(--teal-ink)">@${escapeHtml(ss.username)}</span>` : ""}</span>
+            <span style="color:var(--muted);font-size:var(--fs-sm)">消息 ${ss.message_count}</span>
           </div>`).join("")}</div>
       </div>`;
 
@@ -2015,18 +3567,45 @@ AMap.plugin("AMap.Driving",function(){const dr=new AMap.Driving({map:map,hideMar
       return;
     }
     const docs = (r.data || []);
-    container.innerHTML = `
-      <div class="app-panel">
-        <h3 style="margin-bottom:12px">知识库文档 (${docs.length})</h3>
-        <div class="kb-actions" style="margin-bottom:16px">
-          <button class="btn btn-accent" id="kb-rebuild">🔄 重建索引</button>
-        </div>
-        <div class="doc-list">${docs.map(d => `
+    // 这一页只列「精编攻略」（根目录，可手改）。导览档与清单档是脚本生成的，
+    // 手改会被下次重跑覆盖，所以不列出来 —— 但标题只写「知识库文档 (7)」会让人
+    // 以为整个攻略库就 7 篇，而点「重建索引」又报 356 篇。这里把另外两档的
+    // 城数显式标出来（数字走接口，不写死）。
+    let tierHint = "";
+    try {
+      const cov = await apiGet("/api/knowledge/coverage");
+      if (cov.ok && cov.data) {
+        const g = cov.data.guided_count || 0, l = cov.data.list_count || 0;
+        tierHint = `另有导览档 ${g} 城、清单档 ${l} 城，由脚本生成（改 geo-data.js / 快照后重跑脚本），不在此处编辑；重建索引对全部文档生效。`;
+      }
+    } catch (e) { /* 提示条拿不到不影响主流程 */ }
+    // 「重建索引」只渲染一份，位置跟着状态走：有文档时在工具栏，0 篇时放进空态块里
+    // （读到这里就能直接点）。两处并存会有两个同 id 节点，也会让人以为一个是增量一个是全量。
+    const rebuildHtml = () => `<button class="btn btn-accent" id="kb-rebuild">🔄 重建索引</button>`;
+    // 0 篇时不能只剩一个「精编攻略 (0)」：那是把「还没开始」和「刚被清空」混成同一块
+    // 空白，用户不知道该做什么。这里给一句「为什么需要它」+ 一个当场能点的入口。
+    // 用站点既有的 .app-empty（与收藏空态、行程空态同一套：图标 + h3 + p + .trip-sample-note
+    // 副标），标题走 --ink、正文走 --muted，不出现任何告警红。
+    const listHtml = docs.length
+      ? `<div class="doc-list">${docs.map(d => `
           <div class="doc-row">
             <span>${escapeHtml(d.name)}</span>
-            <span style="color:var(--muted);font-size:.8rem">${(d.size_bytes/1024).toFixed(1)} KB · ${escapeHtml(d.modified)}</span>
+            <span style="color:var(--muted);font-size:var(--fs-sm)">${(d.size_bytes/1024).toFixed(1)} KB · ${escapeHtml(d.modified)}</span>
             <button class="btn btn-primary del-doc" data-name="${escapeHtml(d.name)}">删除</button>
-          </div>`).join("")}</div>
+          </div>`).join("")}</div>`
+      : `<div class="app-empty">
+          <div style="font-size:52px">📚</div>
+          <h3>精编攻略还是空的</h3>
+          <p>把 .md / .txt 攻略放进 knowledge_base/ 目录，重建索引后 AI 回答时就会引用它</p>
+          ${rebuildHtml()}
+          <p class="trip-sample-note">重建会把导览档与清单档一起重新灌进索引</p>
+        </div>`;
+    container.innerHTML = `
+      <div class="app-panel">
+        <h3 style="margin-bottom:6px">精编攻略 (${docs.length})</h3>
+        ${tierHint ? `<p style="color:var(--muted);font-size:.82rem;margin-bottom:12px">${escapeHtml(tierHint)}</p>` : `<div style="height:6px"></div>`}
+        ${docs.length ? `<div class="kb-actions app-toolbar">${rebuildHtml()}</div>` : ""}
+        ${listHtml}
       </div>`;
     container.querySelector("#kb-rebuild").addEventListener("click", async (e) => {
       const btn = e.currentTarget;

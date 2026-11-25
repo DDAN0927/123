@@ -90,8 +90,11 @@
       const open = document.body.classList.toggle("menu-open");
       burger.setAttribute("aria-expanded", open);
     });
-    menu.addEventListener("click", (e) => {
-      if (e.target.closest("a")) document.body.classList.remove("menu-open");
+    menu.addEventListener("click", () => {
+      // 菜单是整屏遮罩，除了链接没有别的可点内容 —— 点哪里都关闭（点链接时
+      // 不 preventDefault，浏览器照常跳转）。挂在同一个监听上，不另造事件体系。
+      document.body.classList.remove("menu-open");
+      burger.setAttribute("aria-expanded", "false");
     });
   }
 
@@ -225,16 +228,59 @@
     update();
   }
 
-  /* ---------- 图片加载完成后关闭骨架屏 ---------- */
+  /* ---------- 图片懒加载：进入视口前 200px 才真正取图 ----------
+     以前这里对每个 .img 立刻 `new Image()` 并 `pre.src = url` —— 那是**预加载**，
+     等于把 features.html / about.html 的 8 张图（约 1.3MB）全塞进首屏，
+     与「懒加载」正好相反。
+
+     现在分两步：
+     1) 脚本执行时先把图片地址摘下来（内联 background-image 直接置 none），
+        避免浏览器在首次布局时就去取；
+     2) 元素进入视口前 200px 再赋回背景图，并在真正加载完成后关掉骨架屏。
+     `loaded` class 的骨架屏逻辑保持不变，只是延后触发。
+
+     地址两种写法都支持：`data-bg="..."`（推荐，解析期就不会发请求）
+     或原有的内联 `style="background-image:url(...)"`。 */
   function initImgLoad() {
-    document.querySelectorAll(".split-media .img").forEach((img) => {
-      const m = (img.getAttribute("style") || "").match(/url\(['"]?([^'")]+)['"]?\)/);
-      if (!m) { img.classList.add("loaded"); return; }
+    const imgs = [...document.querySelectorAll(".split-media .img")];
+    if (!imgs.length) return;
+
+    const sourceOf = (el) => {
+      const dataBg = el.getAttribute("data-bg");
+      if (dataBg) return dataBg;
+      const m = (el.getAttribute("style") || "").match(/url\(['"]?([^'")]+)['"]?\)/);
+      return m ? m[1] : null;
+    };
+
+    const reveal = (el, url) => {
+      if (!url) { el.classList.add("loaded"); return; }
+      el.style.backgroundImage = `url('${url}')`;
       const pre = new Image();
-      pre.onload = () => img.classList.add("loaded");
-      pre.onerror = () => img.classList.add("loaded");
-      pre.src = m[1];
-      if (pre.complete) img.classList.add("loaded");
+      pre.onload = () => el.classList.add("loaded");
+      pre.onerror = () => el.classList.add("loaded");
+      pre.src = url;
+      if (pre.complete) el.classList.add("loaded");
+    };
+
+    // 老浏览器没有 IntersectionObserver：退回「立刻加载」，至少不缺图
+    if (typeof window.IntersectionObserver !== "function") {
+      imgs.forEach((el) => reveal(el, sourceOf(el)));
+      return;
+    }
+
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        io.unobserve(en.target);
+        reveal(en.target, en.target.dataset.bgUrl);
+      });
+    }, { rootMargin: "200px 0px", threshold: 0 });
+
+    imgs.forEach((el) => {
+      const url = sourceOf(el);
+      if (url && el.style.backgroundImage) el.style.backgroundImage = "none";
+      el.dataset.bgUrl = url || "";
+      io.observe(el);
     });
   }
 
@@ -275,14 +321,24 @@
   /* 移动端菜单样式（动态注入，避免每个页面重复） */
   const style = document.createElement("style");
   style.textContent = `
+    /* 应用页导航有 9~11 项，375×667 下全部排开是 745px，比视口还高：
+       原来 align-items:center + overflow:visible，首项被切在屏幕上方、末项切在下方，
+       且没有任何滚动容器可以够到它们。改成「顶部对齐 + 可滚 + 首尾留白」。 */
     .mobile-menu { position: fixed; inset: 0; z-index: 99; background: var(--ink);
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: flex-start; justify-content: center;
+      overflow-y: auto; overscroll-behavior: contain; padding-block: 80px;
       opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
     body.menu-open .mobile-menu { opacity: 1; pointer-events: auto; }
-    .mobile-menu-inner { display: flex; flex-direction: column; gap: 8px; text-align: center; }
-    .mobile-menu a { display: inline-block; font-family: var(--font-display); font-size: 2rem;
-      color: var(--paper); padding: 10px 26px; border-radius: var(--r-pill); }
+    .mobile-menu-inner { display: flex; flex-direction: column; gap: 8px; text-align: center; width: 100%; margin: auto 0; }
+    /* 菜单项原来只有 38px 高。align-self:center 保持收缩宽度（hover 胶囊仍包着文字），
+       min-height 补到 44，文字靠 flex 居中而不是靠 padding 猜。 */
+    .mobile-menu a { display: flex; align-items: center; justify-content: center; align-self: center;
+      min-height: 44px; font-family: var(--font-display); font-size: 2rem;
+      color: var(--paper); padding: 6px 26px; border-radius: var(--r-pill); }
     .mobile-menu a:hover { color: var(--amber); }
+    /* 菜单是 ink 底，汉堡的三条线也是 --ink（近黑）—— 打开后「关闭」的 ✕ 直接看不见，
+       右上角只剩一个空方框。开态把线改成纸色。 */
+    body.menu-open .nav-burger span { background: var(--paper); }
     body.menu-open .nav-burger span:nth-child(1) { transform: translateY(5px) rotate(45deg); }
     body.menu-open .nav-burger span:nth-child(2) { opacity: 0; }
     body.menu-open .nav-burger span:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }

@@ -39,6 +39,9 @@ target-version = "py310"
 exclude = [
     ".venv", "data", "deploy", "frontend", "hf_cache",
     "knowledge_base", ".tools", ".backup",
+    # 质量评估报告里嵌的是「原文引用」的代码片段（含缩进与换行位置都有语义），
+    # 交给格式化器重排会让引用失真，故整目录排除
+    "deliverables",
 ]
 
 [tool.ruff.lint]
